@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CheckCircle2, ClipboardCheck, Clock, Download, MapPin, Users } from 'lucide-react';
-import { getDisabledDates } from '@/features/orders/services/ordersApi';
+import { Check, CheckCircle2, Clock, Download, MapPin, RefreshCw, Users } from 'lucide-react';
+import { getDisabledDates, getRestaurantConfig } from '@/features/orders/services/ordersApi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,16 +16,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  exportOrders,
+  exportCompanyOrders,
   getOrdersByDate,
-  markOrderDelivered,
   markCompanyOrdersDelivered,
-  markOrderComandado,
-  markCompanyOrdersComandado,
   type AdminOrder,
 } from '@/features/admin/services/adminApi';
 import { WeekDaySelector } from '@/features/orders/components/WeekDaySelector';
 import { cn } from '@/lib/utils';
+
+/** True si el horario de corte ya pasó para hoy (no aplica a otras fechas). */
+function cutoffHasPassed(cutoffTime: string): boolean {
+  const [h, m] = cutoffTime.split(':').map(Number);
+  const cutoff = new Date();
+  cutoff.setHours(h, m, 0, 0);
+  return Date.now() >= cutoff.getTime();
+}
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -77,11 +82,22 @@ export function AdminDashboardPage() {
   const isToday = selectedDate === today;
   const isFuture = selectedDate > today;
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['adminOrders', selectedDate],
     queryFn: () => getOrdersByDate(isToday ? undefined : selectedDate),
     refetchInterval: isToday ? 30_000 : false,
   });
+
+  const { data: config } = useQuery({
+    queryKey: ['restaurantConfig'],
+    queryFn: getRestaurantConfig,
+  });
+
+  // Solo se puede exportar después del cutoff (hoy) o para fechas pasadas.
+  // Para futuras no aplica: no hay pedidos confirmados.
+  const exportAllowed = !isFuture && (
+    !isToday || (!!config && cutoffHasPassed(config.horaCorte))
+  );
 
   const deliverCompanyMutation = useMutation({
     mutationFn: markCompanyOrdersDelivered,
@@ -91,35 +107,20 @@ export function AdminDashboardPage() {
     },
   });
 
-  const comandarCompanyMutation = useMutation({
-    mutationFn: markCompanyOrdersComandado,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminOrders'] });
-      toast.success('Pedidos comandados');
-    },
-  });
+  const [exportingCompanyId, setExportingCompanyId] = useState<number | null>(null);
 
-  const [exportConfirm, setExportConfirm] = useState(false);
-  const [exporting, setExporting] = useState(false);
-
-  const handleExport = () => {
-    if (!isToday) {
-      setExportConfirm(true);
-    } else {
-      doExport();
-    }
-  };
-
-  const doExport = async () => {
-    setExporting(true);
+  const doExportCompany = async (companyId: number, companyName: string) => {
+    setExportingCompanyId(companyId);
     try {
-      await exportOrders(selectedDate);
-      toast.success('Excel descargado');
+      await exportCompanyOrders(companyId, companyName, selectedDate);
+      // El export dispara la transición CONFIRMADO → COMANDADO en el back,
+      // así que refrescamos la lista para que se vea el nuevo estado.
+      queryClient.invalidateQueries({ queryKey: ['adminOrders'] });
+      toast.success(`Excel de ${companyName} descargado`);
     } catch {
       toast.error('Error al exportar');
     } finally {
-      setExporting(false);
-      setExportConfirm(false);
+      setExportingCompanyId(null);
     }
   };
 
@@ -164,7 +165,7 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Header */}
-      <header className="mb-8 flex items-end justify-between">
+      <header className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-foreground text-3xl lg:text-4xl font-bold leading-tight mb-1">
             {isToday ? 'Pedidos de hoy' : isFuture ? 'Pedidos tentativos' : 'Pedidos'}
@@ -174,12 +175,12 @@ export function AdminDashboardPage() {
         <Button
           variant="outline"
           size="sm"
-          className="uppercase tracking-brand text-[11px]"
-          disabled={totalOrders === 0 || exporting}
-          onClick={handleExport}
+          className="uppercase tracking-brand text-[11px] shrink-0"
+          disabled={isFetching}
+          onClick={() => refetch()}
         >
-          <Download className="w-3.5 h-3.5 mr-1" />
-          {exporting ? 'Exportando...' : 'Exportar Excel'}
+          <RefreshCw className={cn('w-3.5 h-3.5 mr-1', isFetching && 'animate-spin')} />
+          {isFetching ? 'Actualizando…' : 'Actualizar'}
         </Button>
       </header>
 
@@ -228,8 +229,15 @@ export function AdminDashboardPage() {
             </div>
 
             {group.companies.map((company) => {
-              const hasConfirmados = company.orders.some((o) => o.estado === 'CONFIRMADO');
-              const hasComandados = company.orders.some((o) => o.estado === 'COMANDADO');
+              // Asumimos que todos los pedidos de la empresa están en el mismo estado.
+              // En caso de prueba/inconsistencia, tomamos el primero como referencia.
+              const companyEstado = company.orders[0].estado;
+              const exportable = companyEstado === 'CONFIRMADO'
+                || companyEstado === 'COMANDADO'
+                || companyEstado === 'ENTREGADO';
+              const alreadyExported = companyEstado === 'COMANDADO' || companyEstado === 'ENTREGADO';
+              const showExport = exportAllowed && exportable;
+              const isExporting = exportingCompanyId === company.companyId;
               return (
                 <div key={company.companyId} className="mb-6 last:mb-0">
                   <div className="flex items-center gap-2 mb-3">
@@ -240,20 +248,30 @@ export function AdminDashboardPage() {
                     <span className="text-[11px] text-muted-foreground">
                       ({company.orders.length} {company.orders.length === 1 ? 'pedido' : 'pedidos'})
                     </span>
+                    <EstadoBadge estado={companyEstado} />
                     <div className="ml-auto flex gap-2">
-                      {isToday && hasConfirmados && (
+                      {showExport && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 text-[11px] uppercase tracking-brand"
-                          disabled={comandarCompanyMutation.isPending}
-                          onClick={() => comandarCompanyMutation.mutate(company.companyId)}
+                          className={cn(
+                            'h-7 text-[11px] uppercase tracking-brand',
+                            alreadyExported && 'border-success text-success hover:bg-success/10 hover:text-success',
+                          )}
+                          disabled={isExporting}
+                          onClick={() => doExportCompany(company.companyId, company.companyName)}
                         >
-                          <ClipboardCheck className="w-3.5 h-3.5 mr-1" />
-                          Pedidos comandados
+                          {alreadyExported ? (
+                            <Check className="w-3.5 h-3.5 mr-1" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5 mr-1" />
+                          )}
+                          {isExporting
+                            ? 'Exportando…'
+                            : alreadyExported ? 'Exportado' : 'Exportar'}
                         </Button>
                       )}
-                      {isToday && hasComandados && !hasConfirmados && (
+                      {isToday && companyEstado === 'COMANDADO' && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -262,7 +280,7 @@ export function AdminDashboardPage() {
                           onClick={() => setDeliverConfirm({
                             companyId: company.companyId,
                             companyName: company.companyName,
-                            count: company.orders.filter((o) => o.estado === 'COMANDADO').length,
+                            count: company.orders.length,
                           })}
                         >
                           <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
@@ -274,7 +292,7 @@ export function AdminDashboardPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {company.orders.map((order) => (
-                      <OrderCard key={order.id} order={order} actionsEnabled={isToday} />
+                      <OrderCard key={order.id} order={order} />
                     ))}
                   </div>
                 </div>
@@ -309,21 +327,6 @@ export function AdminDashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={exportConfirm} onOpenChange={setExportConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Exportar pedidos</AlertDialogTitle>
-            <AlertDialogDescription>
-              No estás exportando los pedidos de hoy. Estás exportando los pedidos del{' '}
-              <strong>{formatDate(selectedDate)}</strong>. ¿Continuar?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={doExport}>Exportar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
@@ -362,30 +365,12 @@ function StatCard({ label, value, icon: Icon, accent }: StatCardProps) {
   );
 }
 
-function OrderCard({ order, actionsEnabled = true }: { order: AdminOrder; actionsEnabled?: boolean }) {
-  const queryClient = useQueryClient();
-
-  const deliverMutation = useMutation({
-    mutationFn: markOrderDelivered,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminOrders'] });
-      toast.success('Pedido marcado como entregado');
-    },
-  });
-
+function OrderCard({ order }: { order: AdminOrder }) {
   return (
-    <div
-      className={cn(
-        'bg-card border border-border rounded-lg p-4 space-y-2',
-        actionsEnabled && order.estado === 'CONFIRMADO' && 'border-l-4 border-l-warning'
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <p className="font-sans text-sm font-semibold text-foreground truncate">
-          {order.userFirstName} {order.userLastName}
-        </p>
-        <EstadoBadge estado={order.estado} />
-      </div>
+    <div className="bg-card border border-border rounded-lg p-4 space-y-2">
+      <p className="font-sans text-sm font-semibold text-foreground truncate">
+        {order.userFirstName} {order.userLastName}
+      </p>
 
       <div className="text-xs leading-relaxed">
         <p className="text-foreground font-medium uppercase tracking-brand text-[11px]">
@@ -402,19 +387,6 @@ function OrderCard({ order, actionsEnabled = true }: { order: AdminOrder; action
         <div className="text-[11px] italic text-foreground border-l-2 border-primary/40 pl-2">
           "{order.notas}"
         </div>
-      )}
-
-      {actionsEnabled && order.estado === 'COMANDADO' && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full h-7 text-[11px] uppercase tracking-brand"
-          disabled={deliverMutation.isPending}
-          onClick={() => deliverMutation.mutate(order.id)}
-        >
-          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-          Marcar entregado
-        </Button>
       )}
     </div>
   );

@@ -35,7 +35,7 @@ export function homeForRole(role: Role): string {
     case 'SUPER_ADMIN':
       return '/admin/dashboard';
     case 'COMPANY_ADMIN':
-      return '/company-admin/employees';
+      return '/company-admin/today';
     case 'EMPLOYEE':
       return '/orders/today';
   }

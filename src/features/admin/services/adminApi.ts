@@ -33,36 +33,39 @@ export async function getOrdersByDate(fecha?: string): Promise<AdminOrder[]> {
   }));
 }
 
-export async function markOrderDelivered(orderId: number): Promise<void> {
-  await api.put(`${BASE}/orders/${orderId}/deliver`);
-}
-
 export async function markCompanyOrdersDelivered(companyId: number): Promise<void> {
   await api.put(`${BASE}/orders/deliver-company/${companyId}`);
 }
 
-export async function exportOrders(fecha: string): Promise<void> {
-  const response = await api.get(`${BASE}/orders/export`, {
+/**
+ * Descarga el .xlsx de pedidos confirmados de una empresa para una fecha.
+ * El nombre del archivo lo arma el backend a partir del slug de la empresa.
+ */
+export async function exportCompanyOrders(
+  companyId: number,
+  companyName: string,
+  fecha: string,
+): Promise<void> {
+  const response = await api.get(`${BASE}/orders/export/${companyId}`, {
     params: { fecha },
     responseType: 'blob',
   });
 
+  const slug = companyName
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
   link.href = url;
-  link.setAttribute('download', `pedidos-${fecha}.xlsx`);
+  link.setAttribute('download', `pedidos-${slug}-${fecha}.xlsx`);
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
-}
-
-export async function markOrderComandado(orderId: number): Promise<void> {
-  await api.put(`${BASE}/orders/${orderId}/comandar`);
-}
-
-export async function markCompanyOrdersComandado(companyId: number): Promise<void> {
-  await api.put(`${BASE}/orders/comandar-company/${companyId}`);
 }
 
 // ─── Configuración del restaurant ──────────────────────────────────────
@@ -161,7 +164,7 @@ export async function enableCompany(id: number): Promise<void> {
   await api.put(`/api/v1/companies/${id}/enable`);
 }
 
-// ─── Categorías (para dropdowns del admin) ────────────────────────────
+// ─── Categorías (para dropdowns) ──────────────────────────────────────
 
 export interface AdminCategory {
   id: number;
@@ -172,6 +175,48 @@ export interface AdminCategory {
 export async function listCategories(): Promise<AdminCategory[]> {
   const { data } = await api.get<AdminCategory[]>('/api/v1/categories');
   return data;
+}
+
+// ─── Categorías (CRUD admin completo) ─────────────────────────────────
+
+export interface AdminCategoryFull {
+  id: number;
+  nombre: string;
+  parentId: number | null;
+  parentNombre: string | null;
+  ordenDisplay: number;
+  enabled: boolean;
+}
+
+export interface CategoryPayload {
+  nombre: string;
+  parentId: number | null;
+  ordenDisplay: number;
+  /** Solo se manda al UPDATE — el backend lo ignora en create (default true). */
+  enabled?: boolean;
+}
+
+export async function listCategoriesAdmin(): Promise<AdminCategoryFull[]> {
+  const { data } = await api.get<AdminCategoryFull[]>('/api/v1/categories/admin');
+  return data;
+}
+
+export async function createCategory(payload: CategoryPayload): Promise<AdminCategoryFull> {
+  const { data } = await api.post<AdminCategoryFull>('/api/v1/categories', payload);
+  return data;
+}
+
+export async function updateCategory(id: number, payload: CategoryPayload): Promise<AdminCategoryFull> {
+  const { data } = await api.put<AdminCategoryFull>(`/api/v1/categories/${id}`, payload);
+  return data;
+}
+
+export async function disableCategory(id: number): Promise<void> {
+  await api.delete(`/api/v1/categories/${id}`);
+}
+
+export async function enableCategory(id: number): Promise<void> {
+  await api.put(`/api/v1/categories/${id}/enable`);
 }
 
 // ─── Menu Sections ────────────────────────────────────────────────────
@@ -269,7 +314,6 @@ export interface AdminDish {
   stockActual: number;
   enabled: boolean;
   especial: boolean;
-  diasSemana: string[];
 }
 
 export interface DishPayload {
@@ -285,7 +329,6 @@ export interface DishPayload {
   /** Solo se manda al UPDATE — el backend lo ignora en create (default true). */
   enabled?: boolean;
   especial: boolean;
-  diasSemana: string[];
 }
 
 export async function listDishesAdmin(): Promise<AdminDish[]> {
@@ -329,6 +372,37 @@ export async function getSideAffectedOrders(id: number): Promise<AffectedOrder[]
 
 export async function enableDish(id: number): Promise<void> {
   await api.put(`/api/v1/dishes/${id}/enable`);
+}
+
+// ─── Calendario de platos especiales ──────────────────────────────────
+
+/**
+ * Devuelve las asignaciones de especiales del rango {@code [from, to]}.
+ * El back agrupa por fecha (ISO).
+ */
+export async function getDishCalendar(
+  from: string,
+  to: string,
+): Promise<Record<string, number[]>> {
+  const { data } = await api.get<Record<string, number[]>>(
+    '/api/v1/admin/dish-calendar',
+    { params: { from, to } },
+  );
+  return data;
+}
+
+/** Reemplaza las asignaciones de una fecha concreta. */
+export async function setDishCalendarForDate(
+  fecha: string,
+  dishIds: number[],
+): Promise<void> {
+  await api.put('/api/v1/admin/dish-calendar', dishIds, { params: { fecha } });
+}
+
+/** Lista los platos especiales activos (para el picker del calendario). */
+export async function getSpecialDishes(): Promise<AdminDish[]> {
+  const { data } = await api.get<AdminDish[]>('/api/v1/dishes/special');
+  return data;
 }
 
 // ─── Uploads (presigned URLs para R2) ─────────────────────────────────

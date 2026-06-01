@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useAuthActions } from '@/features/auth/hooks/useAuthActions';
+import { NotificationsBell } from '@/features/me/components/NotificationsBell';
 
 interface NavItem {
   to: string;
@@ -47,6 +48,7 @@ export function CompanyAdminLayout() {
                 </p>
               </div>
             )}
+            <NotificationsBell />
             <Button
               variant="ghost"
               size="icon"

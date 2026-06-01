@@ -10,7 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import {
   listDishesAdmin, disableDish, enableDish,
-  listMenuSectionsAdmin, getDishAffectedOrders,
+  listMenuSectionsAdmin, listCategories, getDishAffectedOrders,
   type AdminDish, type SideType,
 } from '@/features/admin/services/adminApi';
 import { DishFormDialog } from '@/features/admin/components/DishFormDialog';
@@ -22,17 +22,8 @@ const SIDE_TYPE_LABEL: Record<SideType, string> = {
   SALSA: 'Salsa',
 };
 
-const DIA_LABEL: Record<string, string> = {
-  LUNES: 'Lu',
-  MARTES: 'Ma',
-  MIERCOLES: 'Mi',
-  JUEVES: 'Ju',
-  VIERNES: 'Vi',
-  SABADO: 'Sa',
-  DOMINGO: 'Do',
-};
-
 const ALL_SECTIONS = 'all';
+const ALL_CATEGORIES = 'all';
 
 export function AdminDishesPage() {
   const queryClient = useQueryClient();
@@ -42,6 +33,7 @@ export function AdminDishesPage() {
   // ─── Filtros ─────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
   const [sectionFilter, setSectionFilter] = useState<string>(ALL_SECTIONS);
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES);
 
   const { data: dishes, isLoading } = useQuery({
     queryKey: ['adminDishes'],
@@ -51,6 +43,11 @@ export function AdminDishesPage() {
   const { data: sections } = useQuery({
     queryKey: ['adminMenuSections'],
     queryFn: listMenuSectionsAdmin,
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: listCategories,
   });
 
   const disableMutation = useMutation({
@@ -66,18 +63,21 @@ export function AdminDishesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminDishes'] }),
   });
 
-  // Filtrado: búsqueda case-insensitive por nombre + match exacto de sección
+  // Filtrado: búsqueda case-insensitive por nombre + match exacto de sección + categoría
   const filteredDishes = useMemo(() => {
     if (!dishes) return [];
     const q = search.trim().toLowerCase();
     return dishes.filter((d) => {
       if (sectionFilter !== ALL_SECTIONS && String(d.menuSection.id) !== sectionFilter) return false;
+      if (categoryFilter !== ALL_CATEGORIES && String(d.category.id) !== categoryFilter) return false;
       if (q && !d.nombre.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [dishes, search, sectionFilter]);
+  }, [dishes, search, sectionFilter, categoryFilter]);
 
-  const hasActiveFilter = search.trim() !== '' || sectionFilter !== ALL_SECTIONS;
+  const hasActiveFilter = search.trim() !== ''
+    || sectionFilter !== ALL_SECTIONS
+    || categoryFilter !== ALL_CATEGORIES;
   const totalDishes = dishes?.length ?? 0;
 
   return (
@@ -127,7 +127,7 @@ export function AdminDishesPage() {
 
           {/* Section filter */}
           <Select value={sectionFilter} onValueChange={setSectionFilter}>
-            <SelectTrigger className="sm:w-[220px]">
+            <SelectTrigger className="sm:w-[200px]">
               <SelectValue placeholder="Sección" />
             </SelectTrigger>
             <SelectContent>
@@ -140,13 +140,32 @@ export function AdminDishesPage() {
             </SelectContent>
           </Select>
 
+          {/* Category filter */}
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="sm:w-[200px]">
+              <SelectValue placeholder="Categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORIES}>Todas las categorías</SelectItem>
+              {categories?.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {/* Clear all + contador */}
           {hasActiveFilter && (
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setSearch(''); setSectionFilter(ALL_SECTIONS); }}
+                onClick={() => {
+                  setSearch('');
+                  setSectionFilter(ALL_SECTIONS);
+                  setCategoryFilter(ALL_CATEGORIES);
+                }}
                 className="uppercase tracking-brand text-xs"
               >
                 Limpiar filtros
@@ -207,9 +226,6 @@ export function AdminDishesPage() {
                             <Badge variant="outline" className="text-primary border-primary/40 uppercase tracking-brand text-[9px] px-1.5 py-0">
                               Especial
                             </Badge>
-                            <span className="text-[10px] text-muted-foreground">
-                              {d.diasSemana?.map((dia) => DIA_LABEL[dia] ?? dia).join(', ')}
-                            </span>
                           </div>
                         )}
                       </div>

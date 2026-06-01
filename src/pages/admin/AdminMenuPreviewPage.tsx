@@ -6,7 +6,7 @@ import { DishDetailDialog } from '@/features/orders/components/DishDetailDialog'
 import { FilterPills } from '@/features/orders/components/FilterPills';
 import type { ActiveFilter } from '@/features/orders/components/FilterPills';
 import { getRestaurantConfig, getMenuSections } from '@/features/orders/services/ordersApi';
-import { listDishesAdmin } from '@/features/admin/services/adminApi';
+import { getDishCalendar, listDishesAdmin } from '@/features/admin/services/adminApi';
 import type { Dish } from '@/features/orders/types';
 
 function calculateRemaining(cutoffTime: string): string {
@@ -26,9 +26,20 @@ export function AdminMenuPreviewPage() {
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const isScrolling = useRef(false);
 
+  const today = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
   const { data: config } = useQuery({ queryKey: ['restaurantConfig'], queryFn: getRestaurantConfig });
   const { data: sections } = useQuery({ queryKey: ['menuSections'], queryFn: getMenuSections });
   const { data: adminDishes, isLoading } = useQuery({ queryKey: ['adminDishes'], queryFn: listDishesAdmin });
+  const { data: calendar } = useQuery({
+    queryKey: ['dishCalendar', today],
+    queryFn: () => getDishCalendar(today, today),
+  });
+
+  const todaySpecialIds = useMemo(() => new Set(calendar?.[today] ?? []), [calendar, today]);
 
   const dishes: Dish[] = useMemo(() => {
     if (!adminDishes) return [];
@@ -48,7 +59,10 @@ export function AdminMenuPreviewPage() {
       }));
   }, [adminDishes]);
 
-  const specialDishes = useMemo(() => dishes.filter((d) => d.especial), [dishes]);
+  const specialDishes = useMemo(
+    () => dishes.filter((d) => d.especial && todaySpecialIds.has(d.id)),
+    [dishes, todaySpecialIds]
+  );
   const regularDishes = useMemo(() => dishes.filter((d) => !d.especial), [dishes]);
 
   const counts = useMemo(() => {

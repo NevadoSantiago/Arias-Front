@@ -5,14 +5,17 @@ import { AdminLayout } from '@/layouts/AdminLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { UnsubscribeReminderPage } from '@/pages/UnsubscribeReminderPage';
 import { TodayOrderPage } from '@/pages/employee/TodayOrderPage';
 import { OrderSummaryPage } from '@/pages/employee/OrderSummaryPage';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 import { AdminConfigPage } from '@/pages/admin/AdminConfigPage';
 import { AdminCompaniesPage } from '@/pages/admin/AdminCompaniesPage';
 import { AdminSectionsPage } from '@/pages/admin/AdminSectionsPage';
+import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage';
 import { AdminSidesPage } from '@/pages/admin/AdminSidesPage';
 import { AdminDishesPage } from '@/pages/admin/AdminDishesPage';
+import { AdminDishCalendarPage } from '@/pages/admin/AdminDishCalendarPage';
 import { AdminMenuPreviewPage } from '@/pages/admin/AdminMenuPreviewPage';
 import { CompanyAdminLayout } from '@/layouts/CompanyAdminLayout';
 import { CompanyAdminEmployeesPage } from '@/pages/companyAdmin/CompanyAdminEmployeesPage';
@@ -60,8 +63,10 @@ export const router = createBrowserRouter([
       { path: '/admin/dashboard', element: <AdminDashboardPage /> },
       { path: '/admin/menu', element: <AdminMenuPreviewPage /> },
       { path: '/admin/dishes', element: <AdminDishesPage /> },
+      { path: '/admin/dish-calendar', element: <AdminDishCalendarPage /> },
       { path: '/admin/companies', element: <AdminCompaniesPage /> },
       { path: '/admin/sections', element: <AdminSectionsPage /> },
+      { path: '/admin/categories', element: <AdminCategoriesPage /> },
       { path: '/admin/sides', element: <AdminSidesPage /> },
       { path: '/admin/config', element: <AdminConfigPage /> },
     ],
@@ -75,7 +80,7 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { path: '/company-admin', element: <Navigate to="/company-admin/employees" replace /> },
+      { path: '/company-admin', element: <Navigate to="/company-admin/today" replace /> },
       { path: '/company-admin/employees', element: <CompanyAdminEmployeesPage /> },
       { path: '/company-admin/metrics', element: <CompanyAdminMetricsPage /> },
       // El admin de la empresa también almuerza ahí — reusa las páginas de empleado
@@ -83,6 +88,9 @@ export const router = createBrowserRouter([
       { path: '/company-admin/today/summary', element: <OrderSummaryPage /> },
     ],
   },
+
+  // Página pública del link "no quiero más recordatorios" del mail
+  { path: '/unsubscribe-reminder', element: <UnsubscribeReminderPage /> },
 
   // Default redirect (sin sesión → /login; con sesión → home del rol vía ProtectedRoute)
   { path: '/', element: <Navigate to="/orders/today" replace /> },

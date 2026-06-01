@@ -13,6 +13,7 @@ export interface Employee {
   firstLoginPending: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  role: 'EMPLOYEE' | 'COMPANY_ADMIN';
 }
 
 export interface CreateEmployeePayload {

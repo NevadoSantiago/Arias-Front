@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Power, Trash2 } from 'lucide-react';
+import { Plus, Power, Shield, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -104,9 +104,21 @@ export function CompanyAdminEmployeesPage() {
                 </tr>
               </thead>
               <tbody>
-                {employees.map((e) => (
+                {employees.map((e) => {
+                  const isAdmin = e.role === 'COMPANY_ADMIN';
+                  return (
                   <tr key={e.id} className={cn('border-b border-border last:border-0', !e.active && 'opacity-50')}>
-                    <Td className="font-medium text-foreground">{e.email}</Td>
+                    <Td className="font-medium text-foreground">
+                      <div className="flex items-center gap-2">
+                        <span>{e.email}</span>
+                        {isAdmin && (
+                          <Badge className="uppercase tracking-brand text-[9px] bg-primary text-primary-foreground gap-1 px-1.5">
+                            <Shield className="w-2.5 h-2.5" />
+                            Admin
+                          </Badge>
+                        )}
+                      </div>
+                    </Td>
                     <Td className={cn('text-xs', !e.firstName && 'text-muted-foreground italic')}>
                       {displayName(e)}
                     </Td>
@@ -135,27 +147,32 @@ export function CompanyAdminEmployeesPage() {
                       )}
                     </Td>
                     <Td className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {e.active ? (
-                          <DisableConfirm name={e.email} onConfirm={() => disableMutation.mutate(e.id)} />
-                        ) : (
-                          <>
-                            <Button size="icon" variant="ghost"
-                              onClick={() => enableMutation.mutate(e.id)}
-                              aria-label="Reactivar"
-                              className="h-8 w-8 text-success hover:text-success hover:bg-success/10">
-                              <Power className="w-3.5 h-3.5" />
-                            </Button>
-                            <ArchiveConfirm
-                              email={e.email}
-                              onConfirm={() => archiveMutation.mutate(e.id)}
-                            />
-                          </>
-                        )}
-                      </div>
+                      {isAdmin ? (
+                        <span className="text-[11px] text-muted-foreground italic">—</span>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1">
+                          {e.active ? (
+                            <DisableConfirm name={e.email} onConfirm={() => disableMutation.mutate(e.id)} />
+                          ) : (
+                            <>
+                              <Button size="icon" variant="ghost"
+                                onClick={() => enableMutation.mutate(e.id)}
+                                aria-label="Reactivar"
+                                className="h-8 w-8 text-success hover:text-success hover:bg-success/10">
+                                <Power className="w-3.5 h-3.5" />
+                              </Button>
+                              <ArchiveConfirm
+                                email={e.email}
+                                onConfirm={() => archiveMutation.mutate(e.id)}
+                              />
+                            </>
+                          )}
+                        </div>
+                      )}
                     </Td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

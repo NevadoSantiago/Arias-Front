@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { CalendarDays } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -36,19 +37,8 @@ const schema = z.object({
   stockActual: z.number().int().min(0, 'Mayor o igual a 0'),
   enabled: z.boolean(),
   especial: z.boolean(),
-  diasSemana: z.array(z.string()),
 });
 type FormData = z.infer<typeof schema>;
-
-const DIAS = [
-  { value: 'LUNES', label: 'Lu' },
-  { value: 'MARTES', label: 'Ma' },
-  { value: 'MIERCOLES', label: 'Mi' },
-  { value: 'JUEVES', label: 'Ju' },
-  { value: 'VIERNES', label: 'Vi' },
-  { value: 'SABADO', label: 'Sa' },
-  { value: 'DOMINGO', label: 'Do' },
-];
 
 interface Props {
   open: boolean;
@@ -87,7 +77,6 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
   const fotoUrl = watch('fotoUrl');
   const enabled = watch('enabled');
   const especial = watch('especial');
-  const diasSemana = watch('diasSemana');
 
   // Toggle entre uploader (default) y text input (fallback para URLs externas)
   const [manualUrlMode, setManualUrlMode] = useState(false);
@@ -130,6 +119,7 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminDishes'] });
+      queryClient.invalidateQueries({ queryKey: ['specialDishes'] });
       onClose();
     },
     onError: (err: Error) => setServerError(err.message),
@@ -333,45 +323,24 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
                 </Label>
                 <p className="text-[11px] text-muted-foreground">
                   {especial
-                    ? 'Solo aparece en el menú los días seleccionados.'
+                    ? 'Aparece solo en las fechas que asignes desde el calendario.'
                     : 'Aparece todos los días como plato regular.'}
                 </p>
               </div>
               <Switch
                 id="especial"
                 checked={especial}
-                onCheckedChange={(v) => {
-                  setValue('especial', v, { shouldDirty: true });
-                  if (!v) setValue('diasSemana', [], { shouldDirty: true });
-                }}
+                onCheckedChange={(v) => setValue('especial', v, { shouldDirty: true })}
               />
             </div>
 
             {especial && (
-              <div className="flex flex-wrap gap-2 pl-1">
-                {DIAS.map(({ value, label }) => {
-                  const active = diasSemana.includes(value);
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      className={cn(
-                        'px-3 py-1.5 rounded-md text-xs font-medium uppercase tracking-brand border transition-colors',
-                        active
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-muted/50 text-muted-foreground border-border hover:border-primary'
-                      )}
-                      onClick={() => {
-                        const next = active
-                          ? diasSemana.filter((d) => d !== value)
-                          : [...diasSemana, value];
-                        setValue('diasSemana', next, { shouldDirty: true });
-                      }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+              <div className="flex items-start gap-2 p-3 rounded-md border border-primary/30 bg-primary/5">
+                <CalendarDays className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Vas a poder asignarlo a fechas específicas desde el{' '}
+                  <span className="text-foreground font-medium">Calendario de especiales</span>.
+                </p>
               </div>
             )}
           </div>
@@ -405,7 +374,6 @@ function defaultValues(): FormData {
     stockActual: 10,
     enabled: true,
     especial: false,
-    diasSemana: [],
   };
 }
 
@@ -422,7 +390,6 @@ function editingToForm(d: AdminDish): FormData {
     stockActual: d.stockActual,
     enabled: d.enabled,
     especial: d.especial,
-    diasSemana: d.diasSemana ?? [],
   };
 }
 
@@ -439,7 +406,6 @@ function formToPayload(data: FormData, isEditing: boolean) {
     stockDiarioDefault: data.stockDiarioDefault,
     stockActual: data.stockActual,
     especial: data.especial,
-    diasSemana: data.especial ? data.diasSemana : [],
     ...(isEditing && { enabled: data.enabled }),
   };
 }

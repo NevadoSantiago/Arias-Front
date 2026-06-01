@@ -7,6 +7,7 @@ import { DishCard } from '@/features/orders/components/DishCard';
 import { DishDetailDialog } from '@/features/orders/components/DishDetailDialog';
 import { FilterPills } from '@/features/orders/components/FilterPills';
 import { OrderConfirmation } from '@/features/orders/components/OrderConfirmation';
+import { SuggestionDialog } from '@/features/orders/components/SuggestionDialog';
 import { WeekDaySelector } from '@/features/orders/components/WeekDaySelector';
 import {
   AlertDialog,
@@ -26,6 +27,7 @@ import {
   getAvailableDishes,
   getDisabledDates,
   getMenuSections,
+  getOrderSuggestion,
   getRestaurantConfig,
   getWeekOrders,
   placeOrder,
@@ -55,10 +57,54 @@ function formatDayLabel(date: string): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
+interface SuggestionData {
+  dish: Dish;
+  sideId: number | null;
+  notas: string | null;
+  dayLabel: string;
+}
+
+const WEEKDAY_NAMES_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+function dayNameFromIso(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return WEEKDAY_NAMES_ES[date.getDay()];
+}
+
+/**
+ * UNA sola clave por usuario que guarda la fecha del último dismiss.
+ * Si el valor == hoy → dismissed. Si != hoy → la sobrescribimos cuando vuelva.
+ * No se acumula basura en localStorage a lo largo del tiempo.
+ */
+const SUGGESTION_DISMISSED_PREFIX = 'arias:suggestion-dismissed:';
+
+function suggestionDismissedKey(userId: number): string {
+  return `${SUGGESTION_DISMISSED_PREFIX}${userId}`;
+}
+
+function isSuggestionDismissedToday(userId: number, todayIso: string): boolean {
+  try {
+    return localStorage.getItem(suggestionDismissedKey(userId)) === todayIso;
+  } catch {
+    return false;
+  }
+}
+
+function markSuggestionDismissedToday(userId: number, todayIso: string): void {
+  try {
+    localStorage.setItem(suggestionDismissedKey(userId), todayIso);
+  } catch {
+    // localStorage no disponible (private browsing, quota, etc.) — sin persistencia
+  }
+}
+
 export function TodayOrderPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
+  const [suggestionData, setSuggestionData] = useState<SuggestionData | null>(null);
+  const [suggestionShown, setSuggestionShown] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const isScrolling = useRef(false);
@@ -103,6 +149,43 @@ export function TodayOrderPage() {
     queryKey: ['availableDishes', selectedDate],
     queryFn: () => getAvailableDishes(isToday ? undefined : selectedDate),
   });
+
+  // Sugerencia del último pedido en el mismo día de la semana — solo para HOY
+  // y solo si el empleado todavía no tiene pedido para hoy.
+  const { data: suggestion } = useQuery({
+    queryKey: ['orderSuggestion'],
+    queryFn: getOrderSuggestion,
+    enabled: isToday && !!user,
+    staleTime: Infinity,
+  });
+
+  // Si el usuario ya descartó la sugerencia hoy (persistido en localStorage),
+  // marcamos suggestionShown=true para que el useEffect no la dispare.
+  useEffect(() => {
+    if (!user) return;
+    if (isSuggestionDismissedToday(user.id, todayStr)) {
+      setSuggestionShown(true);
+    }
+  }, [user, todayStr]);
+
+  // Auto-abrir el modal cuando se cumplen las condiciones, una sola vez por mount.
+  useEffect(() => {
+    if (suggestionShown) return;
+    if (!isToday) return;
+    if (orderForSelectedDate) return;
+    if (!suggestion || !dishes) return;
+
+    const dish = dishes.find((d) => d.id === suggestion.dishId);
+    if (!dish) return;
+
+    setSuggestionData({
+      dish,
+      sideId: suggestion.sideId,
+      notas: suggestion.notas,
+      dayLabel: dayNameFromIso(suggestion.fecha),
+    });
+    setSuggestionShown(true);
+  }, [suggestion, dishes, isToday, orderForSelectedDate, suggestionShown]);
 
   const specialDishes = useMemo(() => dishes?.filter((d) => d.especial) ?? [], [dishes]);
   const regularDishes = useMemo(() => dishes?.filter((d) => !d.especial) ?? [], [dishes]);
@@ -165,11 +248,7 @@ export function TodayOrderPage() {
       queryClient.invalidateQueries({ queryKey: ['weekOrders'] });
       queryClient.invalidateQueries({ queryKey: ['availableDishes'] });
       setSelectedDish(null);
-      if (isFuture) {
-        toast.success(`Pedido programado para ${formatDayLabel(selectedDate)}`);
-      } else {
-        setConfirmation('¡Pedido confirmado!');
-      }
+      setConfirmation(isFuture ? '¡Pedido programado!' : '¡Pedido confirmado!');
     },
   });
 
@@ -192,11 +271,7 @@ export function TodayOrderPage() {
       queryClient.invalidateQueries({ queryKey: ['weekOrders'] });
       queryClient.invalidateQueries({ queryKey: ['availableDishes'] });
       setSelectedDish(null);
-      if (isFuture) {
-        toast.success(`Pedido actualizado para ${formatDayLabel(selectedDate)}`);
-      } else {
-        setConfirmation('¡Pedido modificado!');
-      }
+      setConfirmation(isFuture ? '¡Pedido actualizado!' : '¡Pedido modificado!');
     },
   });
 
@@ -300,7 +375,7 @@ export function TodayOrderPage() {
         const issues = detectOrderIssues(orderForSelectedDate);
         const Icon = isDelivered ? CheckCircle2 : issues.hasAny ? AlertTriangle : CheckCircle2;
         const bannerLabel = isDelivered
-          ? '¡Buen provecho!'
+          ? '¡Que lo disfrutes!'
           : isToday
             ? (issues.hasAny ? 'Tu pedido necesita un cambio' : 'Ver mi pedido')
             : isPast
@@ -483,9 +558,33 @@ export function TodayOrderPage() {
         }}
       />
 
+      {suggestionData && (
+        <SuggestionDialog
+          open={!!suggestionData}
+          onClose={() => {
+            setSuggestionData(null);
+            // Si el usuario lo cerró sin confirmar, no se lo volvemos a mostrar hoy.
+            if (user) markSuggestionDismissedToday(user.id, todayStr);
+          }}
+          dish={suggestionData.dish}
+          initialSideId={suggestionData.sideId}
+          initialNotas={suggestionData.notas}
+          dayLabel={suggestionData.dayLabel}
+          onConfirm={async (selection) => {
+            await placeMutation.mutateAsync({
+              dishId: suggestionData.dish.id,
+              sideId: selection.sideId,
+              notas: selection.notas,
+            });
+            setSuggestionData(null);
+          }}
+        />
+      )}
+
       {confirmation && (
         <OrderConfirmation
           message={confirmation}
+          duration={isFuture ? 1200 : 2500}
           onComplete={() => {
             setConfirmation(null);
             if (isToday) {

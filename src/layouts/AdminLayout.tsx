@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LogOut, LayoutDashboard, UtensilsCrossed, Building2, ListOrdered, Salad, Settings, Eye } from 'lucide-react';
+import { LogOut, LayoutDashboard, UtensilsCrossed, Building2, ListOrdered, Salad, Settings, Eye, CalendarDays, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -13,13 +13,15 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/admin/dashboard', label: 'Dashboard',         icon: LayoutDashboard },
-  { to: '/admin/menu',      label: 'Ver menú',          icon: Eye },
-  { to: '/admin/dishes',    label: 'Platos',            icon: UtensilsCrossed },
-  { to: '/admin/companies', label: 'Empresas',          icon: Building2 },
-  { to: '/admin/sections',  label: 'Secciones del menú',icon: ListOrdered },
-  { to: '/admin/sides',     label: 'Acompañamientos',   icon: Salad },
-  { to: '/admin/config',    label: 'Configuración',     icon: Settings },
+  { to: '/admin/dashboard',     label: 'Dashboard',             icon: LayoutDashboard },
+  { to: '/admin/menu',          label: 'Ver menú',              icon: Eye },
+  { to: '/admin/dishes',        label: 'Platos',                icon: UtensilsCrossed },
+  { to: '/admin/dish-calendar', label: 'Calendario',              icon: CalendarDays },
+  { to: '/admin/companies',     label: 'Empresas',              icon: Building2 },
+  { to: '/admin/sections',      label: 'Secciones del menú',    icon: ListOrdered },
+  { to: '/admin/categories',    label: 'Categorías',            icon: Layers },
+  { to: '/admin/sides',         label: 'Acompañamientos',       icon: Salad },
+  { to: '/admin/config',        label: 'Configuración',         icon: Settings },
 ];
 
 export function AdminLayout() {

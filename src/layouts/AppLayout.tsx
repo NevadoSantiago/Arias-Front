@@ -3,6 +3,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useAuthActions } from '@/features/auth/hooks/useAuthActions';
+import { NotificationsBell } from '@/features/me/components/NotificationsBell';
 
 export function AppLayout() {
   const user = useAuthStore((s) => s.user);
@@ -36,6 +37,7 @@ export function AppLayout() {
                 )}
               </div>
             )}
+            <NotificationsBell />
             <Button
               variant="ghost"
               size="icon"

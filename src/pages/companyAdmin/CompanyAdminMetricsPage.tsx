@@ -89,15 +89,15 @@ export function CompanyAdminMetricsPage() {
                   />
                   <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                   <Tooltip
-                    labelFormatter={(v: string) => {
-                      const d = new Date(v + 'T00:00:00');
+                    labelFormatter={(v) => {
+                      const d = new Date(String(v) + 'T00:00:00');
                       return d.toLocaleDateString('es-AR', {
                         weekday: 'short',
                         day: 'numeric',
                         month: 'short',
                       });
                     }}
-                    formatter={(value: number) => [value, 'Pedidos']}
+                    formatter={(value) => [String(value), 'Pedidos']}
                   />
                   <Bar dataKey="count" fill="#c5191d" radius={[2, 2, 0, 0]} />
                 </BarChart>
@@ -125,15 +125,17 @@ export function CompanyAdminMetricsPage() {
                     innerRadius={60}
                     outerRadius={110}
                     paddingAngle={2}
-                    label={({ categoryName, count }: { categoryName: string; count: number }) =>
-                      count > 0 ? `${categoryName} (${count})` : ''
-                    }
+                    label={(props) => {
+                      const categoryName = (props as { categoryName?: string }).categoryName ?? '';
+                      const count = Number((props as { count?: number | string }).count ?? 0);
+                      return count > 0 ? `${categoryName} (${count})` : '';
+                    }}
                   >
                     {categoryOrders.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => [value, 'Pedidos']} />
+                  <Tooltip formatter={(value) => [String(value), 'Pedidos']} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>

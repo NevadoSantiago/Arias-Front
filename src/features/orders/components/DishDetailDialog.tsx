@@ -70,6 +70,7 @@ export function DishDetailDialog({ dish, open, onClose, onConfirm, confirmLabel 
   const sideLabel = dish.sideType === 'GUARNICION' ? 'Guarnición' : 'Salsa';
 
   const handleConfirm = async () => {
+    if (!onConfirm) return;
     if (requiresSide && !sideId) {
       setError(`Tenés que elegir una opción`);
       return;

@@ -71,6 +71,18 @@ export async function getDishPreference(dishId: number): Promise<DishPreference 
   return response.status === 204 ? null : response.data;
 }
 
+/**
+ * Sugerencia para pre-cargar el modal "El último [día] pediste:" — devuelve
+ * el último pedido del mismo día de la semana, o null si no hay historial.
+ */
+export async function getOrderSuggestion(): Promise<DailyChoice | null> {
+  const response = await api.get<DailyChoice>(`${BASE}/orders/suggestion`, {
+    validateStatus: (s) => s === 200 || s === 204,
+  });
+  if (response.status === 204) return null;
+  return normalizeOrder(response.data);
+}
+
 // ─── Fechas deshabilitadas ────────────────────────────────────────────
 
 export interface DisabledDate {
