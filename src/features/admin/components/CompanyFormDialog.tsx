@@ -25,6 +25,7 @@ import {
   createCompany,
   updateCompany,
   listCategories,
+  listCategoriesAdmin,
   type Company,
 } from '@/features/admin/services/adminApi';
 
@@ -52,13 +53,22 @@ export function CompanyFormDialog({ open, onClose, editing }: Props) {
   const queryClient = useQueryClient();
   const isEditing = !!editing;
 
+  // Para el dropdown "Categoría por defecto" — solo las habilitadas
+  const { data: activeCategories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: listCategories,
+    enabled: open,
+  });
+
+  // Para los inputs de precio — TODAS (incluso deshabilitadas)
   const { data: categories } = useQuery({
     queryKey: ['adminCategories'],
-    queryFn: listCategories,
-    enabled: open, // solo cargar cuando el dialog está abierto
+    queryFn: listCategoriesAdmin,
+    enabled: open,
   });
 
   const [serverError, setServerError] = useState<string | null>(null);
+  const [categoryPrices, setCategoryPrices] = useState<Record<number, number>>({});
 
   const {
     register,
@@ -112,6 +122,16 @@ export function CompanyFormDialog({ open, onClose, editing }: Props) {
     setServerError(null);
   }, [editing, open, reset]);
 
+  // Sincronizar el state de precios cuando llegan las categorías o cambia el editing.
+  useEffect(() => {
+    if (!open || !categories) return;
+    const initial: Record<number, number> = {};
+    for (const cat of categories) {
+      initial[cat.id] = editing?.categoryPrices?.[cat.id] ?? 0;
+    }
+    setCategoryPrices(initial);
+  }, [open, categories, editing]);
+
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
       const payload = {
@@ -123,6 +143,7 @@ export function CompanyFormDialog({ open, onClose, editing }: Props) {
         horaEntrega: data.horaEntrega,
         categoriaDefaultId: data.categoriaDefaultId,
         adminEmail: data.adminEmail,
+        categoryPrices,
       };
       if (isEditing && editing) {
         return updateCompany(editing.id, payload);
@@ -199,7 +220,7 @@ export function CompanyFormDialog({ open, onClose, editing }: Props) {
                   <SelectValue placeholder="Elegí una categoría" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories?.map((cat) => (
+                  {activeCategories?.map((cat) => (
                     <SelectItem key={cat.id} value={String(cat.id)}>
                       {cat.nombre}
                     </SelectItem>
@@ -208,6 +229,44 @@ export function CompanyFormDialog({ open, onClose, editing }: Props) {
               </Select>
             </Field>
           </div>
+
+          {/* Precios por categoría */}
+          {categories && categories.length > 0 && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-[10px] uppercase tracking-brand text-primary font-bold mb-3">
+                Precios por categoría
+              </p>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                Valor acordado para esta empresa por cada categoría. Pesos sin decimales.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {categories.map((cat) => (
+                  <div key={cat.id} className="space-y-1">
+                    <Label htmlFor={`price-${cat.id}`} className="text-xs">
+                      {cat.nombre}
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                      <Input
+                        id={`price-${cat.id}`}
+                        type="number"
+                        min={0}
+                        step={1}
+                        className="pl-7"
+                        value={categoryPrices[cat.id] ?? 0}
+                        onChange={(e) =>
+                          setCategoryPrices((prev) => ({
+                            ...prev,
+                            [cat.id]: Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Admin email — visible siempre. En create lo crea, en edit actualiza al user existente */}
           <div className="pt-2 border-t border-border">

@@ -44,7 +44,7 @@ export function AdminCategoriesPage() {
             Categorías
           </h1>
           <p className="text-muted-foreground text-sm">
-            Tier de acceso del empleado. Definen qué platos puede ver según la jerarquía.
+            Categorías de acceso del empleado. Definen qué platos puede ver según la jerarquía.
           </p>
         </div>
         <Button

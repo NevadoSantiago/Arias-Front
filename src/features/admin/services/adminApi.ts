@@ -107,6 +107,8 @@ export interface Company {
   categoriaDefaultNombre: string;
   enabled: boolean;
   adminEmail: string | null;
+  /** Map categoryId → precio en pesos sin decimales. */
+  categoryPrices: Record<number, number>;
 }
 
 interface CompanyRawFromApi extends Omit<Company, 'horaEntrega'> {
@@ -122,6 +124,8 @@ export interface CreateCompanyPayload {
   horaEntrega: string;
   categoriaDefaultId: number;
   adminEmail: string;
+  /** categoryId → precio. Required: una entry por cada categoría existente. */
+  categoryPrices: Record<number, number>;
 }
 
 export interface UpdateCompanyPayload {
@@ -134,6 +138,8 @@ export interface UpdateCompanyPayload {
   categoriaDefaultId: number;
   /** Opcional. Si se manda, actualiza el email del CompanyAdmin. */
   adminEmail?: string;
+  /** categoryId → precio. Required: una entry por cada categoría existente. */
+  categoryPrices: Record<number, number>;
 }
 
 const normalizeCompany = (c: CompanyRawFromApi): Company => ({
@@ -186,6 +192,8 @@ export interface AdminCategoryFull {
   parentNombre: string | null;
   ordenDisplay: number;
   enabled: boolean;
+  /** Map companyId → precio en pesos sin decimales. */
+  companyPrices: Record<number, number>;
 }
 
 export interface CategoryPayload {
@@ -194,6 +202,8 @@ export interface CategoryPayload {
   ordenDisplay: number;
   /** Solo se manda al UPDATE — el backend lo ignora en create (default true). */
   enabled?: boolean;
+  /** companyId → precio. Required: una entry por cada empresa existente. */
+  companyPrices: Record<number, number>;
 }
 
 export async function listCategoriesAdmin(): Promise<AdminCategoryFull[]> {
@@ -352,6 +362,7 @@ export async function disableDish(id: number, cancelAffected = false): Promise<v
 
 export interface AffectedOrder {
   orderId: number;
+  fecha: string;
   userFirstName: string | null;
   userLastName: string | null;
   userEmail: string;
@@ -372,6 +383,10 @@ export async function getSideAffectedOrders(id: number): Promise<AffectedOrder[]
 
 export async function enableDish(id: number): Promise<void> {
   await api.put(`/api/v1/dishes/${id}/enable`);
+}
+
+export async function archiveDish(id: number): Promise<void> {
+  await api.delete(`/api/v1/dishes/${id}/archive`);
 }
 
 // ─── Calendario de platos especiales ──────────────────────────────────

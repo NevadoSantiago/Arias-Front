@@ -217,7 +217,7 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
 
           {/* ── Categoría + Sección ─────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Categoría (tier)" htmlFor="categoryId" error={errors.categoryId?.message}
+            <Field label="Categoría" htmlFor="categoryId" error={errors.categoryId?.message}
               hint="Quién puede pedirlo">
               <Select
                 value={categoryId ? String(categoryId) : ''}

@@ -5,7 +5,6 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
 import type { AffectedOrder } from '@/features/admin/services/adminApi';
 
 interface Props {
@@ -19,6 +18,8 @@ interface Props {
   onConfirm: (cancelOrders: boolean) => void;
   /** Si false, oculta la opción de cancelar (sides → solo notify). */
   allowCancel?: boolean;
+  /** Si false, oculta la opción de mantener pedidos + notificar (dishes → solo cancel). */
+  allowKeep?: boolean;
   /** Trigger custom (botón en la tabla, etc.) */
   trigger: React.ReactNode;
 }
@@ -30,7 +31,7 @@ interface Props {
  *  - Si >0 afectados → muestra lista + opciones (notificar / cancelar)
  */
 export function DisableWithOrdersDialog({
-  itemName, fetchAffected, queryKey, onConfirm, allowCancel = true, trigger,
+  itemName, fetchAffected, queryKey, onConfirm, allowCancel = true, allowKeep = true, trigger,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -74,25 +75,12 @@ export function DisableWithOrdersDialog({
         {/* Bloque de pedidos afectados */}
         {!isLoading && hasAffected && (
           <div className="my-2 p-3 rounded-md border border-warning/40 bg-warning/5">
-            <div className="flex items-start gap-2 mb-3">
+            <div className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
               <p className="text-xs uppercase tracking-brand text-foreground font-semibold">
-                {count} {count === 1 ? 'pedido pendiente' : 'pedidos pendientes'} de hoy {count === 1 ? 'lo tiene' : 'lo tienen'}
+                {count} {count === 1 ? 'pedido pendiente' : 'pedidos pendientes'} {count === 1 ? 'lo tiene' : 'lo tienen'}
               </p>
             </div>
-            <ul className={cn(
-              'space-y-1.5 text-xs',
-              count > 5 && 'max-h-[150px] overflow-y-auto pr-1'
-            )}>
-              {affected!.map((a) => (
-                <li key={a.orderId} className="flex items-baseline justify-between gap-2">
-                  <span className="text-foreground">
-                    {a.userFirstName ?? '(sin nombre)'} {a.userLastName ?? ''}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground italic">{a.companyName}</span>
-                </li>
-              ))}
-            </ul>
           </div>
         )}
 
@@ -115,20 +103,22 @@ export function DisableWithOrdersDialog({
           {/* Caso 2: con afectados → opciones */}
           {!isLoading && hasAffected && (
             <>
-              <AlertDialogAction
-                onClick={() => handleAction(false)}
-                className="w-full uppercase tracking-brand text-xs justify-start"
-              >
-                <Mail className="w-3.5 h-3.5 mr-2" />
-                Notificar y mantener pedidos
-              </AlertDialogAction>
+              {allowKeep && (
+                <AlertDialogAction
+                  onClick={() => handleAction(false)}
+                  className="w-full uppercase tracking-brand text-xs justify-start"
+                >
+                  <Mail className="w-3.5 h-3.5 mr-2" />
+                  Notificar y mantener pedidos
+                </AlertDialogAction>
+              )}
               {allowCancel && (
                 <AlertDialogAction
                   onClick={() => handleAction(true)}
-                  className="w-full uppercase tracking-brand text-xs justify-start bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="w-full uppercase tracking-brand text-xs justify-center bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   <X className="w-3.5 h-3.5 mr-2" />
-                  Cancelar {count === 1 ? 'el pedido' : 'los pedidos'} (devuelve stock)
+                  Cancelar y notificar
                 </AlertDialogAction>
               )}
               <AlertDialogCancel className="w-full uppercase tracking-brand text-xs mt-0">

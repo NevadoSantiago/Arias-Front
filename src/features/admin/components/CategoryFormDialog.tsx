@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import {
   createCategory,
   updateCategory,
+  listCompanies,
   type AdminCategoryFull,
 } from '@/features/admin/services/adminApi';
 
@@ -50,6 +51,13 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
   const queryClient = useQueryClient();
   const isEditing = !!editing;
   const [serverError, setServerError] = useState<string | null>(null);
+  const [companyPrices, setCompanyPrices] = useState<Record<number, number>>({});
+
+  const { data: companies } = useQuery({
+    queryKey: ['adminCompanies'],
+    queryFn: listCompanies,
+    enabled: open,
+  });
 
   const {
     register,
@@ -81,6 +89,16 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
     setServerError(null);
   }, [editing, open, reset]);
 
+  // Sincronizar precios cuando llegan las empresas o cambia el editing
+  useEffect(() => {
+    if (!open || !companies) return;
+    const initial: Record<number, number> = {};
+    for (const co of companies) {
+      initial[co.id] = editing?.companyPrices?.[co.id] ?? 0;
+    }
+    setCompanyPrices(initial);
+  }, [open, companies, editing]);
+
   // Excluimos la categoría que estamos editando (no puede ser padre de sí misma)
   const parentOptions = allCategories.filter((c) => c.id !== editing?.id);
 
@@ -91,6 +109,7 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
         parentId: data.parentId === NO_PARENT ? null : Number(data.parentId),
         ordenDisplay: data.ordenDisplay,
         ...(isEditing && { enabled: data.enabled }),
+        companyPrices,
       };
       if (isEditing && editing) {
         return updateCategory(editing.id, payload);
@@ -115,7 +134,7 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
           <DialogDescription>
             {isEditing
               ? 'Modificá nombre, padre, orden o disponibilidad.'
-              : 'Las categorías definen el tier de acceso del empleado (Premium, Básico, etc.).'}
+              : 'Las categorías definen el nivel de acceso del empleado (Premium, Básico, etc.).'}
           </DialogDescription>
         </DialogHeader>
 
@@ -189,6 +208,44 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
               Más bajo = aparece primero en los dropdowns.
             </p>
           </div>
+
+          {/* Precios por empresa */}
+          {companies && companies.length > 0 && (
+            <div className="pt-2 border-t border-border space-y-2">
+              <p className="text-[10px] uppercase tracking-brand text-primary font-bold">
+                Precios por empresa
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Valor acordado para esta categoría con cada empresa. Pesos sin decimales.
+              </p>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                {companies.map((co) => (
+                  <div key={co.id} className="flex items-center gap-3">
+                    <Label htmlFor={`price-co-${co.id}`} className="text-xs flex-1 min-w-0 truncate">
+                      {co.nombre}
+                    </Label>
+                    <div className="relative w-[140px] shrink-0">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                      <Input
+                        id={`price-co-${co.id}`}
+                        type="number"
+                        min={0}
+                        step={1}
+                        className="pl-7 h-9"
+                        value={companyPrices[co.id] ?? 0}
+                        onChange={(e) =>
+                          setCompanyPrices((prev) => ({
+                            ...prev,
+                            [co.id]: Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {serverError && <p className="text-destructive text-xs">{serverError}</p>}
 
