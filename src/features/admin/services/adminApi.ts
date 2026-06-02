@@ -229,6 +229,16 @@ export async function enableCategory(id: number): Promise<void> {
   await api.put(`/api/v1/categories/${id}/enable`);
 }
 
+export async function archiveCategory(id: number): Promise<void> {
+  await api.delete(`/api/v1/categories/${id}/archive`);
+}
+
+/** Conteo de platos activos que se van a deshabilitar al archivar la categoría. */
+export async function getCategoryAffectedDishesCount(id: number): Promise<number> {
+  const { data } = await api.get<number>(`/api/v1/categories/${id}/affected-dishes-count`);
+  return data;
+}
+
 // ─── Menu Sections ────────────────────────────────────────────────────
 
 export interface AdminMenuSection {

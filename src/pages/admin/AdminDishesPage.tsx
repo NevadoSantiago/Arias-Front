@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Pencil, Plus, Power, PowerOff, Search, Trash2, UtensilsCrossed, X } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -65,6 +66,7 @@ export function AdminDishesPage() {
   const enableMutation = useMutation({
     mutationFn: enableDish,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminDishes'] }),
+    onError: (err: Error) => toast.error(err.message || 'No se pudo habilitar el plato'),
   });
   const archiveMutation = useMutation({
     mutationFn: archiveDish,

@@ -185,9 +185,26 @@ export function CompanyFormDialog({ open, onClose, editing }: Props) {
             <Input id="nombre" {...register('nombre')} autoFocus />
           </Field>
 
-          {/* CUIT */}
+          {/* CUIT — auto-formato con guiones a medida que el usuario tipea */}
           <Field label="CUIT" htmlFor="cuit" error={errors.cuit?.message} hint="Formato: XX-XXXXXXXX-X">
-            <Input id="cuit" {...register('cuit')} placeholder="30-12345678-9" />
+            {(() => {
+              const cuitField = register('cuit');
+              return (
+                <Input
+                  id="cuit"
+                  name={cuitField.name}
+                  ref={cuitField.ref}
+                  onBlur={cuitField.onBlur}
+                  onChange={(e) => {
+                    e.target.value = formatCuit(e.target.value);
+                    cuitField.onChange(e);
+                  }}
+                  placeholder="30-12345678-9"
+                  maxLength={13}
+                  inputMode="numeric"
+                />
+              );
+            })()}
           </Field>
 
           {/* Dirección */}
@@ -336,4 +353,15 @@ function extractApiError(err: unknown): string | null {
   if (typeof err !== 'object' || err === null) return null;
   const e = err as { response?: { data?: { detail?: string } } };
   return e.response?.data?.detail ?? null;
+}
+
+/**
+ * Formato CUIT a XX-XXXXXXXX-X a medida que se escribe. Tira los no-dígitos,
+ * limita a 11 dígitos, e inserta los guiones según el largo.
+ */
+function formatCuit(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 10) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
 }

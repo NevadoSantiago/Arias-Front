@@ -126,7 +126,7 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">
             {isEditing ? 'Editar categoría' : 'Nueva categoría'}
@@ -211,39 +211,77 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
 
           {/* Precios por empresa */}
           {companies && companies.length > 0 && (
-            <div className="pt-2 border-t border-border space-y-2">
+            <div className="pt-2 border-t border-border space-y-3">
               <p className="text-[10px] uppercase tracking-brand text-primary font-bold">
-                Precios por empresa
+                {isEditing ? 'Precios por empresa' : 'Precio inicial'}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Valor acordado para esta categoría con cada empresa. Pesos sin decimales.
+                {isEditing
+                  ? 'Valor acordado para esta categoría con cada empresa. Pesos sin decimales.'
+                  : 'Este valor se aplica automáticamente a todas las empresas. Después podés editarlas una por una.'}
               </p>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                {companies.map((co) => (
-                  <div key={co.id} className="flex items-center gap-3">
-                    <Label htmlFor={`price-co-${co.id}`} className="text-xs flex-1 min-w-0 truncate">
-                      {co.nombre}
-                    </Label>
-                    <div className="relative w-[140px] shrink-0">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
-                      <Input
-                        id={`price-co-${co.id}`}
-                        type="number"
-                        min={0}
-                        step={1}
-                        className="pl-7 h-9"
-                        value={companyPrices[co.id] ?? 0}
-                        onChange={(e) =>
-                          setCompanyPrices((prev) => ({
-                            ...prev,
-                            [co.id]: Math.max(0, Math.floor(Number(e.target.value) || 0)),
-                          }))
-                        }
-                      />
-                    </div>
+
+              {!isEditing && (
+                <div className="space-y-1">
+                  <Label htmlFor="initial-price" className="text-[11px] uppercase tracking-brand text-muted-foreground">
+                    Precio
+                  </Label>
+                  <div className="relative max-w-[200px]">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                    <Input
+                      id="initial-price"
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="pl-7 h-9"
+                      value={companies.length > 0 ? (companyPrices[companies[0].id] ?? 0) : 0}
+                      onChange={(e) => {
+                        const v = Math.max(0, Math.floor(Number(e.target.value) || 0));
+                        setCompanyPrices(() => {
+                          const next: Record<number, number> = {};
+                          for (const co of companies) next[co.id] = v;
+                          return next;
+                        });
+                      }}
+                    />
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Listado por empresa: solo visible al editar */}
+              {isEditing && (
+                <>
+                  <p className="text-[10px] uppercase tracking-brand text-muted-foreground">
+                    {companies.length} {companies.length === 1 ? 'empresa' : 'empresas'} — scroll si no entran todas
+                  </p>
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto p-2 border border-border rounded-md bg-muted/10">
+                    {companies.map((co) => (
+                      <div key={co.id} className="flex items-center gap-3">
+                        <Label htmlFor={`price-co-${co.id}`} className="text-xs flex-1 min-w-0 truncate">
+                          {co.nombre}
+                        </Label>
+                        <div className="relative w-[140px] shrink-0">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                          <Input
+                            id={`price-co-${co.id}`}
+                            type="number"
+                            min={0}
+                            step={1}
+                            className="pl-7 h-9"
+                            value={companyPrices[co.id] ?? 0}
+                            onChange={(e) =>
+                              setCompanyPrices((prev) => ({
+                                ...prev,
+                                [co.id]: Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -260,5 +298,46 @@ export function CategoryFormDialog({ open, onClose, editing, allCategories }: Pr
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────
+
+/**
+ * Input + botón "Aplicar a todas". Atajo para llenar todos los precios con
+ * el mismo valor cuando hay muchas empresas. El admin después edita las que
+ * difieran.
+ */
+function BulkPriceInput({ onApply }: { onApply: (value: number) => void }) {
+  const [value, setValue] = useState<number>(0);
+  return (
+    <div className="flex items-end gap-2 p-3 rounded-md bg-muted/30 border border-border">
+      <div className="flex-1 min-w-0 space-y-1">
+        <Label htmlFor="bulk-price" className="text-[11px] uppercase tracking-brand text-muted-foreground">
+          Precio por defecto
+        </Label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+          <Input
+            id="bulk-price"
+            type="number"
+            min={0}
+            step={1}
+            className="pl-7 h-9"
+            value={value}
+            onChange={(e) => setValue(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+          />
+        </div>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-9 uppercase tracking-brand text-[11px] shrink-0"
+        onClick={() => onApply(value)}
+      >
+        Aplicar a todas
+      </Button>
+    </div>
   );
 }
