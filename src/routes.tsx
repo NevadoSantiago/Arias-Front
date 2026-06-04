@@ -22,6 +22,7 @@ import { CompanyAdminEmployeesPage } from '@/pages/companyAdmin/CompanyAdminEmpl
 import { CompanyAdminMetricsPage } from '@/pages/companyAdmin/CompanyAdminMetricsPage';
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute';
 import { PublicRoute } from '@/features/auth/components/PublicRoute';
+import { LandingRoute } from '@/features/landing/components/LandingRoute';
 
 export const router = createBrowserRouter([
   // ─── Rutas públicas (no requieren sesión) ─────────────────────────────
@@ -92,7 +93,7 @@ export const router = createBrowserRouter([
   // Página pública del link "no quiero más recordatorios" del mail
   { path: '/unsubscribe-reminder', element: <UnsubscribeReminderPage /> },
 
-  // Default redirect (sin sesión → /login; con sesión → home del rol vía ProtectedRoute)
-  { path: '/', element: <Navigate to="/orders/today" replace /> },
-  { path: '*', element: <Navigate to="/orders/today" replace /> },
+  // Raíz pública: landing de marketing (con sesión → home del rol vía LandingRoute)
+  { path: '/', element: <LandingRoute /> },
+  { path: '*', element: <Navigate to="/" replace /> },
 ]);
