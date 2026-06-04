@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuthActions } from '../hooks/useAuthActions';
 
@@ -115,9 +116,8 @@ export function FirstLoginStep({ email, onBack }: Props) {
           <Label htmlFor="password" className="uppercase tracking-brand text-xs">
             Contraseña
           </Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
             aria-invalid={!!errors.password}
             {...register('password')}
@@ -133,9 +133,8 @@ export function FirstLoginStep({ email, onBack }: Props) {
           <Label htmlFor="confirmPassword" className="uppercase tracking-brand text-xs">
             Confirmar contraseña
           </Label>
-          <Input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             autoComplete="new-password"
             aria-invalid={!!errors.confirmPassword}
             {...register('confirmPassword')}

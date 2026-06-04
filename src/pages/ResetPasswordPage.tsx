@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { resetPassword } from '@/features/auth/services/authApi';
 
@@ -80,9 +80,8 @@ export function ResetPasswordPage() {
                 <Label htmlFor="password" className="uppercase tracking-brand text-xs">
                   Contraseña
                 </Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   autoComplete="new-password"
                   autoFocus
                   aria-invalid={!!errors.password}
@@ -97,9 +96,8 @@ export function ResetPasswordPage() {
                 <Label htmlFor="confirmPassword" className="uppercase tracking-brand text-xs">
                   Confirmar contraseña
                 </Label>
-                <Input
+                <PasswordInput
                   id="confirmPassword"
-                  type="password"
                   autoComplete="new-password"
                   aria-invalid={!!errors.confirmPassword}
                   {...register('confirmPassword')}

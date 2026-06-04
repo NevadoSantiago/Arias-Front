@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { InvalidCredentialsError } from '../services/authApi';
 import { useAuthActions } from '../hooks/useAuthActions';
@@ -72,9 +72,8 @@ export function PasswordStep({ email, onBack }: Props) {
           <Label htmlFor="password" className="uppercase tracking-brand text-xs">
             Contraseña
           </Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="current-password"
             autoFocus
             aria-invalid={!!errors.password || !!serverError}
