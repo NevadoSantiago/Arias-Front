@@ -1,18 +1,50 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { EmailStep } from '@/features/auth/components/EmailStep';
 import { PasswordStep } from '@/features/auth/components/PasswordStep';
 import { FirstLoginStep } from '@/features/auth/components/FirstLoginStep';
+import { checkEmail } from '@/features/auth/services/authApi';
 import bienvenidaIZ from '@/assets/illustrations/BienvenidaIZ.svg';
 import bienvenidaDE from '@/assets/illustrations/BienvenidaDE.svg';
 
 type Step =
   | { kind: 'email' }
+  | { kind: 'resolving' } // resolviendo un email que vino por query param (link de mail)
   | { kind: 'password'; email: string }
   | { kind: 'first-login'; email: string };
 
 export function LoginPage() {
-  const [step, setStep] = useState<Step>({ kind: 'email' });
-  const [lastEmail, setLastEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  // Email que puede venir pre-cargado desde el link del mail de bienvenida.
+  const emailParam = (searchParams.get('email') ?? '').trim().toLowerCase();
+
+  const [step, setStep] = useState<Step>(
+    emailParam ? { kind: 'resolving' } : { kind: 'email' },
+  );
+  const [lastEmail, setLastEmail] = useState(emailParam);
+
+  // Si llegamos con ?email=..., resolvemos solos el paso (primer ingreso o
+  // contraseña) sin pedir el email de nuevo. Si falla, caemos al flujo normal.
+  useEffect(() => {
+    if (!emailParam) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { requiresFirstLogin } = await checkEmail(emailParam);
+        if (cancelled) return;
+        setStep(
+          requiresFirstLogin
+            ? { kind: 'first-login', email: emailParam }
+            : { kind: 'password', email: emailParam },
+        );
+      } catch {
+        if (!cancelled) setStep({ kind: 'email' });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [emailParam]);
 
   const handleBack = () => {
     setStep({ kind: 'email' });
@@ -47,6 +79,12 @@ export function LoginPage() {
         <section className="lg:flex-1 lg:flex lg:items-center lg:justify-center lg:px-8 lg:py-8 lg:-mt-[14rem]">
           <div className="w-full max-w-md mx-auto">
             <div className="bg-card rounded-lg border border-border p-8 shadow-sm">
+              {step.kind === 'resolving' && (
+                <div className="py-10 text-center">
+                  <p className="text-muted-foreground text-sm">Cargando tu cuenta…</p>
+                </div>
+              )}
+
               {step.kind === 'email' && (
                 <EmailStep
                   initialEmail={lastEmail}
