@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Power, PowerOff } from 'lucide-react';
+import { Pencil, Plus, Power, PowerOff, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import {
-  listSidesAdmin, disableSide, enableSide, getSideAffectedOrders,
+  listSidesAdmin, disableSide, enableSide, archiveSide, getSideAffectedOrders,
   type AdminSide, type SideType,
 } from '@/features/admin/services/adminApi';
 import { SideFormDialog } from '@/features/admin/components/SideFormDialog';
@@ -33,6 +38,10 @@ export function AdminSidesPage() {
   });
   const enableMutation = useMutation({
     mutationFn: enableSide,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminSides'] }),
+  });
+  const archiveMutation = useMutation({
+    mutationFn: archiveSide,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['adminSides'] }),
   });
 
@@ -115,12 +124,45 @@ export function AdminSidesPage() {
                             }
                           />
                         ) : (
-                          <Button size="icon" variant="ghost"
-                            onClick={() => enableMutation.mutate(s.id)}
-                            aria-label="Reactivar"
-                            className="h-8 w-8 text-success hover:text-success hover:bg-success/10">
-                            <Power className="w-3.5 h-3.5" />
-                          </Button>
+                          <>
+                            <Button size="icon" variant="ghost"
+                              onClick={() => enableMutation.mutate(s.id)}
+                              aria-label="Reactivar"
+                              className="h-8 w-8 text-success hover:text-success hover:bg-success/10">
+                              <Power className="w-3.5 h-3.5" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" aria-label="Eliminar"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="font-display text-2xl">
+                                    ¿Eliminar el acompañamiento?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    <strong>{s.nombre}</strong> va a desaparecer del listado.
+                                    Los pedidos históricos van a seguir mostrando su nombre,
+                                    pero no se va a poder reactivar.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="uppercase tracking-brand text-xs">
+                                    Cancelar
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={(e) => { e.preventDefault(); archiveMutation.mutate(s.id); }}
+                                    className="uppercase tracking-brand text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Sí, eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
                         )}
                       </div>
                     </Td>

@@ -319,6 +319,10 @@ export async function enableSide(id: number): Promise<void> {
   await api.put(`/api/v1/sides/${id}/enable`);
 }
 
+export async function archiveSide(id: number): Promise<void> {
+  await api.delete(`/api/v1/sides/${id}/archive`);
+}
+
 // ─── Dishes (CRUD admin completo) ─────────────────────────────────────
 
 export interface AdminDish {
