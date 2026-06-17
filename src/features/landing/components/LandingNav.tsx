@@ -67,7 +67,7 @@ export function LandingNav() {
             className="uppercase tracking-brand text-xs"
             onClick={() => scrollToId(SECTIONS.cotizacion)}
           >
-            Pedí cotización
+            Pida cotización
           </Button>
         </div>
       </div>

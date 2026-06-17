@@ -38,45 +38,45 @@ const DIFERENCIADORES = [
   {
     img: chefCocinando,
     title: 'Comida casera de bodegón',
-    text: 'Más de 10 años de cocina familiar en Núñez. Platos de verdad, no viandas industriales: la calidad que tu equipo merece.',
+    text: 'Más de 10 años de trayectoria, cocinando rico y dando el mejor servicio a todas las empresas de la zona.',
   },
   {
     img: panaderoDuda,
-    title: 'Precio pensado para empresas',
-    text: 'Acordamos un valor cerrado por categoría con cada empresa. Sin sorpresas, sin letra chica: accesibilidad real para tu presupuesto.',
+    title: 'Presupuesto personalizado para empresas',
+    text: 'Acordamos con cada empresa el presupuesto real por vianda.',
   },
   {
     img: chefOfrece,
-    title: 'Todo el abanico de Arias',
-    text: 'Configurás qué ve y qué pide tu equipo, pero siempre mostrando toda la variedad que Arias tiene para ofrecer cada día.',
+    title: 'Control y autogestión para su empresa',
+    text: 'Desde su panel de gestión puede monitorear consumo, dar altas y bajas a cada empleado y personalizar su experiencia.',
   },
 ];
 
 const PASOS = [
   {
     n: '01',
-    title: 'Tu empresa configura',
-    text: 'Definís categorías, precios y horarios. Vos tenés el control de qué puede pedir cada empleado.',
+    title: 'Su empresa configura',
+    text: 'Define categorías, precios y horarios. Usted tiene el control de qué puede pedir cada empleado.',
   },
   {
     n: '02',
-    title: 'El empleado elige',
-    text: 'Entra a la app, ve el menú del día y arma su pedido en segundos. Elige él, no le toca lo que sobra.',
+    title: 'El usuario elige',
+    text: 'Entra a la web, hace su pedido en segundos y listo.',
   },
   {
     n: '03',
     title: 'Arias cocina y entrega',
-    text: 'Cocinamos fresco y entregamos en tu empresa en el horario que acordamos. Sin que tengas que mover un dedo.',
+    text: 'Cocinamos la mejor comida casera y la entregamos en el horario pactado. Sin demoras, sin complicaciones.',
   },
 ];
 
 const FEATURES = [
-  { icon: Clock, title: 'Horarios por empresa', text: 'Cada empresa define su horario de entrega. Nos adaptamos a tu operativa, no al revés.' },
-  { icon: Truck, title: 'Entrega a domicilio', text: 'Llevamos los pedidos directo a tu oficina, listos para almorzar.' },
-  { icon: BarChart3, title: 'Métricas de consumo', text: 'Dashboard con cuánto se está pidiendo y qué. Control total sobre el gasto de tu equipo.' },
-  { icon: SlidersHorizontal, title: 'App configurable', text: 'Categorías, platos, precios y permisos: todo a tu medida desde el panel de administración.' },
-  { icon: UtensilsCrossed, title: 'Menú variado', text: 'Ofrecemos distintas categorías de menú: vos elegís la que mejor se ajusta al presupuesto y a los gustos de tu equipo.' },
-  { icon: HeartHandshake, title: 'Trato familiar', text: 'Detrás de Arias está la familia Mazzariello. Hablás con personas, no con un call center.' },
+  { icon: Clock, title: 'Horarios por empresa', text: 'Cada empresa define su horario de entrega. Nos adaptamos a su operativa, no al revés.' },
+  { icon: Truck, title: 'Entrega a domicilio', text: 'Llevamos los pedidos directo a su oficina, listos para almorzar.' },
+  { icon: BarChart3, title: 'Panel de control', text: 'Mire en directo los consumos y los pedidos de su equipo.' },
+  { icon: SlidersHorizontal, title: 'App configurable', text: 'Categorías, platos, precios y permisos: todo a su medida desde el panel de administración.' },
+  { icon: UtensilsCrossed, title: 'Menú variado', text: 'Ofrecemos distintas categorías de menú: usted elige la que mejor se ajusta al presupuesto y a los gustos de su equipo.' },
+  { icon: HeartHandshake, title: 'Trato familiar', text: 'Detrás de Arias está la familia Mazzariello. Habla con personas, no con un call center.' },
 ];
 
 export function LandingPage() {
@@ -94,12 +94,12 @@ export function LandingPage() {
             </p>
             <h1 className="font-display text-foreground text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] mb-5">
               Comida casera de bodegón,{' '}
-              <span className="text-primary">pensada para tu empresa</span>
+              <span className="text-primary">pensada para su empresa</span>
             </h1>
             <p className="text-muted-foreground text-base sm:text-lg max-w-xl mx-auto lg:mx-0 mb-8">
-              Fusionamos la calidad de un bodegón familiar de Núñez con la accesibilidad
-              de precio que las empresas necesitan. Tu equipo elige del menú; nosotros
-              cocinamos y entregamos.
+              Adaptamos nuestra propuesta de bodegón clásico porteño a la medida de lo
+              que su empresa necesita. Comida de primera calidad, servicio personalizado
+              y compromiso con su experiencia son nuestros pilares fundamentales.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
               <Button
@@ -107,7 +107,7 @@ export function LandingPage() {
                 className="uppercase tracking-brand font-medium"
                 onClick={() => scrollToId(SECTIONS.cotizacion)}
               >
-                Pedí tu cotización
+                Pida su cotización
               </Button>
               <Button
                 asChild
@@ -138,8 +138,8 @@ export function LandingPage() {
               ¿Por qué Arias?
             </h2>
             <p className="text-muted-foreground">
-              No somos un catering más. Somos un bodegón de verdad, con la espalda de
-              una familia que cocina hace más de una década.
+              Somos un bodegón familiar que intenta llevar su amor y dedicación en
+              cada plato que hacemos.
             </p>
           </Reveal>
 
@@ -166,8 +166,8 @@ export function LandingPage() {
                 Quiénes somos
               </p>
               <h2 className="font-display text-3xl sm:text-4xl font-bold mb-5 leading-tight">
-                Un bodegón de verdad,{' '}
-                <span className="text-primary">en una esquina de Núñez</span>
+                El bodegón de siempre,{' '}
+                <span className="text-primary">ahora a un clic de distancia</span>
               </h2>
               <div className="space-y-4 text-muted-foreground leading-relaxed">
                 <p>
@@ -180,7 +180,7 @@ export function LandingPage() {
                   cambiamos lo que somos: llevamos <strong className="text-foreground">la
                   misma comida que servimos en el salón</strong> a las oficinas. No somos
                   un servicio de viandas rápidas. Somos el bodegón de la esquina, ahora
-                  también en tu trabajo.
+                  también en su trabajo.
                 </p>
               </div>
             </Reveal>
@@ -259,10 +259,10 @@ export function LandingPage() {
         <div className="container">
           <Reveal className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="font-display text-3xl sm:text-4xl font-bold mb-3">
-              Todo lo que tu empresa necesita
+              Todo lo que su empresa necesita
             </h2>
             <p className="text-muted-foreground">
-              Una herramienta completa para que dar de comer a tu equipo deje de ser un problema.
+              Una herramienta completa para que dar de comer a su equipo deje de ser un problema.
             </p>
           </Reveal>
 
@@ -301,16 +301,15 @@ export function LandingPage() {
               Hablemos claro 😏
             </p>
             <h2 className="font-display text-3xl sm:text-4xl font-bold leading-tight mb-4">
-              ¿Ves este bife de chorizo?
+              ¿Ves este platazo?
             </h2>
             <p className="text-lg leading-relaxed opacity-95 mb-3">
-              La idea no es que te llegue algo así a la oficina… porque después te tenés
-              que ir a dormir la siesta. 😴
+              La idea es llevar la calidad y la cantidad que tanto nos caracteriza
+              directo a tus oficinas.
             </p>
             <p className="text-lg leading-relaxed opacity-95">
-              Por eso las viandas son <strong>personalizadas</strong> y acordes a un plato
-              de oficina: vos y tu equipo eligen qué comer cada día. Aunque… che, si querés
-              algo así, todo se puede charlar. 😉
+              No somos una empresa de viandas industriales, somos un bodegón familiar
+              que busca dar la mejor solución a los almuerzos de tu equipo.
             </p>
             <div className="mt-6">
               <Button
@@ -319,7 +318,7 @@ export function LandingPage() {
                 className="uppercase tracking-brand font-medium"
                 onClick={() => scrollToId(SECTIONS.cotizacion)}
               >
-                Dale, charlemos
+                Dale, me interesa
               </Button>
             </div>
           </Reveal>
@@ -366,11 +365,11 @@ export function LandingPage() {
               Empecemos
             </p>
             <h2 className="font-display text-3xl sm:text-4xl font-bold mb-4">
-              Pedí tu cotización
+              Pida su cotización
             </h2>
             <p className="text-muted-foreground mb-6">
-              Contanos cuántos son y qué necesitás. Te armamos una propuesta a medida
-              para tu empresa, sin compromiso.
+              Cuéntenos cuántos son y qué necesita. Le armamos una propuesta a medida
+              para su empresa, sin compromiso.
             </p>
             <img
               src={chefOfrece}

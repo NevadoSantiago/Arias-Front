@@ -9,8 +9,8 @@ import { submitQuote } from '../services/landingApi';
 import { buildWhatsAppUrl } from '../landingConfig';
 
 const schema = z.object({
-  nombre: z.string().min(2, 'Ingresá tu nombre'),
-  empresa: z.string().min(2, 'Ingresá el nombre de tu empresa'),
+  nombre: z.string().min(2, 'Ingrese su nombre'),
+  empresa: z.string().min(2, 'Ingrese el nombre de su empresa'),
   email: z.string().email('Email inválido'),
   telefono: z.string().optional().or(z.literal('')),
   // String opcional; si viene, tiene que ser un entero positivo. Lo parseamos
@@ -18,7 +18,7 @@ const schema = z.object({
   empleados: z
     .string()
     .optional()
-    .refine((v) => !v || /^\d+$/.test(v), 'Ingresá un número válido')
+    .refine((v) => !v || /^\d+$/.test(v), 'Ingrese un número válido')
     .refine((v) => !v || Number(v) >= 1, 'Mínimo 1'),
   mensaje: z.string().max(500, 'Máximo 500 caracteres').optional().or(z.literal('')),
 });
@@ -48,7 +48,7 @@ export function QuoteForm() {
       setSent(true);
     } catch {
       setServerError(
-        'No pudimos enviar tu consulta. Probá de nuevo o escribinos directo por WhatsApp.',
+        'No pudimos enviar su consulta. Pruebe de nuevo o escríbanos directo por WhatsApp.',
       );
     }
   };
@@ -58,7 +58,7 @@ export function QuoteForm() {
       <div className="text-center py-8">
         <p className="font-display text-2xl text-foreground mb-2">¡Gracias! 🎉</p>
         <p className="text-muted-foreground text-sm">
-          Recibimos tu consulta. El equipo de Arias te va a contactar a la brevedad.
+          Recibimos su consulta. El equipo de Arias se va a contactar con usted a la brevedad.
         </p>
       </div>
     );
@@ -120,7 +120,7 @@ export function QuoteForm() {
           rows={3}
           {...register('mensaje')}
           className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="Contanos qué necesitás para tu equipo…"
+          placeholder="Cuéntenos qué necesita para su equipo…"
         />
         {errors.mensaje && <p className="text-destructive text-xs">{errors.mensaje.message}</p>}
       </div>
@@ -134,7 +134,7 @@ export function QuoteForm() {
             rel="noopener noreferrer"
             className="underline font-medium"
           >
-            Escribinos por WhatsApp →
+            Escríbanos por WhatsApp →
           </a>
         </div>
       )}
@@ -145,7 +145,7 @@ export function QuoteForm() {
         size="lg"
         className="w-full uppercase tracking-brand font-medium"
       >
-        {isSubmitting ? 'Enviando…' : 'Pedí tu cotización'}
+        {isSubmitting ? 'Enviando…' : 'Pida su cotización'}
       </Button>
     </form>
   );
