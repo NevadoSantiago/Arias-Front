@@ -1,73 +1,48 @@
-# React + TypeScript + Vite
+# Arias — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend del sistema de pedidos empresariales de Arias (bodegón). La documentación
+completa del proyecto (descripción general, stack, funcionalidades, despliegue,
+credenciales de prueba, slides y video) vive en el repositorio del backend:
 
-Currently, two official plugins are available:
+**→ [Arias-Api / README.md](https://github.com/NevadoSantiago/Arias-Api)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+React 19 + TypeScript + Vite, Tailwind CSS + shadcn/ui, TanStack React Query, Zustand,
+React Hook Form + Zod, React Router, Recharts. Desplegado en Cloudflare Pages.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Estructura
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── features/    # Lógica y componentes por dominio (auth, orders, admin, admin-company,
+│                  admin-restaurant, companyAdmin, landing, me, reporting)
+├── pages/       # Páginas por rol (admin, admin-company, admin-restaurant, companyAdmin, employee)
+├── components/  # Componentes UI compartidos (shadcn/ui en components/ui)
+├── layouts/     # Layouts por sección de la app
+├── hooks/       # Hooks reutilizables
+└── lib/         # Cliente axios, utilidades
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Instalación y ejecución en local
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Requiere el [backend](https://github.com/NevadoSantiago/Arias-Api) corriendo en
+`localhost:8080`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
+```
+
+Vite levanta en `http://localhost:5173` y proxea `/api` hacia `http://localhost:8080`
+(ver `vite.config.ts`), por lo que no hace falta variables de entorno en dev.
+
+En producción, `VITE_API_URL` apunta al dominio del backend.
+
+## Despliegue
+
+Cloudflare Pages, vía Wrangler:
+
+```bash
+npm run deploy
 ```
