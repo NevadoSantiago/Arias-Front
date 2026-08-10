@@ -88,24 +88,28 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
     setServerError(null);
   }, [editing, open, reset]);
 
-  // Si cambia el tipo, limpiamos los sides seleccionados (porque ya no son válidos)
-  useEffect(() => {
-    if (!open) return;
-    if (sideType === 'NONE') {
+  /**
+   * Cambio de tipo de acompañamiento hecho POR EL USUARIO: los sides que tenía
+   * seleccionados son del tipo anterior, así que ya no aplican.
+   *
+   * <p>Ojo: esto NO puede vivir en un useEffect sobre `sideType`. El efecto no
+   * distingue un cambio del usuario de uno del `reset()` de arriba, y al abrir
+   * el diálogo el reset dispara antes de que `allSides` haya cargado → filtraba
+   * contra una lista vacía y borraba las guarniciones ya guardadas.
+   */
+  const handleSideTypeChange = (next: FormData['sideType']) => {
+    setValue('sideType', next);
+    if (next === 'NONE') {
       setValue('allowedSideIds', [], { shouldValidate: false });
-    } else {
-      // Filtramos los seleccionados que ya no matchean
-      const validIds = (allSides ?? [])
-        .filter((s) => s.tipo === sideType)
-        .map((s) => s.id);
-      setValue(
-        'allowedSideIds',
-        allowedSideIds.filter((id) => validIds.includes(id)),
-        { shouldValidate: false }
-      );
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sideType, allSides, open]);
+    const validIds = new Set(
+      (allSides ?? []).filter((s) => s.tipo === next).map((s) => s.id)
+    );
+    setValue('allowedSideIds', allowedSideIds.filter((id) => validIds.has(id)), {
+      shouldValidate: false,
+    });
+  };
 
   const filteredSides = (allSides ?? []).filter(
     (s) => s.tipo === sideType && s.enabled
@@ -253,7 +257,7 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
             <Label className="uppercase tracking-brand text-xs">Acompañamiento</Label>
             <RadioGroup
               value={sideType}
-              onValueChange={(v) => setValue('sideType', v as FormData['sideType'])}
+              onValueChange={(v) => handleSideTypeChange(v as FormData['sideType'])}
               className="flex flex-col gap-2"
             >
               <RadioOption value="NONE" label="Sin acompañamiento" />
