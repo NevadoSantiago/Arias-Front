@@ -17,13 +17,20 @@ en el backend; esta copia solo especifica cómo la interfaz la refleja.
 
 ### Requirement: Formulario de registro con datos mínimos
 El sistema MUST presentar un formulario público accesible desde el QR que capture nombre, correo
-electrónico, teléfono y un apodo para mostrar, y MUST mostrar en el propio formulario los errores de
-campos faltantes o inválidos que la API de registro devuelva, sin exponer detalles internos.
+electrónico, teléfono, un apodo para mostrar y una contraseña, y MUST mostrar en el propio formulario
+los errores de campos faltantes o inválidos que la API de registro devuelva, sin exponer detalles
+internos. La contraseña es obligatoria porque el alta por correo es el camino alternativo a Google:
+sin ella la cuenta no podría volver a iniciar sesión ni recuperar el acceso.
 
 #### Scenario: Visitante completa el formulario
 - GIVEN un visitante que escaneó el QR y no tiene cuenta previa
-- WHEN completa nombre, correo, teléfono y apodo y confirma
+- WHEN completa nombre, correo, teléfono, apodo y contraseña y confirma
 - THEN la UI envía la solicitud de registro y navega al paso de verificación de correo
+
+#### Scenario: La UI valida la contraseña antes de enviar
+- GIVEN un visitante completando el formulario de registro
+- WHEN ingresa una contraseña más corta que el mínimo exigido por la API
+- THEN la UI señala ese campo y no envía la solicitud
 
 #### Scenario: La UI señala campos faltantes
 - GIVEN un visitante completando el formulario de registro
