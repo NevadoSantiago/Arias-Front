@@ -11,6 +11,9 @@ import { CompleteProfilePage } from '@/pages/CompleteProfilePage';
 import { UnsubscribeReminderPage } from '@/pages/UnsubscribeReminderPage';
 import { TodayOrderPage } from '@/pages/employee/TodayOrderPage';
 import { OrderSummaryPage } from '@/pages/employee/OrderSummaryPage';
+import { CreditsWalletPage } from '@/pages/credits/CreditsWalletPage';
+import { CreditsPacksPage } from '@/pages/credits/CreditsPacksPage';
+import { CreditsCheckoutReturnPage } from '@/pages/credits/CreditsCheckoutReturnPage';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 import { AdminConfigPage } from '@/pages/admin/AdminConfigPage';
 import { AdminCompaniesPage } from '@/pages/admin/AdminCompaniesPage';
@@ -73,6 +76,25 @@ export const router = createBrowserRouter([
     children: [
       { path: '/orders/today', element: <TodayOrderPage /> },
       { path: '/orders/today/summary', element: <OrderSummaryPage /> },
+    ],
+  },
+
+  // ─── Billetera de almuerzos (créditos) ─────────────────────────────────
+  // Sin restricción de rol: el backend expone estos endpoints con
+  // isAuthenticated() únicamente (ver CreditController/CreditPurchaseController).
+  {
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { path: '/credits', element: <CreditsWalletPage /> },
+      { path: '/credits/packs', element: <CreditsPacksPage /> },
+      { path: '/compras/:purchaseId/procesando', element: <CreditsCheckoutReturnPage /> },
+      { path: '/credits/checkout/exito', element: <CreditsCheckoutReturnPage /> },
+      { path: '/credits/checkout/pendiente', element: <CreditsCheckoutReturnPage /> },
+      { path: '/credits/checkout/error', element: <CreditsCheckoutReturnPage /> },
     ],
   },
 

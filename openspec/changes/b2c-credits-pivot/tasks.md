@@ -58,9 +58,9 @@ Verificación: `npx vitest run src/features/auth`, `npm run lint`, `tsc -b`.
 
 ## Unidad 3 — Frontend: credits (billetera / paquetes / checkout)
 
-- [ ] 3.1 Crear `frontend/src/features/credits/{services/creditsApi.ts,hooks/useWallet.ts,components/{WalletBalance,PackCard,PurchaseHistory}.tsx}`.
-- [ ] 3.2 Rutas `/credits`, `/credits/packs`, `/credits/checkout/{exito,pendiente,error}` en `routes.tsx`; la página de retorno hace polling de `GET /api/v1/credits/purchases/{id}` y muestra "procesando" — **nunca** acredita desde el frontend.
-- [ ] 3.3 Test Vitest: `WalletBalance` muestra AVAILABLE y COMMITTED por separado; la página de retorno no afirma acreditación mientras el estado es `PENDING` — cubre spec `credits-ui` (la contraparte de UI de `credit-pack-purchase`/`credit-ledger`, capacidades de dominio del backend).
+- [x] 3.1 Crear `frontend/src/features/credits/{services/creditsApi.ts,hooks/useWallet.ts,components/{WalletBalance,PackCard,PurchaseHistory}.tsx}`.
+- [x] 3.2 Rutas `/credits`, `/credits/packs`, `/credits/checkout/{exito,pendiente,error}` en `routes.tsx`; la página de retorno hace polling de `GET /api/v1/credits/purchases/{id}` y muestra "procesando" — **nunca** acredita desde el frontend.
+- [x] 3.3 Test Vitest: `WalletBalance` muestra AVAILABLE y COMMITTED por separado; la página de retorno no afirma acreditación mientras el estado es `PENDING` — cubre spec `credits-ui` (la contraparte de UI de `credit-pack-purchase`/`credit-ledger`, capacidades de dominio del backend).
 
 Verificación: `npx vitest run src/features/credits`, `npm run lint`, `tsc -b`.
 
