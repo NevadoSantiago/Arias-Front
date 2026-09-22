@@ -40,10 +40,10 @@ backend (ver "Contrato con el backend" en `design.md`) existan y estén accesibl
 
 ## Unidad 1 — Vitest + Testing Library (frontend, PRIMERA unidad de frontend)
 
-- [ ] 1.1 `frontend/package.json`: agregar devDependencies `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`; script `"test": "vitest run"`.
-- [ ] 1.2 `frontend/vite.config.ts`: bloque `test` (environment `jsdom`, `setupFiles`) reutilizando los alias `@/` existentes.
-- [ ] 1.3 Crear `frontend/src/test/setup.ts` (import de `@testing-library/jest-dom`).
-- [ ] 1.4 Test de humo mínimo sobre un componente ya existente (por ejemplo `DishCard`) para validar que el runner funciona antes de construir features nuevas sobre él.
+- [x] 1.1 `frontend/package.json`: agregar devDependencies `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`; script `"test": "vitest run"`.
+- [x] 1.2 `frontend/vite.config.ts`: bloque `test` (environment `jsdom`, `setupFiles`) reutilizando los alias `@/` existentes.
+- [x] 1.3 Crear `frontend/src/test/setup.ts` (import de `@testing-library/jest-dom`).
+- [x] 1.4 Test de humo mínimo sobre un componente ya existente (por ejemplo `DishCard`) para validar que el runner funciona antes de construir features nuevas sobre él.
 
 Verificación: `npx vitest run` (desde `frontend/`), luego `npm run lint` y `tsc -b`.
 
