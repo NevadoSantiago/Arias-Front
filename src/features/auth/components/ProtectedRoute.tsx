@@ -26,6 +26,12 @@ export function ProtectedRoute({ children, roles }: Props) {
     return <Navigate to={homeForRole(user.role)} replace />;
   }
 
+  // Perfil incompleto (alta con Google sin teléfono/apodo) — no puede avanzar
+  // a ninguna pantalla de la app hasta completar esos datos.
+  if (user && !user.profileComplete && location.pathname !== '/complete-profile') {
+    return <Navigate to="/complete-profile" replace />;
+  }
+
   return <>{children}</>;
 }
 

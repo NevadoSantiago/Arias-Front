@@ -49,10 +49,10 @@ Verificación: `npx vitest run` (desde `frontend/`), luego `npm run lint` y `tsc
 
 ## Unidad 2 — Frontend: auth (registro / verificación / Google / complete-profile)
 
-- [ ] 2.1 Crear pantallas de registro/verificación en `frontend/src/features/auth/components/` (`RegisterForm`, `VerifyEmailStep`, `CompleteProfileForm`) + botón Google (`@react-oauth/google`).
-- [ ] 2.2 Extender `frontend/src/features/auth/services/authApi.ts` con `register`, `verifyEmail`, `resendVerification`, `googleLogin`, `completeProfile` (consumen los endpoints de `POST /api/v1/auth/*` del backend, ver "Contrato con el backend" en `design.md`).
-- [ ] 2.3 Rutas nuevas `/register`, `/verify-email`, `/complete-profile` en `frontend/src/routes.tsx`. `EmailStep`/`FirstLoginStep` existentes no se tocan.
-- [ ] 2.4 Test Vitest: formato de errores de validación, guard de perfil incompleto, render del botón Google — cubre los requisitos de flujo de UI de la copia frontend de la spec `self-registration` (los de dominio/API/verificación/otorgamiento del almuerzo de bienvenida están cubiertos y probados en la mitad backend).
+- [x] 2.1 Crear pantallas de registro/verificación en `frontend/src/features/auth/components/` (`RegisterForm`, `VerifyEmailStep`, `CompleteProfileForm`) + botón Google (`@react-oauth/google`).
+- [x] 2.2 Extender `frontend/src/features/auth/services/authApi.ts` con `register`, `verifyEmail`, `resendVerification`, `googleLogin`, `completeProfile` (consumen los endpoints de `POST /api/v1/auth/*` del backend, ver "Contrato con el backend" en `design.md`).
+- [x] 2.3 Rutas nuevas `/register`, `/verify-email`, `/complete-profile` en `frontend/src/routes.tsx`. `EmailStep`/`FirstLoginStep` existentes no se tocan.
+- [x] 2.4 Test Vitest: formato de errores de validación, guard de perfil incompleto, render del botón Google — cubre los requisitos de flujo de UI de la copia frontend de la spec `self-registration` (los de dominio/API/verificación/otorgamiento del almuerzo de bienvenida están cubiertos y probados en la mitad backend).
 
 Verificación: `npx vitest run src/features/auth`, `npm run lint`, `tsc -b`.
 

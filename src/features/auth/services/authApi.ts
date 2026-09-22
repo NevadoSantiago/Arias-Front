@@ -19,7 +19,7 @@ export interface CheckEmailResponse {
   requiresFirstLogin: boolean;
 }
 
-interface TokenResponse {
+export interface TokenResponse {
   accessToken: string;
 }
 
@@ -78,6 +78,54 @@ export async function logout(): Promise<void> {
 
 export async function me(): Promise<AuthUser> {
   const { data } = await api.get<AuthUser>(`${BASE}/me`);
+  return data;
+}
+
+// ─── Autorregistro (self-registration) ────────────────────────────────
+
+export interface RegisterPayload {
+  firstName: string;
+  lastName?: string;
+  email: string;
+  phone: string;
+  nickname: string;
+  password: string;
+}
+
+/**
+ * Alta pública. La respuesta del backend es SIEMPRE el mismo mensaje neutro,
+ * exista o no la cuenta — nunca la interpretamos como confirmación de que el
+ * email es nuevo (paridad de enumeración de cuentas). Nunca devuelve sesión.
+ */
+export async function register(payload: RegisterPayload): Promise<void> {
+  await api.post(`${BASE}/register`, payload);
+}
+
+/** Confirma el correo y, con eso, emite sesión (único punto que loguea en el flujo de registro). */
+export async function verifyEmail(token: string): Promise<TokenResponse> {
+  const { data } = await api.post<TokenResponse>(`${BASE}/verify-email`, { token });
+  return data;
+}
+
+/** Reenvío del correo de verificación — respuesta neutra, misma protección de enumeración que `register`. */
+export async function resendVerification(email: string): Promise<void> {
+  await api.post(`${BASE}/resend-verification`, { email });
+}
+
+/** Alta/login con Google — el ID token se manda tal cual, el backend lo valida. Siempre emite sesión. */
+export async function googleLogin(idToken: string): Promise<TokenResponse> {
+  const { data } = await api.post<TokenResponse>(`${BASE}/google`, { idToken });
+  return data;
+}
+
+export interface CompleteProfilePayload {
+  phone: string;
+  nickname: string;
+}
+
+/** Completa teléfono/apodo tras un alta por Google. Requiere sesión (Bearer). */
+export async function completeProfile(payload: CompleteProfilePayload): Promise<AuthUser> {
+  const { data } = await api.post<AuthUser>(`${BASE}/complete-profile`, payload);
   return data;
 }
 

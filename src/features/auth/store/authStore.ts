@@ -11,6 +11,10 @@ export interface AuthUser {
   companyId: number | null;
   companyName: string | null;
   categoryId: number | null;
+  /** true si la cuenta ya validó su correo (verificación de correo o Google). */
+  emailVerified: boolean;
+  /** true si tiene teléfono y apodo. false hasta completar el perfil (alta con Google). */
+  profileComplete: boolean;
 }
 
 interface AuthState {

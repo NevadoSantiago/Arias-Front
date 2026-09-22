@@ -1,6 +1,20 @@
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
-import { login, firstLogin, logout, me, type FirstLoginPayload, type LoginPayload } from '../services/authApi';
+import { useAuthStore, type Role } from '../store/authStore';
+import {
+  login,
+  firstLogin,
+  logout,
+  me,
+  register,
+  verifyEmail,
+  resendVerification,
+  googleLogin,
+  completeProfile,
+  type FirstLoginPayload,
+  type LoginPayload,
+  type RegisterPayload,
+  type CompleteProfilePayload,
+} from '../services/authApi';
 import { homeForRole } from '../components/ProtectedRoute';
 
 /**
@@ -32,6 +46,51 @@ export function useAuthActions() {
     navigate(homeForRole(user.role), { replace: true });
   };
 
+  /**
+   * Autorregistro: NUNCA loguea — el backend no emite sesión en `/register`
+   * (poseer el token del mail de verificación es la prueba de que el correo
+   * es propio). Solo navega al paso de "revisá tu correo".
+   */
+  const performRegister = async (payload: RegisterPayload) => {
+    await register(payload);
+    navigate(`/verify-email?email=${encodeURIComponent(payload.email)}`, { replace: true });
+  };
+
+  /** Reenvío del correo de verificación — no cambia el estado de sesión. */
+  const performResendVerification = async (email: string) => {
+    await resendVerification(email);
+  };
+
+  /**
+   * Confirma el correo y establece la sesión. Devuelve el destino calculado
+   * (perfil completo vs. `/complete-profile`) en vez de navegar directamente,
+   * para que la pantalla de verificación pueda mostrar la felicitación por
+   * el almuerzo de bienvenida antes de continuar.
+   */
+  const performVerifyEmail = async (token: string): Promise<{ profileComplete: boolean; role: Role }> => {
+    const { accessToken } = await verifyEmail(token);
+    useAuthStore.getState().setAccessToken(accessToken);
+    const user = await me();
+    setAuth(accessToken, user);
+    return { profileComplete: user.profileComplete, role: user.role };
+  };
+
+  /** Alta/login con Google: siempre emite sesión; si falta perfil, va a completarlo. */
+  const performGoogleLogin = async (idToken: string) => {
+    const { accessToken } = await googleLogin(idToken);
+    useAuthStore.getState().setAccessToken(accessToken);
+    const user = await me();
+    setAuth(accessToken, user);
+    navigate(user.profileComplete ? homeForRole(user.role) : '/complete-profile', { replace: true });
+  };
+
+  /** Completa teléfono/apodo tras un alta por Google y recién ahí deja avanzar a la app. */
+  const performCompleteProfile = async (payload: CompleteProfilePayload) => {
+    const user = await completeProfile(payload);
+    useAuthStore.getState().setUser(user);
+    navigate(homeForRole(user.role), { replace: true });
+  };
+
   /** Logout: revoca cookie en backend, limpia store, navega a /login. */
   const performLogout = async () => {
     try {
@@ -43,5 +102,14 @@ export function useAuthActions() {
     navigate('/login', { replace: true });
   };
 
-  return { performLogin, performFirstLogin, performLogout };
+  return {
+    performLogin,
+    performFirstLogin,
+    performLogout,
+    performRegister,
+    performResendVerification,
+    performVerifyEmail,
+    performGoogleLogin,
+    performCompleteProfile,
+  };
 }

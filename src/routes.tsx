@@ -5,6 +5,9 @@ import { AdminLayout } from '@/layouts/AdminLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { RegisterPage } from '@/pages/RegisterPage';
+import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
+import { CompleteProfilePage } from '@/pages/CompleteProfilePage';
 import { UnsubscribeReminderPage } from '@/pages/UnsubscribeReminderPage';
 import { TodayOrderPage } from '@/pages/employee/TodayOrderPage';
 import { OrderSummaryPage } from '@/pages/employee/OrderSummaryPage';
@@ -37,7 +40,27 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/register', element: <RegisterPage /> },
     ],
+  },
+
+  // ─── Verificación de correo (autorregistro) ────────────────────────────
+  // Sin PublicRoute a propósito: el link del mail puede establecer sesión a
+  // mitad de la pantalla (verify-email emite sesión), y un guard de
+  // "ya autenticado → afuera" pisaría esa navegación en pleno vuelo.
+  {
+    element: <AuthLayout />,
+    children: [{ path: '/verify-email', element: <VerifyEmailPage /> }],
+  },
+
+  // ─── Completar perfil (alta con Google sin teléfono/apodo) ─────────────
+  {
+    element: (
+      <ProtectedRoute>
+        <AuthLayout />
+      </ProtectedRoute>
+    ),
+    children: [{ path: '/complete-profile', element: <CompleteProfilePage /> }],
   },
 
   // ─── Rutas de empleado ────────────────────────────────────────────────
