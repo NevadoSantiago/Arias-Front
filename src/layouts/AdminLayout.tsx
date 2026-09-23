@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LogOut, LayoutDashboard, UtensilsCrossed, Building2, ListOrdered, Salad, Settings, Eye, CalendarDays, Layers, Receipt } from 'lucide-react';
+import { LogOut, LayoutDashboard, UtensilsCrossed, Building2, ListOrdered, Salad, Settings, Eye, CalendarDays, Layers, Receipt, Clock, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -19,6 +19,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/dish-calendar', label: 'Calendario',              icon: CalendarDays },
   { to: '/admin/companies',     label: 'Empresas',              icon: Building2 },
   { to: '/admin/billing',       label: 'Facturación',           icon: Receipt },
+  { to: '/admin/orders-by-pickup', label: 'Pedidos por retiro', icon: Clock },
+  { to: '/admin/credit-packs',  label: 'Paquetes de almuerzos', icon: Wallet },
   { to: '/admin/sections',      label: 'Secciones del menú',    icon: ListOrdered },
   { to: '/admin/categories',    label: 'Categorías',            icon: Layers },
   { to: '/admin/sides',         label: 'Acompañamientos',       icon: Salad },

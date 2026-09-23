@@ -16,6 +16,8 @@ import { CreditsPacksPage } from '@/pages/credits/CreditsPacksPage';
 import { CreditsCheckoutReturnPage } from '@/pages/credits/CreditsCheckoutReturnPage';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 import { AdminConfigPage } from '@/pages/admin/AdminConfigPage';
+import { AdminOrdersByPickupPage } from '@/pages/admin/AdminOrdersByPickupPage';
+import { AdminCreditPacksPage } from '@/pages/admin/AdminCreditPacksPage';
 import { AdminCompaniesPage } from '@/pages/admin/AdminCompaniesPage';
 import { AdminSectionsPage } from '@/pages/admin/AdminSectionsPage';
 import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage';
@@ -30,6 +32,7 @@ import { CompanyAdminMetricsPage } from '@/pages/companyAdmin/CompanyAdminMetric
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute';
 import { PublicRoute } from '@/features/auth/components/PublicRoute';
 import { LandingRoute } from '@/features/landing/components/LandingRoute';
+import { CorporatePage } from '@/pages/CorporatePage';
 
 export const router = createBrowserRouter([
   // ─── Rutas públicas (no requieren sesión) ─────────────────────────────
@@ -117,6 +120,8 @@ export const router = createBrowserRouter([
       { path: '/admin/categories', element: <AdminCategoriesPage /> },
       { path: '/admin/sides', element: <AdminSidesPage /> },
       { path: '/admin/config', element: <AdminConfigPage /> },
+      { path: '/admin/orders-by-pickup', element: <AdminOrdersByPickupPage /> },
+      { path: '/admin/credit-packs', element: <AdminCreditPacksPage /> },
     ],
   },
 
@@ -140,7 +145,10 @@ export const router = createBrowserRouter([
   // Página pública del link "no quiero más recordatorios" del mail
   { path: '/unsubscribe-reminder', element: <UnsubscribeReminderPage /> },
 
-  // Raíz pública: landing de marketing (con sesión → home del rol vía LandingRoute)
+  // Contenido corporativo (B2B) — trasladado desde la raíz, sin autenticación
+  { path: '/corporate', element: <CorporatePage /> },
+
+  // Raíz pública: landing B2C (con sesión → home del rol vía LandingRoute)
   { path: '/', element: <LandingRoute /> },
   { path: '*', element: <Navigate to="/" replace /> },
 ]);
