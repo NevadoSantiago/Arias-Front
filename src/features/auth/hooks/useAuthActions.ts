@@ -75,13 +75,22 @@ export function useAuthActions() {
     return { profileComplete: user.profileComplete, role: user.role };
   };
 
-  /** Alta/login con Google: siempre emite sesión; si falta perfil, va a completarlo. */
-  const performGoogleLogin = async (idToken: string) => {
-    const { accessToken } = await googleLogin(idToken);
+  /**
+   * Alta/login con Google: siempre emite sesión. Devuelve el destino
+   * calculado y `welcomeLunchGranted` en vez de navegar directamente, para
+   * que la pantalla de registro pueda mostrar la felicitación por el
+   * almuerzo de bienvenida antes de continuar — igual que
+   * {@link performVerifyEmail}. `welcomeLunchGranted` viene tal cual de la
+   * respuesta de `/auth/google`, nunca de `/me`.
+   */
+  const performGoogleLogin = async (
+    idToken: string
+  ): Promise<{ welcomeLunchGranted: boolean; profileComplete: boolean; role: Role }> => {
+    const { accessToken, welcomeLunchGranted } = await googleLogin(idToken);
     useAuthStore.getState().setAccessToken(accessToken);
     const user = await me();
     setAuth(accessToken, user);
-    navigate(user.profileComplete ? homeForRole(user.role) : '/complete-profile', { replace: true });
+    return { welcomeLunchGranted, profileComplete: user.profileComplete, role: user.role };
   };
 
   /** Completa teléfono/apodo tras un alta por Google y recién ahí deja avanzar a la app. */

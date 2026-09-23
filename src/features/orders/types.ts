@@ -9,6 +9,12 @@ export interface Category {
   id: number;
   nombre: string;
   parentId: number | null;
+  /**
+   * Costo en créditos ("almuerzos") de los platos de esta categoría, tal
+   * como lo reporta el backend — nunca se recalcula ni se hardcodea en el
+   * cliente (proposal `b2c-credits-pivot`, "Vocabulario").
+   */
+  creditCost: number;
 }
 
 /** Sección gastronómica del menú (independiente del tier de acceso) */
@@ -40,7 +46,12 @@ export interface Dish {
   especial: boolean;
 }
 
-export type OrderEstado = 'PENDIENTE' | 'CONFIRMADO' | 'COMANDADO' | 'ENTREGADO';
+/**
+ * Compartido por el pedido viejo (`DailyChoice`, sin `CANCELADO` porque
+ * cancela con DELETE) y el pedido nuevo por créditos (`Order`, que sí puede
+ * llegar a `CANCELADO` — soft-cancel, ver `OrderV2` en `ordersApi.ts`).
+ */
+export type OrderEstado = 'PENDIENTE' | 'CONFIRMADO' | 'COMANDADO' | 'ENTREGADO' | 'CANCELADO';
 
 export interface DailyChoice {
   id: number;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +9,9 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuthActions } from '../hooks/useAuthActions';
 import { GoogleLoginButton } from './GoogleLoginButton';
+import { WelcomeLunchScreen } from './WelcomeLunchScreen';
+import { homeForRole } from './ProtectedRoute';
+import type { Role } from '../store/authStore';
 
 const schema = z.object({
   firstName: z
@@ -72,6 +76,8 @@ function mapServerFieldErrors(detail: string): Partial<Record<keyof FormData, st
 
 export function RegisterForm() {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [welcome, setWelcome] = useState<{ profileComplete: boolean; role: Role } | null>(null);
+  const navigate = useNavigate();
   const { performRegister, performGoogleLogin } = useAuthActions();
 
   const {
@@ -100,14 +106,37 @@ export function RegisterForm() {
     }
   };
 
+  /**
+   * Alta/login con Google. Si el backend otorgó el almuerzo de bienvenida en
+   * ESTA llamada (primera validación de la cuenta), muestra la misma
+   * pantalla de felicitación que el flujo de verificación de correo antes de
+   * continuar — gateada por `welcomeLunchGranted`, nunca derivada de `/me`,
+   * y renderizada como máximo una vez porque este estado no se persiste.
+   */
   const handleGoogleSuccess = async (idToken: string) => {
     setServerError(null);
     try {
-      await performGoogleLogin(idToken);
+      const result = await performGoogleLogin(idToken);
+      if (result.welcomeLunchGranted) {
+        setWelcome(result);
+      } else {
+        navigate(result.profileComplete ? homeForRole(result.role) : '/complete-profile', { replace: true });
+      }
     } catch {
       setServerError('No pudimos iniciar sesión con Google. Probá de nuevo.');
     }
   };
+
+  if (welcome) {
+    return (
+      <WelcomeLunchScreen
+        description="Iniciaste sesión con Google y te regalamos 1 almuerzo de bienvenida 🎉"
+        onContinue={() =>
+          navigate(welcome.profileComplete ? homeForRole(welcome.role) : '/complete-profile', { replace: true })
+        }
+      />
+    );
+  }
 
   return (
     <>

@@ -66,9 +66,9 @@ Verificación: `npx vitest run src/features/credits`, `npm run lint`, `tsc -b`.
 
 ## Unidad 4 — Frontend: orders (carrito multi-ítem / retiro)
 
-- [ ] 4.1 Modificar `frontend/src/features/orders/**`: carrito multi-ítem, selector de horario de retiro (consume `GET /api/v1/orders/pickup-slots`), costo visible en "almuerzos" (nunca "créditos").
-- [ ] 4.2 Modificar `frontend/src/features/orders/services/ordersApi.ts` para `PlaceOrderV2Request`.
-- [ ] 4.3 Test Vitest: total del carrito, filtro de slots de retiro, formateo "N almuerzo(s)" — implementa la contraparte de UI de las specs backend `order-placement` y `pickup-scheduling`; ninguna de las dos vive en este repositorio.
+- [x] 4.1 Modificar `frontend/src/features/orders/**`: carrito multi-ítem, selector de horario de retiro (consume `GET /api/v1/orders/pickup-slots`), costo visible en "almuerzos" (nunca "créditos").
+- [x] 4.2 Modificar `frontend/src/features/orders/services/ordersApi.ts` para `PlaceOrderV2Request`.
+- [x] 4.3 Test Vitest: total del carrito, filtro de slots de retiro, formateo "N almuerzo(s)" — implementa la contraparte de UI de las specs backend `order-placement` y `pickup-scheduling`; ninguna de las dos vive en este repositorio.
 
 Verificación: `npx vitest run src/features/orders`, `npm run lint`, `tsc -b`.
 

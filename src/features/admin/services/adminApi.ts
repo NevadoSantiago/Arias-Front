@@ -330,7 +330,7 @@ export interface AdminDish {
   nombre: string;
   descripcion: string | null;
   fotoUrl: string | null;
-  category: { id: number; nombre: string; parentId: number | null };
+  category: { id: number; nombre: string; parentId: number | null; creditCost: number };
   menuSection: { id: number; nombre: string; ordenDisplay: number };
   sideType: SideType | null;
   allowedSides: { id: number; nombre: string; tipo: SideType }[];

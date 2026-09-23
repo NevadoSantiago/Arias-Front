@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { DailyChoice, Dish, MenuSection, RestaurantConfig } from '../types';
+import type { DailyChoice, Dish, MenuSection, OrderEstado, RestaurantConfig } from '../types';
 
 // ─── Endpoints reales del backend ──────────────────────────────────────
 
@@ -96,6 +96,95 @@ export async function getDisabledDates(from?: string, to?: string): Promise<Disa
   if (to) params.to = to;
   const { data } = await api.get<DisabledDate[]>(`${BASE}/restaurant-config/disabled-dates`, { params });
   return data;
+}
+
+// ─── Pedido nuevo por créditos (carrito multi-ítem, retiro programado) ──
+//
+// Bajo /api/v2, convive con el camino viejo de arriba (DailyChoice) mientras
+// el frontend migra — ver `OrderPlacementController` (backend). Mismos roles
+// que el camino viejo: los clientes B2C autorregistrados también reciben
+// Role.EMPLOYEE (company = NULL), así que no hace falta distinguir por rol
+// acá tampoco.
+
+const BASE_V2 = '/api/v2/orders';
+
+export interface OrderItemV2Payload {
+  dishId: number;
+  sideId: number | null;
+  notas: string | null;
+}
+
+export interface PlaceOrderV2Payload {
+  items: OrderItemV2Payload[];
+  /** ISO-8601 instant — uno de los horarios que devolvió {@link getPickupSlots}, nunca generado en el cliente. */
+  pickupAt: string;
+  notas: string | null;
+}
+
+export interface OrderItemV2 {
+  id: number;
+  dishId: number;
+  dishNombre: string;
+  dishCategoria: string;
+  sideId: number | null;
+  sideNombre: string | null;
+  /** Costo en créditos ("almuerzos") de este ítem, tal como lo calculó el backend. */
+  creditCost: number;
+  notas: string | null;
+}
+
+export interface OrderV2 {
+  id: number;
+  fecha: string;
+  pickupAt: string;
+  estado: OrderEstado;
+  /** Suma del `creditCost` de cada ítem — el total del pedido, en "almuerzos". */
+  creditTotal: number;
+  notas: string | null;
+  items: OrderItemV2[];
+}
+
+/** Saldo de almuerzos insuficiente para confirmar el pedido — nunca se calcula en el cliente, viene del backend. */
+export class InsufficientCreditsError extends Error {
+  constructor() {
+    super('No te alcanzan los almuerzos disponibles para este pedido.');
+    this.name = 'InsufficientCreditsError';
+  }
+}
+
+/**
+ * Horarios de retiro válidos para `fecha` — únicamente los que ofrece el
+ * backend (ventana de servicio, antelación, semana actual/siguiente,
+ * fechas deshabilitadas). El frontend nunca genera horarios por su cuenta.
+ */
+export async function getPickupSlots(fecha: string): Promise<string[]> {
+  const { data } = await api.get<string[]>(`${BASE}/pickup-slots`, { params: { fecha } });
+  return data;
+}
+
+/** Confirma el carrito contra el pedido nuevo por créditos (múltiples ítems, horario de retiro explícito). */
+export async function placeOrderV2(payload: PlaceOrderV2Payload): Promise<OrderV2> {
+  try {
+    const { data } = await api.post<OrderV2>(BASE_V2, payload);
+    return data;
+  } catch (err) {
+    throw mapOrderV2Error(err);
+  }
+}
+
+/** Cancela un pedido del camino nuevo — el backend libera crédito y stock. */
+export async function cancelOrderV2(orderId: number): Promise<void> {
+  await api.delete(`${BASE_V2}/${orderId}`);
+}
+
+function mapOrderV2Error(err: unknown): Error {
+  if (typeof err === 'object' && err !== null && 'response' in err) {
+    const data = (err as { response?: { data?: { title?: string } } }).response?.data;
+    if (data?.title === 'insufficient-credits') {
+      return new InsufficientCreditsError();
+    }
+  }
+  return err instanceof Error ? err : new Error('Error de red');
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────

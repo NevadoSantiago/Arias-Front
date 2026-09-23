@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuthActions } from '../hooks/useAuthActions';
 import { homeForRole } from './ProtectedRoute';
+import { WelcomeLunchScreen } from './WelcomeLunchScreen';
 import type { Role } from '../store/authStore';
 
 type Status = 'pending' | 'verifying' | 'verified' | 'error';
@@ -79,21 +80,10 @@ export function VerifyEmailStep({ token, email }: Props) {
 
   if (status === 'verified') {
     return (
-      <div className="text-center py-6">
-        <h2 className="font-display text-foreground text-3xl font-bold mb-2">
-          ¡Listo, bienvenido a Arias!
-        </h2>
-        <p className="text-muted-foreground text-sm mb-8">
-          Tu correo quedó verificado y te regalamos 1 almuerzo de bienvenida 🎉
-        </p>
-        <Button
-          onClick={handleContinue}
-          className="w-full uppercase tracking-brand font-medium"
-          size="lg"
-        >
-          Continuar
-        </Button>
-      </div>
+      <WelcomeLunchScreen
+        description="Tu correo quedó verificado y te regalamos 1 almuerzo de bienvenida 🎉"
+        onContinue={handleContinue}
+      />
     );
   }
 

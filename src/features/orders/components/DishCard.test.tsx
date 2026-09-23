@@ -8,7 +8,7 @@ const dish: Dish = {
   nombre: 'Milanesa napolitana',
   descripcion: 'Con papas fritas y ensalada',
   fotoUrl: null,
-  category: { id: 1, nombre: 'Básico', parentId: null },
+  category: { id: 1, nombre: 'Básico', parentId: null, creditCost: 1 },
   menuSection: { id: 1, nombre: 'Carnes', ordenDisplay: 1 },
   sideType: null,
   allowedSides: [],

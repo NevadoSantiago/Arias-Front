@@ -21,6 +21,13 @@ export interface CheckEmailResponse {
 
 export interface TokenResponse {
   accessToken: string;
+  /**
+   * true únicamente en la llamada que efectivamente otorgó el almuerzo de
+   * bienvenida (spec `self-registration`, "Otorgamiento único"). Siempre
+   * false en `login`/`first-login`/`refresh`; real en
+   * `verify-email`/`google`. Nunca se deriva de `/me`.
+   */
+  welcomeLunchGranted: boolean;
 }
 
 // ─── Endpoints ────────────────────────────────────────────────────────
