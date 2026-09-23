@@ -23,6 +23,20 @@ export function AppLayout() {
             </p>
           </Link>
 
+          {/* Navegación — "Mis pedidos" solo para clientes B2C (sin empresa);
+              los empleados de empresa siguen usando únicamente su pantalla
+              de pedido del día (`CompanyOrderPage`, camino v1, sin cambios). */}
+          {user && user.companyId == null && (
+            <nav className="hidden sm:flex items-center gap-6">
+              <Link
+                to="/orders/mine"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Mis pedidos
+              </Link>
+            </nav>
+          )}
+
           {/* User info + logout */}
           <div className="flex items-center gap-4">
             {user && (

@@ -11,6 +11,7 @@ import { CompleteProfilePage } from '@/pages/CompleteProfilePage';
 import { UnsubscribeReminderPage } from '@/pages/UnsubscribeReminderPage';
 import { TodayOrderPage } from '@/pages/employee/TodayOrderPage';
 import { OrderSummaryPage } from '@/pages/employee/OrderSummaryPage';
+import { MyOrdersPage } from '@/pages/orders/MyOrdersPage';
 import { CreditsWalletPage } from '@/pages/credits/CreditsWalletPage';
 import { CreditsPacksPage } from '@/pages/credits/CreditsPacksPage';
 import { CreditsCheckoutReturnPage } from '@/pages/credits/CreditsCheckoutReturnPage';
@@ -79,6 +80,11 @@ export const router = createBrowserRouter([
     children: [
       { path: '/orders/today', element: <TodayOrderPage /> },
       { path: '/orders/today/summary', element: <OrderSummaryPage /> },
+      // "Mis pedidos" del camino nuevo por créditos — reachable por cualquier
+      // Role.EMPLOYEE (incluye empleados de empresa), pero el link de
+      // navegación en AppLayout solo se muestra a clientes B2C
+      // (`companyId == null`); CompanyOrderPage y el camino v1 no cambian.
+      { path: '/orders/mine', element: <MyOrdersPage /> },
     ],
   },
 

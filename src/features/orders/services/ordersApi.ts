@@ -142,6 +142,12 @@ export interface OrderV2 {
   creditTotal: number;
   notas: string | null;
   items: OrderItemV2[];
+  /**
+   * `true` si el backend todavía admite cancelar este pedido (`now < pickupAt -
+   * pickup_lead_minutes`, antelación configurable por el admin) — el frontend
+   * NUNCA recalcula esta ventana, siempre confía en el valor del backend.
+   */
+  cancellable: boolean;
 }
 
 /** Saldo de almuerzos insuficiente para confirmar el pedido — nunca se calcula en el cliente, viene del backend. */
@@ -175,6 +181,16 @@ export async function placeOrderV2(payload: PlaceOrderV2Payload): Promise<OrderV
 /** Cancela un pedido del camino nuevo — el backend libera crédito y stock. */
 export async function cancelOrderV2(orderId: number): Promise<void> {
   await api.delete(`${BASE_V2}/${orderId}`);
+}
+
+/**
+ * Pedidos del usuario autenticado — últimos 30, con retiro más próximo
+ * primero, incluye pedidos cancelados. Scope por el usuario del JWT en el
+ * backend, nunca por un parámetro que el cliente pudiera manipular.
+ */
+export async function getOrdersV2(): Promise<OrderV2[]> {
+  const { data } = await api.get<OrderV2[]>(BASE_V2);
+  return data;
 }
 
 function mapOrderV2Error(err: unknown): Error {

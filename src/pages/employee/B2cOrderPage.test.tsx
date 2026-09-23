@@ -127,6 +127,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       creditTotal: 2,
       notas: null,
       items: [],
+      cancellable: true,
     });
     renderPage();
 
