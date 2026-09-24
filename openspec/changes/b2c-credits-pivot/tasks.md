@@ -78,6 +78,6 @@ Verificación: `npx vitest run src/features/orders`, `npm run lint`, `tsc -b`.
 - [x] 5.2 Modificar `frontend/src/pages/LandingPage.tsx` para el recorrido B2C (historia → registro); `routes.tsx` agrega `/corporate`, rutas de admin/company-admin intactas.
 - [x] 5.3 Frontend admin: vista de agrupación por horario de retiro en `pages/admin/` (consume los endpoints de la unidad 13 de la mitad backend), CRUD de `credit-pack` (`SUPER_ADMIN`), edición de los 7 campos de `restaurant_config`.
 - [x] 5.4 Test Vitest: la raíz muestra contenido B2C y no muestra contenido corporativo; `/corporate` conserva el formulario de cotización — cubre spec `public-landing` completa.
-- [ ] 5.5 Regresión manual completa: flujo de empresas de punta a punta (lista blanca, pantallas de admin de empresas, pedido de empleado) — cubre los "Criterios de éxito" de `proposal.md` (backend y frontend).
+- [x] 5.5 Regresión manual completa: flujo de empresas de punta a punta (lista blanca, pantallas de admin de empresas, pedido de empleado) — cubre los "Criterios de éxito" de `proposal.md` (backend y frontend).
 
 Verificación: `npx vitest run`, `npm run lint`, `tsc -b` (suite frontend completa) — cierre de la mitad frontend del cambio. La regresión backend (`./mvnw test`) ya se validó al cerrar la unidad 13 del repositorio backend.
