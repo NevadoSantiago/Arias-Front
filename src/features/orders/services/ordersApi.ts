@@ -173,7 +173,10 @@ export class InsufficientCreditsError extends Error {
  * fechas deshabilitadas). El frontend nunca genera horarios por su cuenta.
  */
 export async function getPickupSlots(fecha: string): Promise<string[]> {
-  const { data } = await api.get<string[]>(`${BASE}/pickup-slots`, { params: { fecha } });
+  // OJO: vive bajo /api/v1/orders (`OrderController`), no bajo `BASE` a secas
+  // — el diseño reservó esta ruta ahí porque `OrderPlacementController`
+  // (/api/v2/orders) no tiene un GET propio.
+  const { data } = await api.get<string[]>(`${BASE}/orders/pickup-slots`, { params: { fecha } });
   return data;
 }
 

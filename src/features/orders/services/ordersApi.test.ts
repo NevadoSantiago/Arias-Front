@@ -1,10 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
-import { getRestaurantConfig } from './ordersApi';
+import { getPickupSlots, getRestaurantConfig } from './ordersApi';
 
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn() },
 }));
+
+describe('getPickupSlots', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Bug real: el backend expone GET /api/v1/orders/pickup-slots
+  // (`OrderController`, bajo @RequestMapping("/api/v1/orders")), nunca
+  // /api/v1/pickup-slots. La URL vieja devolvía 404 y la pantalla mostraba
+  // "No pudimos cargar los horarios de retiro" — pasó desapercibido porque
+  // los tests de los componentes mockean el módulo del servicio entero.
+  it('requests /api/v1/orders/pickup-slots with the date as a query param', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({ data: ['2026-05-21T14:00:00Z'] });
+
+    await getPickupSlots('2026-05-21');
+
+    expect(api.get).toHaveBeenCalledWith('/api/v1/orders/pickup-slots', {
+      params: { fecha: '2026-05-21' },
+    });
+  });
+});
 
 describe('getRestaurantConfig', () => {
   afterEach(() => {
