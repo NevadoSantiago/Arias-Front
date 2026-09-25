@@ -16,6 +16,7 @@
 
     --primary: 0 71% 52%;                /* #DC2C2E — rojo Arias */
     --primary-foreground: 40 58% 92%;
+    --primary-deep: 357 66% 42%;         /* #B3252B — rojo profundo: botones rellenos y texto pequeño (AA) */
 
     --secondary: 40 50% 85%;
     --secondary-foreground: 12 25% 8%;

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useAuthActions } from '@/features/auth/hooks/useAuthActions';
 import { NotificationsBell } from '@/features/me/components/NotificationsBell';
+import { BalanceChip } from '@/features/credits/components/BalanceChip';
 
 export function AppLayout() {
   const user = useAuthStore((s) => s.user);
@@ -39,6 +40,7 @@ export function AppLayout() {
 
           {/* User info + logout */}
           <div className="flex items-center gap-4">
+            {user && user.companyId == null && <BalanceChip />}
             {user && (
               <div className="hidden sm:block text-right leading-tight">
                 <p className="font-sans text-sm text-foreground font-medium">
