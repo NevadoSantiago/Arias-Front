@@ -245,7 +245,7 @@ export function B2cOrderPage() {
             {isToday ? 'Menú de hoy' : 'Pedido programado'}
           </span>
 
-          {config && (
+          {config?.pickupWindowStart && config.pickupWindowEnd && (
             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
               <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
               <span>

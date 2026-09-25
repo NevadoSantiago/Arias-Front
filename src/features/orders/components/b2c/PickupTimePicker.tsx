@@ -46,7 +46,7 @@ interface Props {
  * confirmar ya muestran un horario válido apenas cargan los slots.
  */
 export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOfDay, onSelect }: Props) {
-  const { data: slots, isLoading } = useQuery({
+  const { data: slots, isLoading, isError, refetch } = useQuery({
     queryKey: ['pickupSlots', fecha],
     queryFn: () => getPickupSlots(fecha),
   });
@@ -99,6 +99,20 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
     return slotsInfo.find((s) => s.h === customH && s.m === customM) ?? null;
   }, [customH, customM, slotsInfo]);
 
+  // Si los slots se refrescan y el horario elegido a mano ya no está entre
+  // las opciones, el radio "Elegir horario" quedaría marcado mostrando un
+  // horario que dejó de ser válido, mientras `effective` (y por lo tanto lo
+  // que se manda a `onSelect`) ya cayó a la primera opción. Re-sincronizamos
+  // volviendo el radio a la opción automática — mismo patrón de ajuste de
+  // estado durante el render que el reseteo por cambio de `fecha` de arriba.
+  const customSlotWentStale =
+    mode === 'custom' && customH !== null && customM !== null && !customSlot && !isLoading && slotsInfo.length > 0;
+  if (customSlotWentStale) {
+    setMode('auto');
+    setCustomH(null);
+    setCustomM(null);
+  }
+
   const effective = mode === 'custom' && customSlot ? customSlot : firstOption;
 
   useEffect(() => {
@@ -106,6 +120,21 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
     // Solo nos importa cuándo cambia el slot efectivo, no la identidad de `onSelect`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effective?.iso]);
+
+  if (isError) {
+    return (
+      <div className="space-y-2 rounded-md bg-muted px-3.5 py-3">
+        <p className="text-sm text-foreground">No pudimos cargar los horarios de retiro.</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="h-11 rounded-md border border-primary-deep px-3.5 text-sm font-bold text-primary-deep"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
 
   if (!isLoading && slotsInfo.length === 0) {
     return (

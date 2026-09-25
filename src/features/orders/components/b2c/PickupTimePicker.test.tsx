@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PickupTimePicker } from './PickupTimePicker';
 import { getPickupSlots } from '../../services/ordersApi';
@@ -171,5 +171,64 @@ describe('PickupTimePicker', () => {
       await screen.findByText(/no quedan horarios de retiro para este día\. elegí otro día\./i),
     ).toBeInTheDocument();
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  });
+
+  it('shows an error message with a retry button when the slots fail to load, never the empty state, and keeps onSelect uncalled', async () => {
+    vi.mocked(getPickupSlots).mockRejectedValueOnce(new Error('network down'));
+
+    const { onSelect } = renderPicker();
+
+    const retryButton = await screen.findByRole('button', { name: /reintentar/i });
+    expect(screen.getByText(/no pudimos cargar los horarios de retiro/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no quedan horarios de retiro/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1]);
+    fireEvent.click(retryButton);
+
+    await screen.findByRole('radio', { name: /lo antes posible/i });
+    expect(onSelect).toHaveBeenCalledWith(SLOT_A1);
+  });
+
+  it('re-syncs the custom hour/minute selects and the radio when the chosen slot disappears after a refetch', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
+    const onSelect = vi.fn();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PickupTimePicker
+          fecha="2026-05-21"
+          isToday={true}
+          dayShortLabel="jueves 21"
+          lastUsedTimeOfDay={null}
+          onSelect={onSelect}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole('radio', { name: /lo antes posible/i });
+
+    const hourSelect = screen.getByLabelText(/hora de retiro/i) as HTMLSelectElement;
+    fireEvent.change(hourSelect, { target: { value: String(new Date(SLOT_B1).getHours()) } });
+    expect(onSelect).toHaveBeenLastCalledWith(SLOT_B1);
+    expect(screen.getByRole('radio', { name: /elegir horario/i })).toHaveAttribute('aria-checked', 'true');
+
+    // The slots refetch and the chosen custom slot (B1) is no longer offered.
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2]);
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ['pickupSlots'] });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: /lo antes posible/i })).toHaveAttribute('aria-checked', 'true');
+    });
+    expect(screen.getByRole('radio', { name: /elegir horario/i })).toHaveAttribute('aria-checked', 'false');
+    // The readout/select never shows a time different from what was last sent to onSelect.
+    expect(onSelect).toHaveBeenLastCalledWith(SLOT_A1);
+    const minuteSelect = screen.getByLabelText(/^minutos$/i) as HTMLSelectElement;
+    expect(hourSelect.value).toBe(String(new Date(SLOT_A1).getHours()));
+    expect(minuteSelect.value).toBe(String(new Date(SLOT_A1).getMinutes()));
   });
 });

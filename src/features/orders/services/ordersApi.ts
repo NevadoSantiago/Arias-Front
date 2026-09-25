@@ -9,13 +9,15 @@ export async function getRestaurantConfig(): Promise<RestaurantConfig> {
   const { data } = await api.get<{
     horaCorte: string;
     timezone: string;
-    pickupWindowStart: string;
-    pickupWindowEnd: string;
+    pickupWindowStart: string | null;
+    pickupWindowEnd: string | null;
   }>(`${BASE}/restaurant-config`);
   return {
     horaCorte: data.horaCorte.substring(0, 5),
-    pickupWindowStart: data.pickupWindowStart.substring(0, 5),
-    pickupWindowEnd: data.pickupWindowEnd.substring(0, 5),
+    // Tolerante a un restaurante sin ventana de retiro configurada: la
+    // pantalla oculta la etiqueta de horario en vez de romper (F3.1).
+    pickupWindowStart: data.pickupWindowStart ? data.pickupWindowStart.substring(0, 5) : null,
+    pickupWindowEnd: data.pickupWindowEnd ? data.pickupWindowEnd.substring(0, 5) : null,
   };
 }
 
