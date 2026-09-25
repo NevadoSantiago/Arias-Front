@@ -47,6 +47,7 @@ export function CreditsPacksPage() {
     [allPacks],
   );
   const recommended = useMemo(() => pickRecommended(namedPacks), [namedPacks]);
+  const catalogEmpty = !isLoading && !isError && !dayPack && namedPacks.length === 0;
 
   const [selection, setSelection] = useState<Selection>({ kind: 'loose' });
   const [qty, setQty] = useState(1);
@@ -73,7 +74,7 @@ export function CreditsPacksPage() {
     );
   }
 
-  if (isError || !dayPack) {
+  if (isError) {
     return (
       <div className="container max-w-xl py-8">
         <p className="text-sm text-destructive">No pudimos cargar los paquetes.</p>
@@ -81,18 +82,39 @@ export function CreditsPacksPage() {
     );
   }
 
-  const selectedPack = selection.kind === 'pack' ? namedPacks.find((p) => p.id === selection.packId) ?? null : null;
-  const looseTotalCents = dayPack.priceCents * qty;
+  if (catalogEmpty) {
+    return (
+      <div className="container max-w-xl py-8">
+        <p className="text-sm text-muted-foreground">Todavía no hay paquetes a la venta.</p>
+      </div>
+    );
+  }
+
+  /**
+   * Selección efectiva: si Sueltos no está disponible (no hay pack DAY
+   * habilitado) pero `selection` sigue en 'loose' — el valor inicial, ya
+   * que la tarjeta Sueltos ni se renderiza para volver a elegirlo — se usa
+   * el pack recomendado en su lugar. Derivado en vez de un efecto que
+   * dispare un segundo render (mismo patrón que `pickupSelection` en
+   * `B2cOrderPage`). Cuando se llega hasta acá, `catalogEmpty` ya garantiza
+   * que hay `dayPack` o al menos un pack con nombre.
+   */
+  const effectiveSelection: Selection =
+    selection.kind === 'loose' && !dayPack ? { kind: 'pack', packId: recommended!.id } : selection;
+
+  const selectedPack =
+    effectiveSelection.kind === 'pack' ? namedPacks.find((p) => p.id === effectiveSelection.packId) ?? null : null;
+  const looseTotalCents = dayPack ? dayPack.priceCents * qty : 0;
 
   const summary =
-    selection.kind === 'loose'
+    effectiveSelection.kind === 'loose' && dayPack
       ? { label: `Sueltos · ${formatLunches(qty)}`, totalLabel: formatPrice(looseTotalCents) }
       : selectedPack
         ? { label: `${selectedPack.nombre} · ${formatLunches(selectedPack.creditAmount)}`, totalLabel: formatPrice(selectedPack.priceCents) }
         : { label: '', totalLabel: '' };
 
   const checkoutSelection: PackCheckoutSelection =
-    selection.kind === 'loose'
+    effectiveSelection.kind === 'loose' && dayPack
       ? {
           isLoose: true,
           icon: 'plate',
@@ -119,7 +141,7 @@ export function CreditsPacksPage() {
         };
 
   const handlePay = () => {
-    if (selection.kind === 'loose') {
+    if (effectiveSelection.kind === 'loose' && dayPack) {
       purchaseMutation.mutate({ packId: dayPack.id, quantity: qty });
     } else if (selectedPack) {
       purchaseMutation.mutate({ packId: selectedPack.id });
@@ -139,23 +161,25 @@ export function CreditsPacksPage() {
         </div>
 
         <div role="radiogroup" aria-label="Elegí qué comprar" className="flex flex-col gap-3">
-          <LooseCard
-            checked={selection.kind === 'loose'}
-            onSelect={() => setSelection({ kind: 'loose' })}
-            qty={qty}
-            onQtyChange={setQty}
-            unitPriceLabel={formatPrice(dayPack.priceCents)}
-            showNudge={selection.kind === 'loose' && qty >= 4 && namedPacks.length > 0}
-            onPickRecommended={() => {
-              if (recommended) setSelection({ kind: 'pack', packId: recommended.id });
-            }}
-          />
+          {dayPack && (
+            <LooseCard
+              checked={effectiveSelection.kind === 'loose'}
+              onSelect={() => setSelection({ kind: 'loose' })}
+              qty={qty}
+              onQtyChange={setQty}
+              unitPriceLabel={formatPrice(dayPack.priceCents)}
+              showNudge={effectiveSelection.kind === 'loose' && qty >= 4 && namedPacks.length > 0}
+              onPickRecommended={() => {
+                if (recommended) setSelection({ kind: 'pack', packId: recommended.id });
+              }}
+            />
+          )}
 
           {namedPacks.map((pack, i) => (
             <PackOptionCard
               key={pack.id}
               pack={pack}
-              checked={selection.kind === 'pack' && selection.packId === pack.id}
+              checked={effectiveSelection.kind === 'pack' && effectiveSelection.packId === pack.id}
               onSelect={() => setSelection({ kind: 'pack', packId: pack.id })}
               recommended={recommended?.id === pack.id}
               stackLayers={i === 0 ? 2 : 5}

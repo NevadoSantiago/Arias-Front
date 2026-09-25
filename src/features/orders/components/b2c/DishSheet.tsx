@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Lightbulb, UtensilsCrossed } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,8 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
   const [notas, setNotas] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [suggestedNote, setSuggestedNote] = useState<string | null>(null);
+  /** true apenas el usuario elige una guarnición a mano — evita que una preferencia que llega tarde la pise. */
+  const sideTouchedRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -31,24 +33,40 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
     setNotas('');
     setError(null);
     setSuggestedNote(null);
+    sideTouchedRef.current = false;
   }, [open, dish?.id]);
 
   useEffect(() => {
     if (!open || !dish) return;
     let cancelled = false;
-    getDishPreference(dish.id).then((pref) => {
-      if (cancelled || !pref) return;
-      if (pref.sideId && dish.allowedSides.some((s) => s.id === pref.sideId && s.enabled)) {
-        setSideId(String(pref.sideId));
-      }
-      if (pref.notas && pref.notas.trim()) {
-        setSuggestedNote(pref.notas.trim());
-      }
-    });
+    getDishPreference(dish.id)
+      .then((pref) => {
+        // Ignora una respuesta tardía si la hoja ya cerró, cambió de plato,
+        // o si el usuario ya eligió una guarnición a mano mientras tanto.
+        if (cancelled || !pref) return;
+        if (
+          !sideTouchedRef.current &&
+          pref.sideId &&
+          dish.allowedSides.some((s) => s.id === pref.sideId && s.enabled)
+        ) {
+          setSideId(String(pref.sideId));
+        }
+        if (pref.notas && pref.notas.trim()) {
+          setSuggestedNote(pref.notas.trim());
+        }
+      })
+      .catch(() => {
+        // La preferencia es opcional — un fallo de red no debe romper la hoja.
+      });
     return () => {
       cancelled = true;
     };
   }, [open, dish]);
+
+  const handleSideSelect = (value: string) => {
+    sideTouchedRef.current = true;
+    setSideId(value);
+  };
 
   if (!dish) return null;
 
@@ -108,7 +126,7 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
                         type="button"
                         role="radio"
                         aria-checked={sideId === String(side.id)}
-                        onClick={() => setSideId(String(side.id))}
+                        onClick={() => handleSideSelect(String(side.id))}
                         className={cn(
                           'flex min-h-[50px] items-center gap-3 rounded-lg border-2 px-3.5 text-left text-sm font-medium',
                           sideId === String(side.id)
@@ -132,7 +150,7 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
                     type="button"
                     role="radio"
                     aria-checked={sideId === 'none'}
-                    onClick={() => setSideId('none')}
+                    onClick={() => handleSideSelect('none')}
                     className={cn(
                       'flex min-h-[50px] items-center gap-3 rounded-lg border-2 px-3.5 text-left text-sm font-medium italic text-muted-foreground',
                       sideId === 'none' ? 'border-primary-deep bg-background' : 'border-border bg-card',

@@ -22,7 +22,7 @@ import {
   placeOrderV2,
 } from '@/features/orders/services/ordersApi';
 import type { Dish } from '@/features/orders/types';
-import { getWallet } from '@/features/credits/services/creditsApi';
+import { useWallet } from '@/features/credits/hooks/useWallet';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { cn } from '@/lib/utils';
 
@@ -114,8 +114,15 @@ export function B2cOrderPage() {
 
   const { data: config } = useQuery({ queryKey: ['restaurantConfig'], queryFn: getRestaurantConfig });
 
-  /** Saldo de almuerzos — solo para mostrar (tarjeta de saldo cero, cálculo "Te quedan N"); nunca decide si se puede confirmar. */
-  const { data: wallet } = useQuery({ queryKey: ['creditWallet'], queryFn: getWallet });
+  /**
+   * Saldo de almuerzos — solo para mostrar (tarjeta de saldo cero, cálculo
+   * "Te quedan N"); nunca decide si se puede confirmar. Usa `useWallet`
+   * (clave `['creditsWallet']`) para compartir la misma caché que el chip
+   * del header y `CreditsPacksPage` — antes esta pantalla usaba
+   * `['creditWallet']`, una clave distinta que dejaba el chip desactualizado
+   * tras confirmar un pedido (F7.1).
+   */
+  const { data: wallet } = useWallet();
 
   /**
    * Pedidos del cliente — solo para pintar el tilde de "día con pedido" en
@@ -195,6 +202,20 @@ export function B2cOrderPage() {
     setSelectedDish(null);
   };
 
+  /**
+   * Quitar la última línea vacía el carrito y debe cerrar la hoja de
+   * revisión: antes `reviewOpen` seguía en `true` (solo se ocultaba por
+   * `reviewOpen && cart.lines.length > 0` en el `open` de la hoja), así que
+   * agregar el próximo plato la reabría sin que el usuario lo pidiera
+   * (F7.1). Se resuelve acá, en el handler, no con un efecto.
+   */
+  const handleRemoveLine = (localId: string) => {
+    cart.removeItem(localId);
+    if (cart.lines.length === 1) {
+      setReviewOpen(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!pickupAt) return;
     setSubmitError(null);
@@ -222,7 +243,7 @@ export function B2cOrderPage() {
       setPickupSelection(null);
       setReviewOpen(false);
       queryClient.invalidateQueries({ queryKey: ['availableDishes'] });
-      queryClient.invalidateQueries({ queryKey: ['creditWallet'] });
+      queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       setDone({
         isToday,
@@ -395,7 +416,7 @@ export function B2cOrderPage() {
         onSelectPickup={(time) => setPickupSelection({ date: selectedDate, time })}
         lines={cart.lines}
         totalLunches={cart.totalCredits}
-        onRemoveLine={cart.removeItem}
+        onRemoveLine={handleRemoveLine}
         walletAvailable={wallet?.available ?? null}
         confirmLabel={confirmLabel}
         canConfirm={canConfirm}

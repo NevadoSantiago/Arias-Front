@@ -87,14 +87,17 @@ const dish: Dish = {
 };
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  });
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <B2cOrderPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 async function addDishToCart() {
@@ -214,6 +217,58 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       await screen.findByText(/no te alcanzan los almuerzos disponibles/i),
     ).toBeInTheDocument();
     expect(screen.queryByText('¡Pedido confirmado!')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Corrección F7.1: `B2cOrderPage` usaba la clave `['creditWallet']`,
+   * distinta de `['creditsWallet']` (el `useWallet` que respaldan el chip
+   * del header y `WalletBalance`, y `CreditsPacksPage`) — invalidar tras un
+   * pedido no refrescaba el chip. Ahora comparten la misma clave.
+   */
+  it('invalidates the shared wallet cache key after a successful order, so the header stays in sync', async () => {
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({
+      id: 99,
+      fecha: '2026-05-21',
+      pickupAt: '2026-05-21T15:00:00Z',
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [],
+      cancellable: true,
+    });
+    const { queryClient } = renderPage();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+
+    await screen.findByText('¡Pedido confirmado!');
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+  });
+
+  /**
+   * Corrección F7.1: quitar la única línea desde la hoja de revisión la
+   * cerraba (por `cart.lines.length > 0` en el `open`), pero `reviewOpen`
+   * seguía en `true` — agregar el próximo plato la reabría sin que el
+   * usuario lo pidiera.
+   */
+  it('does not reopen the review sheet automatically after removing the only line and adding a dish again', async () => {
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /quitar milanesa napolitana del carrito/i }),
+    );
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument(),
+    );
+
+    await addDishToCart();
+
+    expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument();
   });
 });
 

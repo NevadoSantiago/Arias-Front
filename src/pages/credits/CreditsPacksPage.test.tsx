@@ -140,4 +140,38 @@ describe('CreditsPacksPage', () => {
 
     await vi.waitFor(() => expect(createPurchase).toHaveBeenCalledWith({ type: 'PACK', packId: 1, quantity: 3 }));
   });
+
+  it('lists and sells the named packs, without a Sueltos card, when there is no enabled DAY pack', async () => {
+    vi.mocked(createPurchase).mockResolvedValueOnce({ purchaseId: 'p3', initPoint: 'https://mp.example/checkout/p3' });
+    vi.mocked(getPacks).mockResolvedValue([weekPack, monthPack]);
+    renderPage();
+
+    const radios = await screen.findAllByRole('radio');
+    expect(radios).toHaveLength(2);
+    expect(screen.queryByText('Sueltos')).not.toBeInTheDocument();
+    expect(screen.queryByText(/no pudimos cargar/i)).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('radio', { name: /paquete semana/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /pagar con mercado pago/i }));
+
+    await vi.waitFor(() => expect(createPurchase).toHaveBeenCalledWith({ type: 'PACK', packId: 2 }));
+  });
+
+  it('shows a friendly empty state when the catalog has no enabled packs at all', async () => {
+    vi.mocked(getPacks).mockResolvedValue([]);
+    renderPage();
+
+    expect(await screen.findByText('Todavía no hay paquetes a la venta.')).toBeInTheDocument();
+    expect(screen.queryByText(/no pudimos cargar/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  });
+
+  it('shows the error message only when the packs query fails', async () => {
+    vi.mocked(getPacks).mockRejectedValue(new Error('network down'));
+    renderPage();
+
+    expect(await screen.findByText('No pudimos cargar los paquetes.')).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+  });
 });

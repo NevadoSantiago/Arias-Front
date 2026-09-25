@@ -112,4 +112,47 @@ describe('DishSheet', () => {
     );
     expect(container).toBeEmptyDOMElement();
   });
+
+  /**
+   * Corrección F7.1: `getDishPreference` no tenía `.catch` — un fallo de red
+   * quedaba como unhandled rejection. La preferencia es opcional: la hoja
+   * debe seguir funcionando igual.
+   */
+  it('stays usable when the preference request fails, with no unhandled rejection', async () => {
+    vi.mocked(getDishPreference).mockRejectedValue(new Error('network down'));
+    const { onConfirm } = renderSheet();
+
+    expect(await screen.findByRole('dialog', { name: /tira de asado/i })).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('radio', { name: /papas fritas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
+
+    expect(onConfirm).toHaveBeenCalledWith({ sideId: 10, notas: null });
+  });
+
+  /**
+   * Corrección F7.1: una preferencia que llega tarde pisaba la guarnición
+   * que el usuario ya había elegido a mano. Se rastrea con un flag "tocado"
+   * para no aplicar la preferencia una vez que el usuario eligió.
+   */
+  it('keeps the side the user picked before the preference resolves', async () => {
+    let resolvePreference: (value: { sideId: number; sideNombre: string; notas: string | null }) => void;
+    vi.mocked(getDishPreference).mockReturnValue(
+      new Promise((resolve) => {
+        resolvePreference = resolve;
+      }),
+    );
+    renderSheet();
+
+    // El usuario elige "Puré rústico" antes de que responda la preferencia.
+    fireEvent.click(await screen.findByRole('radio', { name: /puré rústico/i }));
+    expect(screen.getByRole('radio', { name: /puré rústico/i })).toHaveAttribute('aria-checked', 'true');
+
+    resolvePreference!({ sideId: 10, sideNombre: 'Papas fritas', notas: null });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // La preferencia (Papas fritas) no pisa la elección manual.
+    expect(screen.getByRole('radio', { name: /puré rústico/i })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /papas fritas/i })).toHaveAttribute('aria-checked', 'false');
+  });
 });
