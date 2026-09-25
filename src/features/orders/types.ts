@@ -72,4 +72,7 @@ export interface DailyChoice {
 
 export interface RestaurantConfig {
   horaCorte: string; // "10:00"
+  /** Ventana de servicio de retiro — ver `PickupSlotService` (backend). */
+  pickupWindowStart: string; // "11:00"
+  pickupWindowEnd: string; // "23:00"
 }

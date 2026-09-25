@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DishCard } from '@/features/orders/components/DishCard';
 import { DishDetailDialog } from '@/features/orders/components/DishDetailDialog';
@@ -14,11 +15,26 @@ import {
   getAvailableDishes,
   getDisabledDates,
   getMenuSections,
+  getOrdersV2,
+  getRestaurantConfig,
   InsufficientCreditsError,
   placeOrderV2,
 } from '@/features/orders/services/ordersApi';
 import type { Dish } from '@/features/orders/types';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { cn } from '@/lib/utils';
+
+/**
+ * Copia de `formatDayLabel` (`CompanyOrderPage.tsx`) — se duplica a propósito
+ * en vez de importarla desde ahí: `CompanyOrderPage` es el flujo B2B, que no
+ * debe cambiar ni depender de un archivo B2C (restricción del documento de
+ * la feature).
+ */
+function formatDayLabel(date: string): string {
+  const d = new Date(date + 'T12:00:00');
+  const formatted = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric' });
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
 
 /**
  * Pantalla de pedido para clientes B2C (sin empresa) — carrito multi-ítem,
@@ -71,6 +87,21 @@ export function B2cOrderPage() {
     queryKey: ['availableDishes', selectedDate],
     queryFn: () => getAvailableDishes(selectedDate),
   });
+
+  const { data: config } = useQuery({ queryKey: ['restaurantConfig'], queryFn: getRestaurantConfig });
+
+  /**
+   * Pedidos del cliente — solo para pintar el tilde de "día con pedido" en
+   * `WeekDaySelector`. Los cancelados NO cuentan como "con pedido" (decisión
+   * F2, spec de la feature).
+   */
+  const { data: myOrders } = useQuery({ queryKey: ['ordersV2'], queryFn: getOrdersV2 });
+  const orderedDates = useMemo(
+    () => new Set((myOrders ?? []).filter((o) => o.estado !== 'CANCELADO').map((o) => o.fecha)),
+    [myOrders],
+  );
+
+  const isToday = selectedDate === todayStr;
 
   const pickupAt = pickupSelection?.date === selectedDate ? pickupSelection.time : null;
 
@@ -156,20 +187,48 @@ export function B2cOrderPage() {
     <div className="container py-8 lg:py-12">
       <header className="mb-6 lg:mb-8">
         <h1 className="font-display text-foreground text-3xl lg:text-5xl font-bold leading-tight mb-1 lg:mb-2">
-          ¡Buen día, {user.firstName}!
+          {isToday ? `¡Buen día, ${user.firstName}!` : `Planificá tu comida del ${formatDayLabel(selectedDate)}`}
         </h1>
         <p className="text-muted-foreground text-sm lg:text-base">
-          Armá tu pedido y elegí cuándo lo querés retirar.
+          {isToday ? '¿Qué querés comer hoy?' : '¿Qué querés comer?'}
         </p>
       </header>
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
         <WeekDaySelector
           selectedDate={selectedDate}
           onSelect={setSelectedDate}
-          orderedDates={new Set()}
+          orderedDates={orderedDates}
           disabledDates={disabledDates}
         />
+
+        <div className="flex items-center justify-between gap-3 px-1">
+          <span
+            className={cn(
+              'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-bold',
+              isToday
+                ? 'bg-primary-deep text-primary-foreground'
+                : 'border border-foreground text-foreground',
+            )}
+          >
+            {isToday ? (
+              <UtensilsCrossed className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            {isToday ? 'Menú de hoy' : 'Pedido programado'}
+          </span>
+
+          {config && (
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+              <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
+              <span>
+                <span className="sr-only">Horario de retiro: </span>
+                {config.pickupWindowStart} – {config.pickupWindowEnd}
+              </span>
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">

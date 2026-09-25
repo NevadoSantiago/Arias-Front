@@ -9,9 +9,12 @@ import {
   getDisabledDates,
   getDishPreference,
   getMenuSections,
+  getOrdersV2,
   getPickupSlots,
+  getRestaurantConfig,
   InsufficientCreditsError,
   placeOrderV2,
+  type OrderV2,
 } from '@/features/orders/services/ordersApi';
 import type { Dish } from '@/features/orders/types';
 
@@ -25,10 +28,32 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     getDisabledDates: vi.fn(),
     getDishPreference: vi.fn(),
     getMenuSections: vi.fn(),
+    getOrdersV2: vi.fn(),
     getPickupSlots: vi.fn(),
+    getRestaurantConfig: vi.fn(),
     placeOrderV2: vi.fn(),
   };
 });
+
+/** Replica el algoritmo de `WeekDaySelector` para ubicar, de forma
+ * determinística y sin importar qué día corre la suite, un lunes y un
+ * martes de la SEMANA SIGUIENTE — siempre futuros, así que el tilde nunca
+ * lo suprime `isPast`. */
+function toIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function nextWeekMondayAndTuesday(): [string, string] {
+  const today = new Date();
+  const dow = today.getDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const currentMonday = new Date(today);
+  currentMonday.setDate(today.getDate() + mondayOffset);
+  const nextMonday = new Date(currentMonday);
+  nextMonday.setDate(currentMonday.getDate() + 7);
+  const nextTuesday = new Date(nextMonday);
+  nextTuesday.setDate(nextMonday.getDate() + 1);
+  return [toIso(nextMonday), toIso(nextTuesday)];
+}
 
 const baseUser: AuthUser = {
   id: 7,
@@ -88,6 +113,12 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
     vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
     vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
   });
 
   afterEach(() => {
@@ -155,5 +186,90 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       await screen.findByText(/no te alcanzan los almuerzos disponibles/i),
     ).toBeInTheDocument();
     expect(screen.queryByText('¡Pedido confirmado!')).not.toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  it('shows a check on a day with an active order and not on a day with only a cancelled order', async () => {
+    const [activeDate, cancelledOnlyDate] = nextWeekMondayAndTuesday();
+    const order = (overrides: Partial<OrderV2>): OrderV2 => ({
+      id: 1,
+      fecha: activeDate,
+      pickupAt: `${activeDate}T15:00:00Z`,
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [],
+      cancellable: true,
+      ...overrides,
+    });
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      order({ id: 1, fecha: activeDate, estado: 'PENDIENTE' }),
+      order({ id: 2, fecha: cancelledOnlyDate, estado: 'CANCELADO', cancellable: false }),
+    ]);
+
+    renderPage();
+
+    const activeDayButton = (
+      await screen.findByText(String(Number(activeDate.split('-')[2])))
+    ).closest('button');
+    const cancelledDayButton = screen
+      .getByText(String(Number(cancelledOnlyDate.split('-')[2])))
+      .closest('button');
+
+    expect(activeDayButton?.querySelector('svg')).toBeTruthy();
+    expect(cancelledDayButton?.querySelector('svg')).toBeFalsy();
+  });
+
+  it('shows the today heading and pill, and switches to the scheduled heading and pill for a future day', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+
+    renderPage();
+
+    expect(await screen.findByText('¡Buen día, Lucía!')).toBeInTheDocument();
+    expect(screen.getByText('¿Qué querés comer hoy?')).toBeInTheDocument();
+    expect(screen.getByText('Menú de hoy')).toBeInTheDocument();
+
+    const futureDayButton = screen
+      .getByText(String(Number(futureDate.split('-')[2])))
+      .closest('button');
+    fireEvent.click(futureDayButton!);
+
+    expect(await screen.findByText('¿Qué querés comer?')).toBeInTheDocument();
+    expect(screen.getByText('Pedido programado')).toBeInTheDocument();
+    expect(screen.queryByText('¿Qué querés comer hoy?')).not.toBeInTheDocument();
+  });
+
+  it('shows the pickup window from the restaurant config next to a clock icon', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:30',
+      pickupWindowEnd: '22:45',
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('11:30 – 22:45')).toBeInTheDocument();
   });
 });

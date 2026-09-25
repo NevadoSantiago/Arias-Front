@@ -6,10 +6,17 @@ import type { DailyChoice, Dish, MenuSection, OrderEstado, RestaurantConfig } fr
 const BASE = '/api/v1';
 
 export async function getRestaurantConfig(): Promise<RestaurantConfig> {
-  const { data } = await api.get<{ horaCorte: string; timezone: string }>(
-    `${BASE}/restaurant-config`
-  );
-  return { horaCorte: data.horaCorte.substring(0, 5) };
+  const { data } = await api.get<{
+    horaCorte: string;
+    timezone: string;
+    pickupWindowStart: string;
+    pickupWindowEnd: string;
+  }>(`${BASE}/restaurant-config`);
+  return {
+    horaCorte: data.horaCorte.substring(0, 5),
+    pickupWindowStart: data.pickupWindowStart.substring(0, 5),
+    pickupWindowEnd: data.pickupWindowEnd.substring(0, 5),
+  };
 }
 
 export async function getMenuSections(): Promise<MenuSection[]> {

@@ -126,3 +126,15 @@
   animation: draw-check 0.3s ease-out 0.5s forwards;
 }
 
+/* Oculta la barra de scroll manteniendo el scroll funcional — prototipo B2C
+   (tiras horizontales de días/filtros, hojas modales). No se aplica al
+   `WeekDaySelector` compartido: ya oculta su scrollbar con variantes
+   arbitrarias de Tailwind, sin tocar su comportamiento para B2B. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
