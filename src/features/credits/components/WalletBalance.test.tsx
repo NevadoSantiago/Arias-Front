@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { WalletBalance } from './WalletBalance';
 import { getWallet } from '../services/creditsApi';
 
@@ -14,13 +15,15 @@ function renderWithClient() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <WalletBalance />
+      <MemoryRouter>
+        <WalletBalance />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
 describe('WalletBalance', () => {
-  it('shows AVAILABLE and COMMITTED as two separate figures, never summed', async () => {
+  it('shows AVAILABLE (center number + legend) and COMMITTED (legend) as two separate figures, never summed, never "créditos"', async () => {
     vi.mocked(getWallet).mockResolvedValueOnce({
       available: 5,
       committed: 2,
@@ -29,22 +32,73 @@ describe('WalletBalance', () => {
 
     renderWithClient();
 
-    expect(await screen.findByText('5 disponibles')).toBeInTheDocument();
-    expect(screen.getByText('2 comprometidos')).toBeInTheDocument();
-    // No single combined total (e.g. "7") should be rendered anywhere.
-    expect(screen.queryByText(/^7\b/)).not.toBeInTheDocument();
+    // El número grande del centro del anillo y la leyenda repiten "5".
+    expect(await screen.findAllByText('5')).toHaveLength(2);
+    expect(screen.getByText('Disponibles')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('Reservados')).toBeInTheDocument();
+    // No debe aparecer un total combinado (ej. "7") en ningún lado.
+    expect(screen.queryByText('7')).not.toBeInTheDocument();
+    expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
   });
 
-  it('shows the expiry date with its meaning when the wallet reports one', async () => {
+  it('uses the singular legend for exactly 1 available / 1 committed', async () => {
     vi.mocked(getWallet).mockResolvedValueOnce({
-      available: 3,
-      committed: 0,
-      expiresAt: '2026-12-25T00:00:00Z',
+      available: 1,
+      committed: 1,
+      expiresAt: null,
     });
 
     renderWithClient();
 
-    expect(await screen.findByText('3 disponibles')).toBeInTheDocument();
-    expect(screen.getByText(/tus almuerzos vencen el/i)).toBeInTheDocument();
+    expect(await screen.findByText('Disponible')).toBeInTheDocument();
+    expect(screen.getByText('Reservado')).toBeInTheDocument();
+  });
+
+  it('shows a single "Vencen el <fecha>" line when the wallet reports an expiry', async () => {
+    const expiresAt = '2026-12-25T00:00:00Z';
+    vi.mocked(getWallet).mockResolvedValueOnce({
+      available: 3,
+      committed: 0,
+      expiresAt,
+    });
+
+    renderWithClient();
+
+    // Formateada en la hora LOCAL del entorno donde corre la suite — igual
+    // que hace el propio componente (`toLocaleDateString`).
+    const expected = new Date(expiresAt).toLocaleDateString('es-AR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    expect(await screen.findByText(/vencen el/i)).toBeInTheDocument();
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
+  it('hides the expiry line entirely when the wallet reports none', async () => {
+    vi.mocked(getWallet).mockResolvedValueOnce({
+      available: 3,
+      committed: 0,
+      expiresAt: null,
+    });
+
+    renderWithClient();
+
+    await screen.findByText('Disponibles');
+    expect(screen.queryByText(/vencen el/i)).not.toBeInTheDocument();
+  });
+
+  it('links "Comprar más almuerzos" to /credits/packs', async () => {
+    vi.mocked(getWallet).mockResolvedValueOnce({
+      available: 3,
+      committed: 0,
+      expiresAt: null,
+    });
+
+    renderWithClient();
+
+    const link = await screen.findByRole('link', { name: /comprar más almuerzos/i });
+    expect(link).toHaveAttribute('href', '/credits/packs');
   });
 });
