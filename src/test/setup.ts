@@ -1,6 +1,15 @@
 import { afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+
+// Mismo motivo que el `testTimeout` de `vite.config.ts`: cada archivo levanta
+// su propio jsdom y la suite completa satura una máquina con poca memoria.
+// El default de Testing Library (1000ms) alcanza sobrado en un archivo
+// aislado, pero un `findBy*` que espera una query de React Query puede
+// superarlo corriendo junto a los otros ~20 archivos — no por un bug, sino
+// por contención de CPU/memoria real, observada de forma reproducible en
+// este entorno.
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom doesn't implement matchMedia or IntersectionObserver — polyfilled
 // here (not in production code) so any component using them (e.g.

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { B2cOrderPage } from './B2cOrderPage';
@@ -97,14 +97,6 @@ async function addDishToCart() {
   fireEvent.click(await screen.findByRole('button', { name: /agregar al carrito/i }));
 }
 
-/** El horario exacto que muestra el botón depende del timezone del entorno
- * (`toLocaleTimeString`) — lo ubicamos por el `role="group"` del selector,
- * nunca por el texto formateado. */
-async function clickPickupSlot() {
-  const group = await screen.findByRole('group', { name: /horario de retiro/i });
-  fireEvent.click(within(group).getByRole('button'));
-}
-
 describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   beforeEach(() => {
     useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
@@ -136,20 +128,36 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
   });
 
-  it('keeps the confirm button disabled until a pickup slot is chosen', async () => {
+  /**
+   * Comportamiento cambiado intencionalmente por F3: `PickupTimePicker`
+   * preselecciona automáticamente "Última utilizada"/"Lo antes posible" en
+   * vez de exigir un click sobre una franja horaria (igual que el
+   * prototipo aprobado, donde el readout y el botón ya muestran un horario
+   * válido apenas cargan los slots). El único caso que deshabilita
+   * "Confirmar" por horario es que no haya NINGÚN slot para el día.
+   */
+  it('auto-enables the confirm button with the default pickup option, no extra click needed', async () => {
     renderPage();
 
     await addDishToCart();
 
-    const confirmButton = await screen.findByRole('button', { name: /^confirmar pedido$/i });
-    expect(confirmButton).toBeDisabled();
-
-    await clickPickupSlot();
-
+    const confirmButton = await screen.findByRole('button', { name: /^retiro /i });
     expect(confirmButton).not.toBeDisabled();
   });
 
-  it('confirms the order against POST /api/v2/orders with the exact cart items and chosen pickup slot', async () => {
+  it('keeps the confirm button disabled when there are no pickup slots for the selected day', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([]);
+    renderPage();
+
+    await addDishToCart();
+
+    expect(
+      await screen.findByText(/no quedan horarios de retiro para este día/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^confirmar pedido$/i })).toBeDisabled();
+  });
+
+  it('confirms the order against POST /api/v2/orders with the exact cart items and the auto-selected pickup slot', async () => {
     vi.mocked(placeOrderV2).mockResolvedValueOnce({
       id: 99,
       fecha: '2026-05-21',
@@ -163,8 +171,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     renderPage();
 
     await addDishToCart();
-    await clickPickupSlot();
-    fireEvent.click(screen.getByRole('button', { name: /^confirmar pedido$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
     expect(await screen.findByText('¡Pedido confirmado!')).toBeInTheDocument();
     expect(placeOrderV2).toHaveBeenCalledWith({
@@ -179,8 +186,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     renderPage();
 
     await addDishToCart();
-    await clickPickupSlot();
-    fireEvent.click(screen.getByRole('button', { name: /^confirmar pedido$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
     expect(
       await screen.findByText(/no te alcanzan los almuerzos disponibles/i),
@@ -271,5 +277,53 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
     renderPage();
 
     expect(await screen.findByText('11:30 – 22:45')).toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — pickup time picker (F3)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  it('shows "Retiro hoy HH:MM hs" for today and switches to "Retiro <día> a las HH:MM" for a future day', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    renderPage();
+
+    await addDishToCart();
+
+    expect(
+      await screen.findByRole('button', { name: /^retiro hoy \d{2}:\d{2} hs$/i }),
+    ).toBeInTheDocument();
+
+    const futureDayButton = screen
+      .getByText(String(Number(futureDate.split('-')[2])))
+      .closest('button');
+    fireEvent.click(futureDayButton!);
+
+    const dayShort = new Date(`${futureDate}T12:00:00`).toLocaleDateString('es-AR', {
+      weekday: 'long',
+      day: 'numeric',
+    });
+    expect(
+      await screen.findByRole('button', {
+        name: new RegExp(`^retiro ${dayShort} a las \\d{2}:\\d{2}$`, 'i'),
+      }),
+    ).toBeInTheDocument();
   });
 });

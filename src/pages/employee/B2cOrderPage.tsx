@@ -8,7 +8,7 @@ import { FilterPills } from '@/features/orders/components/FilterPills';
 import type { ActiveFilter } from '@/features/orders/components/FilterPills';
 import { OrderConfirmation } from '@/features/orders/components/OrderConfirmation';
 import { WeekDaySelector } from '@/features/orders/components/WeekDaySelector';
-import { PickupSlotSelector } from '@/features/orders/components/PickupSlotSelector';
+import { PickupTimePicker } from '@/features/orders/components/b2c/PickupTimePicker';
 import { CartSummary } from '@/features/orders/components/CartSummary';
 import { useCart } from '@/features/orders/hooks/useCart';
 import {
@@ -102,8 +102,34 @@ export function B2cOrderPage() {
   );
 
   const isToday = selectedDate === todayStr;
+  const dayShortLabel = formatDayLabel(selectedDate).toLowerCase();
+
+  /**
+   * Hora local "HH:MM" del último pedido NO cancelado (mayor `id`) — decisión
+   * F2/F3 de la feature. Sin columna nueva: se deriva de `getOrdersV2` acá
+   * mismo, y se pasa como una hora suelta (no una fecha) porque
+   * `PickupTimePicker` la compara contra los slots del día seleccionado.
+   */
+  const lastUsedTimeOfDay = useMemo(() => {
+    const nonCancelled = (myOrders ?? []).filter((o) => o.estado !== 'CANCELADO');
+    if (nonCancelled.length === 0) return null;
+    const latest = nonCancelled.reduce((a, b) => (b.id > a.id ? b : a));
+    const d = new Date(latest.pickupAt);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }, [myOrders]);
 
   const pickupAt = pickupSelection?.date === selectedDate ? pickupSelection.time : null;
+  const pickupTimeLabel = pickupAt
+    ? (() => {
+        const d = new Date(pickupAt);
+        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      })()
+    : null;
+  const confirmLabel = pickupTimeLabel
+    ? isToday
+      ? `Retiro hoy ${pickupTimeLabel} hs`
+      : `Retiro ${dayShortLabel} a las ${pickupTimeLabel}`
+    : 'Confirmar pedido';
 
   const specialDishes = useMemo(() => dishes?.filter((d) => d.especial) ?? [], [dishes]);
   const regularDishes = useMemo(() => dishes?.filter((d) => !d.especial) ?? [], [dishes]);
@@ -301,9 +327,11 @@ export function B2cOrderPage() {
             <h3 className="text-sm uppercase tracking-brand font-medium text-muted-foreground">
               Horario de retiro
             </h3>
-            <PickupSlotSelector
+            <PickupTimePicker
               fecha={selectedDate}
-              selected={pickupAt}
+              isToday={isToday}
+              dayShortLabel={dayShortLabel}
+              lastUsedTimeOfDay={lastUsedTimeOfDay}
               onSelect={(time) => setPickupSelection({ date: selectedDate, time })}
             />
           </div>
@@ -321,7 +349,7 @@ export function B2cOrderPage() {
           onClick={handleConfirm}
           className="w-full uppercase tracking-brand font-medium"
         >
-          {submitting ? 'Confirmando…' : 'Confirmar pedido'}
+          {submitting ? 'Confirmando…' : confirmLabel}
         </Button>
       </section>
 
