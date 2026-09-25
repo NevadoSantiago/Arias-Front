@@ -16,6 +16,7 @@ import {
   placeOrderV2,
   type OrderV2,
 } from '@/features/orders/services/ordersApi';
+import { getWallet } from '@/features/credits/services/creditsApi';
 import type { Dish } from '@/features/orders/types';
 
 vi.mock('@/features/orders/services/ordersApi', async () => {
@@ -34,6 +35,10 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     placeOrderV2: vi.fn(),
   };
 });
+
+vi.mock('@/features/credits/services/creditsApi', () => ({
+  getWallet: vi.fn(),
+}));
 
 /** Replica el algoritmo de `WeekDaySelector` para ubicar, de forma
  * determinística y sin importar qué día corre la suite, un lunes y un
@@ -94,7 +99,11 @@ function renderPage() {
 
 async function addDishToCart() {
   fireEvent.click(await screen.findByRole('button', { name: /milanesa napolitana/i }));
-  fireEvent.click(await screen.findByRole('button', { name: /agregar al carrito/i }));
+  fireEvent.click(await screen.findByRole('button', { name: /agregar al pedido/i }));
+}
+
+async function openReview() {
+  fireEvent.click(await screen.findByRole('button', { name: /ver pedido/i }));
 }
 
 describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
@@ -111,6 +120,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       pickupWindowStart: '11:00',
       pickupWindowEnd: '23:00',
     });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
   });
 
   afterEach(() => {
@@ -118,13 +128,21 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * F4: el detalle de plato pasa a ser una hoja (`DishSheet`) y el carrito
+   * (con el horario de retiro y el botón de confirmar) vive en la hoja de
+   * revisión (`OrderReviewSheet`), que se abre con "Ver pedido" en la barra
+   * inferior — ya no está siempre visible bajo el menú.
+   */
   it('adds a dish to the cart and shows its cost in "almuerzos", never "créditos"', async () => {
     renderPage();
 
     await addDishToCart();
+    await openReview();
 
-    // El costo de la línea (2 almuerzos) y el total del carrito (2 almuerzos)
-    expect(await screen.findAllByText('2 almuerzos')).toHaveLength(2);
+    // El costo de la línea, el total del carrito y "Este pedido usa" en el
+    // cálculo de saldo (display-only) — los tres dicen "2 almuerzos".
+    expect(await screen.findAllByText('2 almuerzos')).toHaveLength(3);
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
   });
 
@@ -140,6 +158,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     renderPage();
 
     await addDishToCart();
+    await openReview();
 
     const confirmButton = await screen.findByRole('button', { name: /^retiro /i });
     expect(confirmButton).not.toBeDisabled();
@@ -150,6 +169,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     renderPage();
 
     await addDishToCart();
+    await openReview();
 
     expect(
       await screen.findByText(/no quedan horarios de retiro para este día/i),
@@ -171,6 +191,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     renderPage();
 
     await addDishToCart();
+    await openReview();
     fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
     expect(await screen.findByText('¡Pedido confirmado!')).toBeInTheDocument();
@@ -186,6 +207,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     renderPage();
 
     await addDishToCart();
+    await openReview();
     fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
     expect(
@@ -208,6 +230,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
       pickupWindowStart: '11:00',
       pickupWindowEnd: '23:00',
     });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
   });
 
   afterEach(() => {
@@ -294,6 +317,7 @@ describe('B2cOrderPage — pickup time picker (F3)', () => {
       pickupWindowStart: '11:00',
       pickupWindowEnd: '23:00',
     });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
   });
 
   afterEach(() => {
@@ -306,11 +330,15 @@ describe('B2cOrderPage — pickup time picker (F3)', () => {
     renderPage();
 
     await addDishToCart();
+    await openReview();
 
     expect(
       await screen.findByRole('button', { name: /^retiro hoy \d{2}:\d{2} hs$/i }),
     ).toBeInTheDocument();
 
+    // El carrito no depende del día seleccionado — cambiar de día con la
+    // hoja de revisión abierta re-pide los horarios para la nueva fecha y
+    // el botón de confirmar se actualiza solo (mismo comportamiento de F3).
     const futureDayButton = screen
       .getByText(String(Number(futureDate.split('-')[2])))
       .closest('button');
