@@ -1,5 +1,4 @@
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { CreditsCheckoutStatus } from '@/features/credits/components/CreditsCheckoutStatus';
 
 /**
@@ -9,6 +8,10 @@ import { CreditsCheckoutStatus } from '@/features/credits/components/CreditsChec
  * compatibilidad y toma el id del query string. En cualquier caso el
  * segmento de la URL es solo una pista: el estado real siempre sale de
  * `GET /api/v1/credits/purchases/{id}` (spec `credits-ui`).
+ *
+ * F7: `CreditsCheckoutStatus` ya trae su propio título y sus propias
+ * acciones por estado (prototipo `Purchase{Pending,Approved,Rejected}.dc.html`),
+ * así que esta pantalla no repite un título ni un botón "volver" genéricos.
  */
 export function CreditsCheckoutReturnPage() {
   const [searchParams] = useSearchParams();
@@ -16,14 +19,8 @@ export function CreditsCheckoutReturnPage() {
   const purchaseId = purchaseIdParam ?? searchParams.get('purchaseId');
 
   return (
-    <div className="container py-8 max-w-md space-y-6">
-      <h1 className="font-display text-2xl font-bold text-foreground">Tu compra</h1>
-
+    <div className="container max-w-md py-8">
       <CreditsCheckoutStatus purchaseId={purchaseId} />
-
-      <Button asChild variant="outline">
-        <Link to="/credits">Volver a mis almuerzos</Link>
-      </Button>
     </div>
   );
 }

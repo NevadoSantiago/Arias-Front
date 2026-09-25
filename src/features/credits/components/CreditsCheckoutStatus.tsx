@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Check, Clock3, Info, ShieldAlert, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { getPurchase } from '../services/creditsApi';
-import type { CreditPurchaseStatus } from '../types';
+import type { CreditPurchase, CreditPurchaseStatus } from '../types';
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 10;
@@ -10,6 +13,55 @@ const FAILED_STATUSES: CreditPurchaseStatus[] = ['REJECTED', 'CANCELLED', 'REVER
 
 interface CreditsCheckoutStatusProps {
   purchaseId: string | null;
+}
+
+function formatAmount(purchase: Pick<CreditPurchase, 'amountCents' | 'currency'>): string {
+  return (purchase.amountCents / 100).toLocaleString('es-AR', { style: 'currency', currency: purchase.currency });
+}
+
+function purchaseLabel(purchase: Pick<CreditPurchase, 'type'>): string {
+  return purchase.type === 'PACK' ? 'Paquete de almuerzos' : 'Compra directa';
+}
+
+/** Círculo de ícono de estado (F7, prototipo `Purchase{Pending,Approved,Rejected}.dc.html`). */
+function StatusIcon({ tone, children }: { tone: 'pending' | 'success' | 'error' | 'info'; children: React.ReactNode }) {
+  const toneClass: Record<typeof tone, string> = {
+    pending: 'bg-warning text-foreground',
+    success: 'bg-success text-primary-foreground',
+    error: 'bg-destructive text-destructive-foreground',
+    info: 'bg-muted text-foreground',
+  };
+  return (
+    <div aria-hidden="true" className={cn('flex h-20 w-20 shrink-0 items-center justify-center rounded-full', toneClass[tone])}>
+      {children}
+    </div>
+  );
+}
+
+/** Item de la lista de 3 pasos del estado "pendiente" (hecho / en curso / pendiente). */
+function StepItem({ state, title, detail }: { state: 'done' | 'active' | 'upcoming'; title: string; detail: string }) {
+  return (
+    <li className="flex items-start gap-3">
+      <span
+        aria-hidden="true"
+        className={cn(
+          'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+          state === 'done' && 'bg-success text-primary-foreground',
+          state === 'active' && 'border-[3px] border-warning',
+          state === 'upcoming' && 'border-2 border-dashed border-muted-foreground/60',
+        )}
+      >
+        {state === 'done' && <Check className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={3} />}
+        {state === 'active' && <span className="h-2.5 w-2.5 rounded-full bg-warning" />}
+      </span>
+      <span className="flex flex-col gap-0.5 pt-0.5">
+        <span className={cn('text-[14.5px]', state === 'upcoming' ? 'text-muted-foreground' : 'font-semibold text-foreground')}>
+          {title}
+        </span>
+        <span className="text-[12.5px] text-muted-foreground">{detail}</span>
+      </span>
+    </li>
+  );
 }
 
 /**
@@ -24,6 +76,9 @@ interface CreditsCheckoutStatusProps {
  * {@link POLL_INTERVAL_MS} ms) mientras el estado sea `PENDING`. La
  * acreditación real ocurre solo vía webhook del backend — este componente
  * nunca escribe nada, solo lee y muestra.
+ *
+ * F7: solo se restylió la presentación (íconos, lista de 3 pasos, tarjetas)
+ * per el prototipo. La lógica de polling/estado de arriba no cambió.
  */
 export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps) {
   const [attempts, setAttempts] = useState(0);
@@ -56,46 +111,202 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
 
   if (!purchaseId) {
     return (
-      <p className="text-sm text-destructive">
-        No pudimos identificar tu compra. Revisá tu historial en la sección de almuerzos.
-      </p>
+      <div className="flex flex-col items-center gap-4 py-8 text-center">
+        <StatusIcon tone="error">
+          <ShieldAlert className="h-9 w-9" aria-hidden="true" />
+        </StatusIcon>
+        <h1 className="font-display text-2xl font-bold leading-tight text-foreground">No pudimos identificar tu compra</h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">Revisá tu historial en la sección de almuerzos.</p>
+        <Link
+          to="/credits"
+          className="flex h-[52px] w-full items-center justify-center rounded-md border border-border bg-card px-5 text-sm font-semibold text-foreground no-underline"
+        >
+          Ir a mis almuerzos
+        </Link>
+      </div>
     );
   }
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Verificando el estado de tu compra…</p>;
+    return (
+      <div className="flex flex-col items-center gap-3 py-10 text-center">
+        <StatusIcon tone="pending">
+          <Clock3 className="h-9 w-9" aria-hidden="true" />
+        </StatusIcon>
+        <p role="status" className="text-sm text-muted-foreground">
+          Verificando el estado de tu compra…
+        </p>
+      </div>
+    );
   }
 
   if (isError || !purchase) {
-    return <p className="text-sm text-destructive">No pudimos consultar el estado de tu compra.</p>;
+    return (
+      <div className="flex flex-col items-center gap-4 py-8 text-center">
+        <StatusIcon tone="error">
+          <X className="h-9 w-9" aria-hidden="true" />
+        </StatusIcon>
+        <h1 className="font-display text-2xl font-bold leading-tight text-foreground">No pudimos consultar tu compra</h1>
+        <p role="alert" className="text-sm text-destructive">
+          No pudimos consultar el estado de tu compra.
+        </p>
+      </div>
+    );
   }
 
   if (purchase.status === 'PENDING' && gaveUp) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Tu pago está demorando más de lo esperado. Te avisamos por correo apenas se acredite.
-      </p>
+      <div className="flex flex-col items-center gap-5 py-6 text-center">
+        <StatusIcon tone="pending">
+          <Clock3 className="h-9 w-9" aria-hidden="true" />
+        </StatusIcon>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">Estamos confirmando tu pago</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Mercado Pago puede tardar unos minutos en avisarnos. No hace falta que pagues de nuevo.
+          </p>
+        </div>
+        <ol aria-label="Estado de la compra" className="m-0 flex w-full list-none flex-col gap-3.5 rounded-lg border border-border bg-card p-4">
+          <StepItem state="done" title="Pago enviado" detail={`${purchaseLabel(purchase)} · ${formatAmount(purchase)}`} />
+          <StepItem state="active" title="Confirmación de Mercado Pago" detail="Suele tardar unos segundos; a veces, unos minutos." />
+          <StepItem state="upcoming" title="Almuerzos en tu saldo" detail="Se suman solos, sin que hagas nada." />
+        </ol>
+        <p role="status" className="text-sm text-muted-foreground">
+          Tu pago está demorando más de lo esperado. Te avisamos por correo apenas se acredite.
+        </p>
+      </div>
     );
   }
 
   if (purchase.status === 'PENDING') {
-    return <p className="text-sm text-muted-foreground">Estamos procesando tu pago…</p>;
+    return (
+      <div className="flex flex-col items-center gap-5 py-6 text-center">
+        <StatusIcon tone="pending">
+          <Clock3 className="h-9 w-9" aria-hidden="true" />
+        </StatusIcon>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">Estamos confirmando tu pago</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Mercado Pago puede tardar unos minutos en avisarnos. No hace falta que pagues de nuevo.
+          </p>
+        </div>
+        <ol aria-label="Estado de la compra" className="m-0 flex w-full list-none flex-col gap-3.5 rounded-lg border border-border bg-card p-4">
+          <StepItem state="done" title="Pago enviado" detail={`${purchaseLabel(purchase)} · ${formatAmount(purchase)}`} />
+          <StepItem state="active" title="Confirmación de Mercado Pago" detail="Suele tardar unos segundos; a veces, unos minutos." />
+          <StepItem state="upcoming" title="Almuerzos en tu saldo" detail="Se suman solos, sin que hagas nada." />
+        </ol>
+        <p role="status" className="text-sm text-muted-foreground">
+          Estamos procesando tu pago…
+        </p>
+      </div>
+    );
   }
 
   if (purchase.status === 'APPROVED') {
     return (
-      <p className="text-sm text-foreground">
-        ¡Listo! Se acreditaron {purchase.creditAmount} almuerzos en tu billetera.
-      </p>
+      <div className="flex flex-col items-center gap-4 py-6 text-center">
+        <StatusIcon tone="success">
+          <Check className="h-10 w-10" aria-hidden="true" strokeWidth={2.4} />
+        </StatusIcon>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">¡Listo! Sumaste {purchase.creditAmount} almuerzos</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">Mercado Pago confirmó el pago y ya podés usarlos.</p>
+        </div>
+        <dl className="m-0 flex w-full flex-col gap-2.5 rounded-lg border border-border bg-card p-4 text-left">
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Compra</dt>
+            <dd className="m-0 font-semibold text-foreground">{purchaseLabel(purchase)}</dd>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Almuerzos</dt>
+            <dd className="m-0 font-semibold text-foreground">{purchase.creditAmount}</dd>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Total pagado</dt>
+            <dd className="m-0 font-semibold text-foreground">{formatAmount(purchase)}</dd>
+          </div>
+        </dl>
+        <p role="status" className="text-sm text-foreground">
+          ¡Listo! Se acreditaron {purchase.creditAmount} almuerzos en tu billetera.
+        </p>
+        <div className="flex w-full flex-col gap-2.5">
+          <Link
+            to="/orders/today"
+            className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+          >
+            Pedir mi almuerzo
+          </Link>
+          <Link
+            to="/credits"
+            className="flex h-[52px] items-center justify-center rounded-md border border-border bg-card text-sm font-semibold text-foreground no-underline"
+          >
+            Ver mis almuerzos
+          </Link>
+        </div>
+      </div>
     );
   }
 
   if (purchase.status === 'IN_MEDIATION') {
-    return <p className="text-sm text-muted-foreground">Tu pago está en revisión.</p>;
+    return (
+      <div className="flex flex-col items-center gap-3 py-8 text-center">
+        <StatusIcon tone="info">
+          <Info className="h-9 w-9" aria-hidden="true" />
+        </StatusIcon>
+        <h1 className="font-display text-2xl font-bold leading-tight text-foreground">Tu pago está en revisión</h1>
+        <p role="status" className="text-sm text-muted-foreground">
+          Tu pago está en revisión.
+        </p>
+      </div>
+    );
   }
 
   if (FAILED_STATUSES.includes(purchase.status)) {
-    return <p className="text-sm text-destructive">El pago no se pudo completar. No se acreditó ningún almuerzo.</p>;
+    return (
+      <div className="flex flex-col items-center gap-4 py-6 text-center">
+        <StatusIcon tone="error">
+          <X className="h-9 w-9" aria-hidden="true" strokeWidth={2.4} />
+        </StatusIcon>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">No se pudo completar el pago</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            No se acreditó ningún almuerzo. Podés intentarlo de nuevo con el mismo u otro medio de pago.
+          </p>
+        </div>
+        <dl className="m-0 flex w-full flex-col gap-2.5 rounded-lg border border-border bg-card p-4 text-left">
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Compra</dt>
+            <dd className="m-0 font-semibold text-foreground">{purchaseLabel(purchase)}</dd>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Total</dt>
+            <dd className="m-0 font-semibold text-foreground">{formatAmount(purchase)}</dd>
+          </div>
+          <div aria-hidden="true" className="border-t border-dashed border-border" />
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Estado</dt>
+            <dd className="m-0 font-bold text-destructive">Rechazado</dd>
+          </div>
+        </dl>
+        <p role="alert" className="text-sm text-destructive">
+          El pago no se pudo completar. No se acreditó ningún almuerzo.
+        </p>
+        <div className="flex w-full flex-col gap-2.5">
+          <Link
+            to="/credits/packs"
+            className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+          >
+            Intentar de nuevo
+          </Link>
+          <Link
+            to="/credits"
+            className="flex h-[52px] items-center justify-center rounded-md border border-border bg-card text-sm font-semibold text-foreground no-underline"
+          >
+            Volver a mis almuerzos
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return null;
