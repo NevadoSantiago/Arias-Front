@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
-import { DishCard } from '@/features/orders/components/DishCard';
-import { FilterPills } from '@/features/orders/components/FilterPills';
-import type { ActiveFilter } from '@/features/orders/components/FilterPills';
 import { WeekDaySelector } from '@/features/orders/components/WeekDaySelector';
 import { CartBar } from '@/features/orders/components/b2c/CartBar';
+import { DishListItem } from '@/features/orders/components/b2c/DishListItem';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
 import type { ConfirmedItem } from '@/features/orders/components/b2c/OrderConfirmedView';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
+import { SectionPills } from '@/features/orders/components/b2c/SectionPills';
+import type { ActiveFilter } from '@/features/orders/components/b2c/SectionPills';
 import { useCart } from '@/features/orders/hooks/useCart';
 import {
   getAvailableDishes,
@@ -186,6 +186,17 @@ export function B2cOrderPage() {
       .filter((g) => g.dishes.length > 0);
   }, [regularDishes, sections]);
 
+  /** F8: `SectionPills` filtra de verdad la lista (a diferencia de `FilterPills`,
+   * que solo hace scroll a la sección — restricción de la feature, ver
+   * documento). Los especiales quedan siempre visibles, igual que antes. */
+  const visibleGroups = useMemo(
+    () =>
+      activeFilter === 'all'
+        ? groupedBySection
+        : groupedBySection.filter((g) => g.section.id === activeFilter),
+    [groupedBySection, activeFilter],
+  );
+
   const canConfirm = cart.lines.length > 0 && !!pickupAt && !submitting;
 
   const handleAddToCart = (selection: { sideId: number | null; notas: string | null }) => {
@@ -348,7 +359,7 @@ export function B2cOrderPage() {
         </div>
 
         <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
-          <FilterPills
+          <SectionPills
             sections={sections}
             active={activeFilter}
             counts={counts}
@@ -356,7 +367,7 @@ export function B2cOrderPage() {
           />
         </div>
 
-        {groupedBySection.length === 0 && specialDishes.length === 0 ? (
+        {visibleGroups.length === 0 && specialDishes.length === 0 ? (
           <div className="text-center py-20 border border-dashed border-border rounded-lg">
             <p className="text-muted-foreground text-sm uppercase tracking-brand">
               No hay platos disponibles
@@ -369,21 +380,31 @@ export function B2cOrderPage() {
                 <h2 className="font-display text-primary text-xl lg:text-2xl font-bold mb-4 border-b border-primary pb-2">
                   Especiales del día
                 </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
+                <div className="flex flex-col gap-3">
                   {specialDishes.map((dish) => (
-                    <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} />
+                    <DishListItem
+                      key={dish.id}
+                      dish={dish}
+                      onSelect={setSelectedDish}
+                      hideStock={!isToday}
+                    />
                   ))}
                 </div>
               </section>
             )}
-            {groupedBySection.map(({ section, dishes: sectionDishes }) => (
+            {visibleGroups.map(({ section, dishes: sectionDishes }) => (
               <section key={section.id} id={`section-${section.id}`}>
                 <h2 className="font-display text-foreground text-xl lg:text-2xl font-bold mb-4 border-b border-border pb-2">
                   {section.nombre}
                 </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
+                <div className="flex flex-col gap-3">
                   {sectionDishes.map((dish) => (
-                    <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} />
+                    <DishListItem
+                      key={dish.id}
+                      dish={dish}
+                      onSelect={setSelectedDish}
+                      hideStock={!isToday}
+                    />
                   ))}
                 </div>
               </section>
