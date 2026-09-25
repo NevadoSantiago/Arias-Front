@@ -144,4 +144,72 @@ describe('CreditsCheckoutStatus', () => {
     expect(screen.getByRole('link', { name: /pedir mi almuerzo/i })).toHaveAttribute('href', '/orders/today');
     expect(screen.getByRole('link', { name: /ver mis almuerzos/i })).toHaveAttribute('href', '/credits');
   });
+
+  // F9: `GET /api/v1/credits/purchases/{id}` ahora incluye `packNombre`
+  // (backend task B3) — se muestra en vez del texto genérico "Paquete de
+  // almuerzos" / "Compra directa" cuando está presente.
+  it('shows the pack name instead of the generic label when packNombre is present (APPROVED)', async () => {
+    vi.mocked(getPurchase).mockResolvedValue({
+      ...pendingPurchase,
+      status: 'APPROVED',
+      creditedAt: '2026-01-01T00:05:00Z',
+      packNombre: 'Paquete Semana',
+    });
+
+    renderWithClient('p1');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText('Paquete Semana')).toBeInTheDocument();
+    expect(screen.queryByText('Paquete de almuerzos')).not.toBeInTheDocument();
+  });
+
+  it('shows the pack name instead of the generic label when packNombre is present (REJECTED)', async () => {
+    vi.mocked(getPurchase).mockResolvedValue({
+      ...pendingPurchase,
+      status: 'REJECTED',
+      packNombre: 'Paquete Mes',
+    });
+
+    renderWithClient('p1');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText('Paquete Mes')).toBeInTheDocument();
+    expect(screen.queryByText('Paquete de almuerzos')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the generic pack label when packNombre is null', async () => {
+    vi.mocked(getPurchase).mockResolvedValue({
+      ...pendingPurchase,
+      status: 'APPROVED',
+      creditedAt: '2026-01-01T00:05:00Z',
+      packNombre: null,
+    });
+
+    renderWithClient('p1');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText('Paquete de almuerzos')).toBeInTheDocument();
+  });
+
+  it('falls back to the generic direct-purchase label when packNombre is null', async () => {
+    vi.mocked(getPurchase).mockResolvedValue({
+      ...pendingPurchase,
+      type: 'DIRECT',
+      status: 'REJECTED',
+      packNombre: null,
+    });
+
+    renderWithClient('p1');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText('Compra directa')).toBeInTheDocument();
+  });
 });

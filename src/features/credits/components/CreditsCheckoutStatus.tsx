@@ -19,7 +19,17 @@ function formatAmount(purchase: Pick<CreditPurchase, 'amountCents' | 'currency'>
   return (purchase.amountCents / 100).toLocaleString('es-AR', { style: 'currency', currency: purchase.currency });
 }
 
-function purchaseLabel(purchase: Pick<CreditPurchase, 'type'>): string {
+/**
+ * F9: el backend informa `packNombre` (nombre real del pack comprado, p. ej.
+ * "Paquete Semana"; `null` en `DIRECT` — tarea B3) y lo mostramos en vez del
+ * texto genérico. Limitación conocida: para Sueltos (pack `DAY` comprado con
+ * `quantity`), `packNombre` es el `nombre` del pack tal cual está en la base
+ * (no dice "N almuerzos sueltos") — el DTO no expone el código del pack ni
+ * `quantity`, así que no hay forma confiable de distinguir esa compra acá sin
+ * inventar un campo nuevo. Se muestra el nombre tal como llega.
+ */
+function purchaseLabel(purchase: Pick<CreditPurchase, 'type' | 'packNombre'>): string {
+  if (purchase.packNombre) return purchase.packNombre;
   return purchase.type === 'PACK' ? 'Paquete de almuerzos' : 'Compra directa';
 }
 

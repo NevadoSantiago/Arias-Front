@@ -84,4 +84,10 @@ export interface CreditPurchase {
   createdAt: string;
   creditedAt: string | null;
   reversedAt: string | null;
+  /**
+   * Nombre del pack comprado (p. ej. "Paquete Semana"), `null` en compras
+   * `DIRECT` (feature `b2c-ordering-redesign`, tarea B3). Optional porque
+   * puede faltar en una respuesta vieja de caché.
+   */
+  packNombre?: string | null;
 }
