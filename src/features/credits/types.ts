@@ -50,6 +50,13 @@ export interface CreatePurchasePayload {
   type: PurchaseType;
   packId?: number;
   orderId?: number;
+  /**
+   * Sueltos (F6): cuántas veces se compra el pack `DAY` (1..10). El backend
+   * multiplica importe y almuerzos por esta cantidad; se manda SOLO para
+   * Sueltos — para el resto de los packs (`quantity` implícita = 1) no se
+   * envía el campo.
+   */
+  quantity?: number;
 }
 
 export interface CreditPurchaseCheckout {
