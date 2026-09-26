@@ -569,3 +569,52 @@ describe('B2cOrderPage — the cart is independent per day (F12)', () => {
     expect(within(reviewDialog).getByText('Milanesa napolitana')).toBeInTheDocument();
   });
 });
+
+describe('B2cOrderPage — offers today on weekends (F13)', () => {
+  const SATURDAY = '2026-09-26T09:00:00';
+  const SATURDAY_ISO = '2026-09-26';
+
+  beforeEach(() => {
+    vi.setSystemTime(new Date(SATURDAY));
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  /**
+   * F13: `WeekDaySelector` solo muestra lunes a viernes, así que un sábado o
+   * domingo reales no tenían ningún chip de "hoy" — el cliente no podía
+   * pedir el mismo día de fin de semana aunque el backend ya lo permite
+   * (`PickupSlotService.isWithinSchedulableWeeks`, semana lunes-domingo).
+   */
+  it('shows a today chip (Sáb) on a Saturday, selected by default, and requests the menu for today', async () => {
+    renderPage();
+
+    // El saludo de "hoy" ya confirma que `selectedDate` arranca en el
+    // sábado real (no cambió con esta feature: `todayStr` ya era la fecha
+    // inicial); lo nuevo es que ahora existe un chip para volver a hoy.
+    await screen.findByText('¡Buen día, Lucía!');
+
+    const todayButton = screen.getByText('Sáb').closest('button');
+    expect(todayButton).not.toBeNull();
+    expect(todayButton).not.toBeDisabled();
+
+    expect(getAvailableDishes).toHaveBeenCalledWith(SATURDAY_ISO);
+  });
+});

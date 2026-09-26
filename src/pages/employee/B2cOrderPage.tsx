@@ -329,6 +329,7 @@ export function B2cOrderPage() {
             onSelect={handleSelectDate}
             orderedDates={orderedDates}
             disabledDates={disabledDates}
+            includeWeekendToday
           />
 
           <div className="flex items-center justify-between gap-3 px-1">
