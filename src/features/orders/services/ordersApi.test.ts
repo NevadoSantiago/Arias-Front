@@ -79,5 +79,46 @@ describe('getRestaurantConfig', () => {
 
     expect(config.pickupWindowStart).toBeNull();
     expect(config.pickupWindowEnd).toBeNull();
+    expect(config.pickupSchedule).toBeUndefined();
+  });
+
+  // B5/F14: la franja por día de la semana reemplaza a pickupWindowStart/End
+  // como fuente de verdad — normaliza "HH:MM:SS" a "HH:MM" igual que los
+  // demás campos de horario, y tolera null en los horarios de un día cerrado.
+  it('normalizes pickupSchedule window times to "HH:MM" and keeps null times for closed days', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        horaCorte: '10:00:00',
+        timezone: 'America/Argentina/Buenos_Aires',
+        pickupWindowStart: '11:00:00',
+        pickupWindowEnd: '23:00:00',
+        pickupSchedule: [
+          { dayOfWeek: 1, open: true, windowStart: '08:00:00', windowEnd: '20:00:00' },
+          { dayOfWeek: 7, open: false, windowStart: null, windowEnd: null },
+        ],
+      },
+    });
+
+    const config = await getRestaurantConfig();
+
+    expect(config.pickupSchedule).toEqual([
+      { dayOfWeek: 1, open: true, windowStart: '08:00', windowEnd: '20:00' },
+      { dayOfWeek: 7, open: false, windowStart: null, windowEnd: null },
+    ]);
+  });
+
+  it('tolerates a backend without pickupSchedule (older backend)', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        horaCorte: '10:00:00',
+        timezone: 'America/Argentina/Buenos_Aires',
+        pickupWindowStart: '11:00:00',
+        pickupWindowEnd: '23:00:00',
+      },
+    });
+
+    const config = await getRestaurantConfig();
+
+    expect(config.pickupSchedule).toBeUndefined();
   });
 });

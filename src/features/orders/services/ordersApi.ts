@@ -11,6 +11,12 @@ export async function getRestaurantConfig(): Promise<RestaurantConfig> {
     timezone: string;
     pickupWindowStart: string | null;
     pickupWindowEnd: string | null;
+    pickupSchedule?: {
+      dayOfWeek: number;
+      open: boolean;
+      windowStart: string | null;
+      windowEnd: string | null;
+    }[] | null;
   }>(`${BASE}/restaurant-config`);
   return {
     horaCorte: data.horaCorte.substring(0, 5),
@@ -18,6 +24,14 @@ export async function getRestaurantConfig(): Promise<RestaurantConfig> {
     // pantalla oculta la etiqueta de horario en vez de romper (F3.1).
     pickupWindowStart: data.pickupWindowStart ? data.pickupWindowStart.substring(0, 5) : null,
     pickupWindowEnd: data.pickupWindowEnd ? data.pickupWindowEnd.substring(0, 5) : null,
+    // Tolerante a un backend viejo sin `pickupSchedule` (F14b): queda
+    // `undefined` y `B2cOrderPage` cae al par global de arriba.
+    pickupSchedule: data.pickupSchedule?.map((d) => ({
+      dayOfWeek: d.dayOfWeek,
+      open: d.open,
+      windowStart: d.windowStart ? d.windowStart.substring(0, 5) : null,
+      windowEnd: d.windowEnd ? d.windowEnd.substring(0, 5) : null,
+    })) ?? undefined,
   };
 }
 

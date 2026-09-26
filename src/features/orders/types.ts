@@ -70,13 +70,25 @@ export interface DailyChoice {
   sideEnabled: boolean | null; // null cuando el pedido no tiene side
 }
 
+/** Franja de retiro de un día de la semana (B5/F14). */
+export interface PickupScheduleDay {
+  dayOfWeek: number; // ISO 1..7, 1 = lunes
+  open: boolean;
+  windowStart: string | null; // "11:00"
+  windowEnd: string | null; // "23:00"
+}
+
 export interface RestaurantConfig {
   horaCorte: string; // "10:00"
   /**
-   * Ventana de servicio de retiro — ver `PickupSlotService` (backend).
-   * `null` si el restaurante no la tiene configurada; la UI oculta la
-   * etiqueta de horario en ese caso (F3.1).
+   * Ventana de servicio de retiro global — DEPRECATED, reemplazada por
+   * `pickupSchedule` (B5/F14). Se mantiene por compatibilidad con un
+   * backend viejo (fallback en `B2cOrderPage`, F14b). `null` si el
+   * restaurante no la tiene configurada; la UI oculta la etiqueta de
+   * horario en ese caso (F3.1).
    */
   pickupWindowStart: string | null; // "11:00"
   pickupWindowEnd: string | null; // "23:00"
+  /** Franja de retiro por día de la semana (lunes a domingo). Ausente en un backend viejo (tolerancia, F14b). */
+  pickupSchedule?: PickupScheduleDay[];
 }

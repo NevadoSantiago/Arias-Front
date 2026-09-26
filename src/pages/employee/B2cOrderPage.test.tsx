@@ -356,6 +356,86 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     expect(await screen.findByText('11:30 – 22:45')).toBeInTheDocument();
   });
+
+  /**
+   * F14b: la línea del horario de retiro deja de leer el par global
+   * (deprecated) y pasa a leer `pickupSchedule` del día de la semana
+   * SELECCIONADO — no del día de hoy. Se ancla el reloj del sistema a un
+   * sábado real (sin usar `WeekDaySelector` para llegar ahí) porque solo
+   * ese día tiene un chip de "hoy" propio cuando cae en fin de semana (F13);
+   * el lunes de la semana siguiente ya es clickeable desde ese mismo chip.
+   */
+  it("shows the selected day's own window from pickupSchedule (Saturday, then Monday)", async () => {
+    vi.setSystemTime(new Date('2026-09-26T09:00:00'));
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+      pickupSchedule: [
+        { dayOfWeek: 1, open: true, windowStart: '08:00', windowEnd: '20:00' },
+        { dayOfWeek: 2, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 3, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 4, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 5, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 6, open: true, windowStart: '10:00', windowEnd: '15:00' },
+        { dayOfWeek: 7, open: false, windowStart: null, windowEnd: null },
+      ],
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('10:00 – 15:00')).toBeInTheDocument();
+
+    const mondayButton = screen.getByText('Lu').closest('button');
+    fireEvent.click(mondayButton!);
+
+    expect(await screen.findByText('08:00 – 20:00')).toBeInTheDocument();
+    expect(screen.queryByText('10:00 – 15:00')).not.toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  /** F14b: un día cerrado en `pickupSchedule` muestra un texto de cerrado en vez de un rango. */
+  it('shows a closed message instead of a time range for a closed weekday', async () => {
+    vi.setSystemTime(new Date('2026-06-01T09:00:00')); // lunes
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+      pickupSchedule: [
+        { dayOfWeek: 1, open: false, windowStart: null, windowEnd: null },
+        { dayOfWeek: 2, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 3, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 4, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 5, open: true, windowStart: '11:00', windowEnd: '23:00' },
+        { dayOfWeek: 6, open: true, windowStart: '11:00', windowEnd: '16:00' },
+        { dayOfWeek: 7, open: false, windowStart: null, windowEnd: null },
+      ],
+    });
+
+    renderPage();
+
+    expect(await screen.findByText(/cerrado ese día/i)).toBeInTheDocument();
+    expect(screen.queryByText(/–/)).not.toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  /** F14b: tolerancia a un backend viejo sin `pickupSchedule` — cae al par global. */
+  it('falls back to the global pickupWindowStart/End when pickupSchedule is missing', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:30',
+      pickupWindowEnd: '22:45',
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('11:30 – 22:45')).toBeInTheDocument();
+  });
 });
 
 describe('B2cOrderPage — pickup time picker (F3)', () => {

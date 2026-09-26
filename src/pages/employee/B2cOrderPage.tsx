@@ -21,7 +21,7 @@ import {
   InsufficientCreditsError,
   placeOrderV2,
 } from '@/features/orders/services/ordersApi';
-import type { Dish } from '@/features/orders/types';
+import type { Dish, RestaurantConfig } from '@/features/orders/types';
 import { useWallet } from '@/features/credits/hooks/useWallet';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,41 @@ function formatDayLongLabel(date: string): string {
   const d = new Date(date + 'T12:00:00');
   const formatted = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+/**
+ * Día ISO de la semana (1..7, 1 = lunes) de una fecha "YYYY-MM-DD" — parseada
+ * como fecha LOCAL (mismo patrón de `formatDayLabel`, `+ 'T12:00:00'`) para
+ * no correr el día por el corrimiento de huso horario que tendría
+ * `new Date('YYYY-MM-DD')` (UTC medianoche) cerca de la medianoche local (F14b).
+ */
+function isoWeekdayOf(date: string): number {
+  const day = new Date(date + 'T12:00:00').getDay(); // 0 = domingo .. 6 = sábado
+  return day === 0 ? 7 : day;
+}
+
+type PickupWindowDisplay = { kind: 'open'; start: string; end: string } | { kind: 'closed' } | null;
+
+/**
+ * Franja de retiro a mostrar para el día SELECCIONADO (F14b) — reemplaza el
+ * par global deprecated `pickupWindowStart/End` (F2/F3.1) por
+ * `pickupSchedule` del día de la semana correspondiente. Tolerante a un
+ * backend viejo sin `pickupSchedule`: cae al par global, y si tampoco está,
+ * no muestra nada (mismo comportamiento que antes de F14).
+ */
+function pickupWindowDisplayFor(config: RestaurantConfig | undefined, selectedDate: string): PickupWindowDisplay {
+  if (!config) return null;
+  const day = config.pickupSchedule?.find((d) => d.dayOfWeek === isoWeekdayOf(selectedDate));
+  if (day) {
+    if (day.open && day.windowStart && day.windowEnd) {
+      return { kind: 'open', start: day.windowStart, end: day.windowEnd };
+    }
+    return { kind: 'closed' };
+  }
+  if (config.pickupWindowStart && config.pickupWindowEnd) {
+    return { kind: 'open', start: config.pickupWindowStart, end: config.pickupWindowEnd };
+  }
+  return null;
 }
 
 interface DoneData {
@@ -349,15 +384,23 @@ export function B2cOrderPage() {
               {isToday ? 'Menú de hoy' : 'Pedido programado'}
             </span>
 
-            {config?.pickupWindowStart && config.pickupWindowEnd && (
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
-                <span>
-                  <span className="sr-only">Horario de retiro: </span>
-                  {config.pickupWindowStart} – {config.pickupWindowEnd}
+            {(() => {
+              const windowDisplay = pickupWindowDisplayFor(config, selectedDate);
+              if (!windowDisplay) return null;
+              return (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
+                  {windowDisplay.kind === 'open' ? (
+                    <span>
+                      <span className="sr-only">Horario de retiro: </span>
+                      {windowDisplay.start} – {windowDisplay.end}
+                    </span>
+                  ) : (
+                    <span>Cerrado ese día</span>
+                  )}
                 </span>
-              </span>
-            )}
+              );
+            })()}
           </div>
         </div>
 
