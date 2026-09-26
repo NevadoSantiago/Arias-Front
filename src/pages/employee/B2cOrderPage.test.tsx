@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { B2cOrderPage } from './B2cOrderPage';
@@ -391,13 +391,21 @@ describe('B2cOrderPage — pickup time picker (F3)', () => {
       await screen.findByRole('button', { name: /^retiro hoy \d{2}:\d{2} hs$/i }),
     ).toBeInTheDocument();
 
-    // El carrito no depende del día seleccionado — cambiar de día con la
-    // hoja de revisión abierta re-pide los horarios para la nueva fecha y
-    // el botón de confirmar se actualiza solo (mismo comportamiento de F3).
+    // F12: el carrito es por día — cambiar de día con la hoja de revisión
+    // abierta muestra el carrito (vacío) del día nuevo, así que la hoja se
+    // cierra sola (mismo criterio que quitar la última línea, F7.1). Hay que
+    // agregar un plato en ese día para volver a abrirla y ver su horario.
     const futureDayButton = screen
       .getByText(String(Number(futureDate.split('-')[2])))
       .closest('button');
     fireEvent.click(futureDayButton!);
+
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument(),
+    );
+
+    await addDishToCart();
+    await openReview();
 
     const dayShort = new Date(`${futureDate}T12:00:00`).toLocaleDateString('es-AR', {
       weekday: 'long',
@@ -453,5 +461,111 @@ describe('B2cOrderPage — hides stock indicators on future days (F8.1)', () => 
 
     await screen.findByText('¿Qué querés comer?');
     expect(screen.queryByText(/Últimos/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — the cart is independent per day (F12)', () => {
+  const dish2: Dish = {
+    ...dish,
+    id: 11,
+    nombre: 'Tarta de verdura',
+  };
+  // `WeekDaySelector` only renders Mon–Fri, so a real "today" that falls on
+  // a weekend has no clickable button to come back to. The system clock is
+  // pinned to a known Monday for this suite (mocks only `Date`, real
+  // timers keep running — `findBy`/`waitFor` still resolve normally).
+  const TODAY = '2026-06-01T09:00:00';
+  const TODAY_ISO = '2026-06-01';
+  const FUTURE_ISO = '2026-06-02';
+
+  function dayButton(iso: string) {
+    // With two dishes in the same section, `FilterPills`' count badge can
+    // show the same digit as a day number (both plain "2", say) — exclude
+    // matches inside the section tablist to keep this unambiguous.
+    const day = String(Number(iso.split('-')[2]));
+    const match = screen.getAllByText(day).find((el) => !el.closest('[role="tablist"]'));
+    return match?.closest('button');
+  }
+
+  beforeEach(() => {
+    vi.setSystemTime(new Date(TODAY));
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish, dish2]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('keeps a dish added today off a future day, and keeps it after switching back', async () => {
+    renderPage();
+
+    await addDishToCart();
+    expect(await screen.findByRole('button', { name: /ver pedido/i })).toBeInTheDocument();
+
+    fireEvent.click(dayButton(FUTURE_ISO)!);
+    await screen.findByText('¿Qué querés comer?');
+    expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/tocá un plato para armar tu pedido/i)).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: /tarta de verdura/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /agregar al pedido/i }));
+    expect(await screen.findByText(/^1 plato/i)).toBeInTheDocument();
+
+    fireEvent.click(dayButton(TODAY_ISO)!);
+    await openReview();
+    const reviewDialog = await screen.findByRole('dialog', { name: /tu pedido/i });
+    expect(within(reviewDialog).getByText('Milanesa napolitana')).toBeInTheDocument();
+    expect(within(reviewDialog).queryByText('Tarta de verdura')).not.toBeInTheDocument();
+  });
+
+  it('confirms only the selected day items and leaves other days carts untouched', async () => {
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({
+      id: 100,
+      fecha: FUTURE_ISO,
+      pickupAt: '2026-05-21T15:00:00Z',
+      estado: 'PENDIENTE',
+      creditTotal: 3,
+      notas: null,
+      items: [],
+      cancellable: true,
+    });
+    renderPage();
+
+    await addDishToCart();
+
+    fireEvent.click(dayButton(FUTURE_ISO)!);
+    await screen.findByText('¿Qué querés comer?');
+    fireEvent.click(await screen.findByRole('button', { name: /tarta de verdura/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /agregar al pedido/i }));
+
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+
+    expect(await screen.findByText('¡Pedido programado!')).toBeInTheDocument();
+    expect(placeOrderV2).toHaveBeenCalledWith({
+      items: [{ dishId: dish2.id, sideId: null, notas: null }],
+      pickupAt: '2026-05-21T15:00:00Z',
+      notas: null,
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /volver al menú/i }));
+    fireEvent.click(dayButton(TODAY_ISO)!);
+    await openReview();
+    const reviewDialog = await screen.findByRole('dialog', { name: /tu pedido/i });
+    expect(within(reviewDialog).getByText('Milanesa napolitana')).toBeInTheDocument();
   });
 });

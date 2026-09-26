@@ -94,7 +94,7 @@ export function B2cOrderPage() {
   }, []);
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
-  const cart = useCart();
+  const cart = useCart(selectedDate);
 
   const { data: sections } = useQuery({ queryKey: ['menuSections'], queryFn: getMenuSections });
 
@@ -200,6 +200,19 @@ export function B2cOrderPage() {
       notas: selection.notas,
     });
     setSelectedDish(null);
+  };
+
+  /**
+   * Cambiar de día cierra la hoja de revisión: el carrito es por día (F12),
+   * así que el día nuevo puede estar vacío y `reviewOpen` seguiría en
+   * `true` si no se resetea acá — igual que F7.1, si después se agrega un
+   * plato en ese día nuevo, `reviewOpen && cart.lines.length > 0` la
+   * reabriría sola sin que el usuario tocara "Ver pedido". Se resuelve en
+   * el handler, no con un efecto.
+   */
+  const handleSelectDate = (date: string) => {
+    setSelectedDate(date);
+    setReviewOpen(false);
   };
 
   /**
@@ -313,7 +326,7 @@ export function B2cOrderPage() {
         <div className="mb-6 space-y-3">
           <WeekDaySelector
             selectedDate={selectedDate}
-            onSelect={setSelectedDate}
+            onSelect={handleSelectDate}
             orderedDates={orderedDates}
             disabledDates={disabledDates}
           />
