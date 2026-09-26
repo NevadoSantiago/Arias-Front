@@ -46,7 +46,7 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
   const available = wallet?.available ?? null;
 
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+    <Sheet open={open} onOpenChange={(next) => !next && !cancelling && onClose()}>
       <SheetContent aria-label="Cancelar pedido" className="p-0">
         <div className="flex flex-col gap-4 p-4">
           <SheetTitle>¿Cancelar este pedido?</SheetTitle>

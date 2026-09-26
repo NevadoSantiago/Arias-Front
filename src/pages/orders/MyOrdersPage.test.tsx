@@ -38,14 +38,17 @@ vi.mock('sonner', () => ({
 vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  });
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <MyOrdersPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return { ...view, queryClient };
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -144,12 +147,14 @@ describe('MyOrdersPage', () => {
       .mockResolvedValueOnce([{ ...cancellableOrder, estado: 'CANCELADO', cancellable: false }]);
     vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
 
-    renderPage();
+    const { queryClient } = renderPage();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
     fireEvent.click(await screen.findByRole('button', { name: /cancelar pedido/i }));
 
     expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
     expect(await screen.findByText(/pasás de 8 a 12 almuerzos disponibles/i)).toBeInTheDocument();
+    await waitFor(() => expect(getWallet).toHaveBeenCalledTimes(1));
 
     fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
 
@@ -160,6 +165,48 @@ describe('MyOrdersPage', () => {
     expect(await screen.findByText('Cancelado')).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringMatching(/pedido cancelado.*4 almuerzos volvieron a tu saldo/i),
+    );
+    // La billetera también se refresca, no solo la lista de pedidos: se
+    // afirma la invalidación explícita de su clave de caché compartida
+    // (misma clave que usa `useWallet`), igual que ya hace B2cOrderPage.test.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+  });
+
+  // Corrección: el conteo del toast de éxito venía de `cancelTarget` (estado
+  // de React) leído en el momento de `onSuccess`, no de las variables de la
+  // mutación. Si `cancelTarget` cambia mientras la cancelación en curso
+  // sigue pendiente (acá, pidiendo cancelar OTRO pedido debajo de la hoja),
+  // el toast terminaba usando el conteo del pedido equivocado.
+  it('shows the toast with the cancelled order real count, even if cancelTarget changes while the mutation is pending', async () => {
+    const orderA: OrderV2 = { ...cancellableOrder, id: 201, creditTotal: 4 };
+    const orderB: OrderV2 = { ...cancellableOrder, id: 202, creditTotal: 2, pickupAt: futureIso(5) };
+    vi.mocked(getOrdersV2).mockResolvedValue([orderA, orderB]);
+    let resolveCancel: () => void = () => {};
+    vi.mocked(cancelOrderV2).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCancel = () => resolve(undefined);
+        }),
+    );
+
+    renderPage();
+
+    const cards = await screen.findAllByTestId('order-card');
+    fireEvent.click(within(cards[0]).getByRole('button', { name: /cancelar pedido/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
+    await waitFor(() => expect(cancelOrderV2).toHaveBeenCalled());
+
+    // Mientras la cancelación de orderA sigue pendiente, se pide cancelar
+    // orderB (debajo de la hoja) — esto pisa `cancelTarget` en el estado.
+    // Radix marca el fondo `aria-hidden` mientras la hoja está abierta, así
+    // que se ubica el botón por texto (no por rol) para simular el cambio
+    // de estado sin depender de que sea alcanzable por el usuario.
+    fireEvent.click(within(cards[1]).getByText(/cancelar pedido/i));
+
+    resolveCancel();
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/4 almuerzos volvieron a tu saldo/i)),
     );
   });
 

@@ -31,11 +31,15 @@ export function MyOrdersPage() {
   const now = useMemo(() => new Date(), [orders]);
 
   const cancelMutation = useMutation({
-    mutationFn: cancelOrderV2,
-    onSuccess: () => {
+    // Se pasa el pedido completo como variable de la mutación (no solo el
+    // id) para que `onSuccess` pueda leer su `creditTotal` de ahí en vez de
+    // depender de `cancelTarget` (estado de React), que puede haber
+    // cambiado o quedar en null para cuando la mutación resuelve.
+    mutationFn: (order: OrderV2) => cancelOrderV2(order.id),
+    onSuccess: (_data, order) => {
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
-      const count = cancelTarget?.creditTotal ?? 0;
+      const count = order.creditTotal;
       toast.success(
         `Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`,
       );
@@ -145,7 +149,7 @@ export function MyOrdersPage() {
         now={now}
         cancelling={cancelMutation.isPending}
         errorMessage={cancelError}
-        onConfirm={() => cancelTarget && cancelMutation.mutate(cancelTarget.id)}
+        onConfirm={() => cancelTarget && cancelMutation.mutate(cancelTarget)}
         onClose={() => {
           setCancelTarget(null);
           setCancelError(null);
