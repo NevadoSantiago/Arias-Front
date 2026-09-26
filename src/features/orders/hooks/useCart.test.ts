@@ -150,6 +150,30 @@ describe('useCart', () => {
       expect(result.current.totalCredits).toBe(3);
     });
 
+    it('removes a line only from the current day', () => {
+      const { result, rerender } = renderHook(({ fecha }) => useCart(fecha), {
+        initialProps: { fecha: DAY_A },
+      });
+
+      act(() => {
+        result.current.addItem({ dish: makeDish(1, 2), sideId: null, sideNombre: null, notas: null });
+      });
+      rerender({ fecha: DAY_B });
+      act(() => {
+        result.current.addItem({ dish: makeDish(2, 3), sideId: null, sideNombre: null, notas: null });
+      });
+      const onDayB = result.current.lines[0].localId;
+
+      act(() => {
+        result.current.removeItem(onDayB);
+      });
+      expect(result.current.lines).toHaveLength(0);
+
+      rerender({ fecha: DAY_A });
+      expect(result.current.lines).toHaveLength(1);
+      expect(result.current.totalCredits).toBe(2);
+    });
+
     it('computes totalCredits independently per day', () => {
       const { result, rerender } = renderHook(({ fecha }) => useCart(fecha), {
         initialProps: { fecha: DAY_A },
