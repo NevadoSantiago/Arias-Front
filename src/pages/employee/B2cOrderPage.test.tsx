@@ -291,6 +291,9 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
   afterEach(() => {
     useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
     vi.clearAllMocks();
+    // Los tests de F14b fijan el reloj; si una aserción falla antes de su
+    // useRealTimers(), el reloj falso no debe filtrarse a los tests siguientes.
+    vi.useRealTimers();
   });
 
   it('shows a check on a day with an active order and not on a day with only a cancelled order', async () => {

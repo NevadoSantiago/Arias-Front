@@ -79,6 +79,21 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
     expect(region.getAllByRole('switch')).toHaveLength(7);
   });
 
+  it('falls back to the global window, all days open, when pickupSchedule is missing', async () => {
+    const { pickupSchedule: _omit, ...withoutSchedule } = baseConfig;
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(withoutSchedule);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    const region = within(await scheduleRegion());
+
+    for (const sw of region.getAllByRole('switch')) {
+      expect(sw).toHaveAttribute('aria-checked', 'true');
+    }
+    expect((region.getByLabelText(/domingo, desde/i) as HTMLInputElement).value).toBe('11:00');
+    expect((region.getByLabelText(/domingo, hasta/i) as HTMLInputElement).value).toBe('23:00');
+  });
+
   it('widens the page container beyond the old max-w-2xl', async () => {
     vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
     vi.mocked(getDisabledDates).mockResolvedValue([]);

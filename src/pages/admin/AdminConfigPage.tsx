@@ -270,11 +270,20 @@ const WEEKDAY_NAMES: Record<number, string> = {
 /** Lunes a viernes — a dónde copia "Copiar a días hábiles" (excluye lunes, la fuente). */
 const WEEKDAY_TARGETS = [2, 3, 4, 5];
 
+/**
+ * Sin `pickupSchedule` (backend anterior a V24) se parte de la franja global
+ * con todos los días abiertos, que es lo que el backend aplica en ese caso.
+ * Mostrarlos cerrados haría que un "Guardar" cierre el local toda la semana.
+ */
 function toScheduleForm(config: RestaurantConfig): PickupScheduleDay[] {
   const byDay = new Map((config.pickupSchedule ?? []).map((d) => [d.dayOfWeek, d]));
-  return SCHEDULE_DAYS.map(
-    (dayOfWeek) => byDay.get(dayOfWeek) ?? { dayOfWeek, open: false, windowStart: null, windowEnd: null },
-  );
+  const fallback = (dayOfWeek: number): PickupScheduleDay => ({
+    dayOfWeek,
+    open: true,
+    windowStart: config.pickupWindowStart?.slice(0, 5) ?? null,
+    windowEnd: config.pickupWindowEnd?.slice(0, 5) ?? null,
+  });
+  return SCHEDULE_DAYS.map((dayOfWeek) => byDay.get(dayOfWeek) ?? fallback(dayOfWeek));
 }
 
 function toMinutes(hhmm: string | null): number | null {

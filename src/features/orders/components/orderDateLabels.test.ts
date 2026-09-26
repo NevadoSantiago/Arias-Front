@@ -10,6 +10,14 @@ describe('formatOrderDayLabel', () => {
     expect(label).toBe('Hoy, sábado, 26 de septiembre');
   });
 
+  it('keeps "Hoy" after 21:00 local, when the UTC date has already rolled over', () => {
+    // 22:30 del sábado en Buenos Aires = 01:30 del domingo en UTC.
+    const lateNow = new Date('2026-09-26T22:00:00-03:00');
+
+    expect(formatOrderDayLabel('2026-09-26T22:30:00-03:00', lateNow)).toBe('Hoy, sábado, 26 de septiembre');
+    expect(formatOrderTimeLabel('2026-09-26T22:30:00-03:00')).toBe('22:30');
+  });
+
   it('capitalizes the first letter and has no "Hoy, " prefix for a different day', () => {
     const label = formatOrderDayLabel('2026-09-27T18:00:00-03:00', now);
 
