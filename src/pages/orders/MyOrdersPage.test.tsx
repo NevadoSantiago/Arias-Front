@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { toast } from 'sonner';
 import { MyOrdersPage } from './MyOrdersPage';
 import { cancelOrderV2, getOrdersV2 } from '@/features/orders/services/ordersApi';
+import { getWallet } from '@/features/credits/services/creditsApi';
 import type { OrderV2 } from '@/features/orders/services/ordersApi';
 
 vi.mock('@/features/orders/services/ordersApi', async () => {
@@ -17,6 +19,24 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
   };
 });
 
+// F10: el saldo mostrado en la hoja de cancelación viene de la billetera
+// (`useWallet`/`creditsWallet`), así que hace falta controlarla acá también.
+vi.mock('@/features/credits/services/creditsApi', () => ({
+  getWallet: vi.fn(),
+}));
+
+// F10: el aviso de éxito ahora usa `toast.success` con el texto de la
+// decisión del usuario ("Pedido cancelado · N almuerzo(s) volvió/volvieron
+// a tu saldo"); no hay <Toaster/> montado en el test, así que se mockea
+// para poder verificar el mensaje.
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+// Default: la mayoría de los tests no abren la hoja de cancelación, pero
+// dejamos un valor resuelto por si el componente la consulta igual.
+vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -28,10 +48,14 @@ function renderPage() {
   );
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+const futureIso = (hours: number) => new Date(Date.now() + hours * HOUR_MS).toISOString();
+const pastIso = (hours: number) => new Date(Date.now() - hours * HOUR_MS).toISOString();
+
 const cancellableOrder: OrderV2 = {
   id: 123,
   fecha: '2026-09-24',
-  pickupAt: '2026-09-24T14:00:00Z',
+  pickupAt: futureIso(2),
   estado: 'PENDIENTE',
   creditTotal: 4,
   notas: null,
@@ -74,9 +98,18 @@ const cancelledOrder: OrderV2 = {
   cancellable: false,
 };
 
+const pastOrder: OrderV2 = {
+  ...cancellableOrder,
+  id: 190,
+  pickupAt: pastIso(3),
+  estado: 'ENTREGADO',
+  cancellable: false,
+};
+
 describe('MyOrdersPage', () => {
   afterEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
   });
 
   it('renders orders with items and the total formatted as "N almuerzos"', async () => {
@@ -102,7 +135,10 @@ describe('MyOrdersPage', () => {
     expect(within(cards[1]).queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
   });
 
-  it('cancels the order through DELETE /api/v2/orders/{id} and refreshes the list', async () => {
+  // F10: "Cancelar pedido" ahora abre una hoja de confirmación (D1 aprobado)
+  // en vez de un AlertDialog inline; el resumen del pedido y el cálculo
+  // "Pasás de X a Y almuerzos disponibles" (de la billetera) son nuevos.
+  it('cancels the order through the confirmation sheet and refreshes the list and wallet', async () => {
     vi.mocked(getOrdersV2)
       .mockResolvedValueOnce([cancellableOrder])
       .mockResolvedValueOnce([{ ...cancellableOrder, estado: 'CANCELADO', cancellable: false }]);
@@ -111,13 +147,36 @@ describe('MyOrdersPage', () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: /cancelar pedido/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar/i }));
+
+    expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
+    expect(await screen.findByText(/pasás de 8 a 12 almuerzos disponibles/i)).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
 
     // TanStack Query invoca la mutationFn con (variables, context), así que
     // afirmamos sobre el primer argumento y no sobre la lista completa.
     await waitFor(() => expect(vi.mocked(cancelOrderV2).mock.calls[0]?.[0]).toBe(123));
     await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Cancelado')).toBeInTheDocument();
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringMatching(/pedido cancelado.*4 almuerzos volvieron a tu saldo/i),
+    );
+  });
+
+  // F10: un error de cancelación se muestra en la propia hoja y el pedido
+  // sigue como estaba (nunca se lo saca de la lista de forma optimista).
+  it('shows the error and keeps the order when cancelling fails', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([cancellableOrder]);
+    vi.mocked(cancelOrderV2).mockRejectedValueOnce(new Error('network error'));
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /cancelar pedido/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no pudimos cancelar/i);
+    expect(screen.getAllByTestId('order-card')).toHaveLength(1);
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('shows a cancelled order as cancelled, without a cancel action', async () => {
@@ -137,5 +196,39 @@ describe('MyOrdersPage', () => {
     expect(await screen.findByText(/todavía no hiciste ningún pedido/i)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /hacer mi primer pedido/i });
     expect(link).toHaveAttribute('href', '/orders/today');
+  });
+
+  // F10: agrupación "Próximos" (retiro >= ahora, ascendente) / "Anteriores"
+  // (retiro < ahora, descendente), cada una con su contador.
+  it('splits orders into "Próximos" and "Anteriores" with a count for each', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder, pastOrder]);
+
+    renderPage();
+
+    const proximosHeader = (await screen.findByText('Próximos')).closest('header');
+    const anterioresHeader = screen.getByText('Anteriores').closest('header');
+    expect(proximosHeader).not.toBeNull();
+    expect(anterioresHeader).not.toBeNull();
+    expect(within(proximosHeader as HTMLElement).getByText('1')).toBeInTheDocument();
+    expect(within(anterioresHeader as HTMLElement).getByText('1')).toBeInTheDocument();
+  });
+
+  // F10, decisión del usuario (2026-09-26): PENDIENTE se muestra como
+  // "Programado" y ENTREGADO como "Retirado" (aunque v2 no lo produce hoy).
+  it('maps PENDIENTE to "Programado" and ENTREGADO to "Retirado"', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder, pastOrder]);
+
+    renderPage();
+
+    expect(await screen.findByText('Programado')).toBeInTheDocument();
+    expect(await screen.findByText('Retirado')).toBeInTheDocument();
+  });
+
+  it('shows the footer note about the last 30 orders when there is at least one order', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder]);
+
+    renderPage();
+
+    expect(await screen.findByText('Mostramos tus últimos 30 pedidos.')).toBeInTheDocument();
   });
 });
