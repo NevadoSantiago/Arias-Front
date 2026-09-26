@@ -94,7 +94,9 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent aria-label={dish.nombre} className="p-0">
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-muted">
+          {/* 4:3 como el DishDetailDialog anterior, con tope de 40vh para que en
+              teléfonos chicos quede lugar para la guarnición y el botón. */}
+          <div className="relative aspect-[4/3] max-h-[40vh] w-full shrink-0 overflow-hidden bg-muted">
             {showFallback ? (
               <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                 <UtensilsCrossed className="h-16 w-16 opacity-40" aria-hidden="true" />
