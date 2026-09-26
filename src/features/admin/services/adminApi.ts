@@ -78,26 +78,59 @@ export async function exportCompanyOrders(
 // `features/orders/services/ordersApi.ts` (solo expone `horaCorte`, usado
 // por el resto de la app para el corte de pedidos).
 
+/**
+ * Franja de retiro de un día de la semana (B5/F14, migración V24). Reemplaza
+ * a `pickupWindowStart/End` como fuente de verdad; esos dos campos se
+ * mantienen en `RestaurantConfig` (deprecated) solo porque
+ * `UpdateRestaurantConfigRequest` todavía los exige con `@NotNull` — el
+ * formulario ya no los deja editar, pero sigue mandando el valor vigente.
+ */
+export interface PickupScheduleDay {
+  dayOfWeek: number; // ISO 1..7, 1 = lunes
+  open: boolean;
+  windowStart: string | null; // "HH:MM"
+  windowEnd: string | null; // "HH:MM"
+}
+
+interface PickupScheduleDayRawFromApi extends Omit<PickupScheduleDay, 'windowStart' | 'windowEnd'> {
+  windowStart: string | null; // "HH:MM:SS" del back
+  windowEnd: string | null;
+}
+
+function normalizePickupScheduleDay(raw: PickupScheduleDayRawFromApi): PickupScheduleDay {
+  return {
+    dayOfWeek: raw.dayOfWeek,
+    open: raw.open,
+    windowStart: raw.windowStart ? raw.windowStart.substring(0, 5) : null,
+    windowEnd: raw.windowEnd ? raw.windowEnd.substring(0, 5) : null,
+  };
+}
+
 export interface RestaurantConfig {
   horaCorte: string; // HH:MM
   timezone: string;
   pickupLeadMinutes: number;
   creditExpiryDays: number;
+  /** @deprecated reemplazado por `pickupSchedule` (B5/F14) — se mantiene por compatibilidad con el PUT. */
   pickupWindowStart: string; // HH:MM
+  /** @deprecated reemplazado por `pickupSchedule` (B5/F14) — se mantiene por compatibilidad con el PUT. */
   pickupWindowEnd: string; // HH:MM
   pickupSlotMinutes: number;
   dailySummaryTime: string; // HH:MM
   pickupReminderMinutes: number;
+  /** Franja de retiro por día de la semana (lunes a domingo). Ausente en un backend viejo (tolerancia). */
+  pickupSchedule?: PickupScheduleDay[];
 }
 
 interface RestaurantConfigRawFromApi extends Omit<
   RestaurantConfig,
-  'horaCorte' | 'pickupWindowStart' | 'pickupWindowEnd' | 'dailySummaryTime'
+  'horaCorte' | 'pickupWindowStart' | 'pickupWindowEnd' | 'dailySummaryTime' | 'pickupSchedule'
 > {
   horaCorte: string; // "HH:MM:SS" del back
   pickupWindowStart: string;
   pickupWindowEnd: string;
   dailySummaryTime: string;
+  pickupSchedule?: PickupScheduleDayRawFromApi[] | null;
 }
 
 function normalizeRestaurantConfig(raw: RestaurantConfigRawFromApi): RestaurantConfig {
@@ -107,6 +140,7 @@ function normalizeRestaurantConfig(raw: RestaurantConfigRawFromApi): RestaurantC
     pickupWindowStart: raw.pickupWindowStart.substring(0, 5),
     pickupWindowEnd: raw.pickupWindowEnd.substring(0, 5),
     dailySummaryTime: raw.dailySummaryTime.substring(0, 5),
+    pickupSchedule: raw.pickupSchedule?.map(normalizePickupScheduleDay) ?? undefined,
   };
 }
 
@@ -132,6 +166,30 @@ export async function updateRestaurantConfig(
 ): Promise<RestaurantConfig> {
   const { data } = await api.put<RestaurantConfigRawFromApi>('/api/v1/restaurant-config', payload);
   return normalizeRestaurantConfig(data);
+}
+
+export interface UpdatePickupScheduleDayPayload {
+  dayOfWeek: number;
+  open: boolean;
+  windowStart: string | null; // "HH:MM"
+  windowEnd: string | null; // "HH:MM"
+}
+
+/**
+ * Reemplaza los 7 días de la franja de retiro (SUPER_ADMIN). El body es un
+ * array JSON pelado (no un objeto envolvente) — así lo espera
+ * `PUT /api/v1/restaurant-config/pickup-schedule`. El backend rechaza con
+ * 400 `invalid-pickup-schedule` si falta algún día, hay uno duplicado, o un
+ * día abierto no tiene ambos horarios con cierre después de apertura.
+ */
+export async function updatePickupSchedule(
+  schedule: UpdatePickupScheduleDayPayload[],
+): Promise<PickupScheduleDay[]> {
+  const { data } = await api.put<PickupScheduleDayRawFromApi[]>(
+    '/api/v1/restaurant-config/pickup-schedule',
+    schedule,
+  );
+  return data.map(normalizePickupScheduleDay);
 }
 
 // ─── Fechas deshabilitadas ────────────────────────────────────────────
