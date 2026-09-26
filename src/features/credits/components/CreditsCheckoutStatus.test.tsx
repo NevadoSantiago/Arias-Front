@@ -212,4 +212,92 @@ describe('CreditsCheckoutStatus', () => {
 
     expect(screen.getByText('Compra directa')).toBeInTheDocument();
   });
+
+  // F11 (prototipo `PurchaseMediation.dc.html`): estado IN_MEDIATION —
+  // decisión del usuario (2026-09-26): sin promesa de aviso por correo.
+  describe('IN_MEDIATION', () => {
+    const mediationPurchase: CreditPurchase = {
+      ...pendingPurchase,
+      status: 'IN_MEDIATION',
+      packNombre: 'Paquete Semana',
+      creditAmount: 5,
+    };
+
+    it('shows the payment-under-review copy without promising an email', async () => {
+      vi.mocked(getPurchase).mockResolvedValue(mediationPurchase);
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByText('Tu pago está en revisión')).toBeInTheDocument();
+      expect(
+        screen.getByText(/se abrió un reclamo sobre este pago y mercado pago lo está revisando/i),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/te avisamos por correo/i)).not.toBeInTheDocument();
+    });
+
+    it('shows the pack name and the lunch count', async () => {
+      vi.mocked(getPurchase).mockResolvedValue(mediationPurchase);
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByText('Paquete Semana')).toBeInTheDocument();
+      expect(screen.getByText('5')).toBeInTheDocument();
+    });
+
+    it('says the lunches stay on hold when the purchase was never credited (creditedAt null)', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({ ...mediationPurchase, creditedAt: null });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(
+        screen.getByText(/los 5 almuerzos de esta compra quedan en espera hasta que se resuelva/i),
+      ).toBeInTheDocument();
+    });
+
+    it('says the lunches stay on the balance when the purchase was already credited before the dispute', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({ ...mediationPurchase, creditedAt: '2026-01-01T00:05:00Z' });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(
+        screen.getByText(/los 5 almuerzos de esta compra siguen en tu saldo mientras mercado pago lo revisa/i),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/quedan en espera/i)).not.toBeInTheDocument();
+    });
+
+    it('offers links back to the wallet and to the menu', async () => {
+      vi.mocked(getPurchase).mockResolvedValue(mediationPurchase);
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByRole('link', { name: /volver a mis almuerzos/i })).toHaveAttribute('href', '/credits');
+      expect(screen.getByRole('link', { name: /ir al menú/i })).toHaveAttribute('href', '/orders/today');
+    });
+
+    it('falls back to the generic pack label when packNombre is null', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({ ...mediationPurchase, packNombre: null });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByText('Paquete de almuerzos')).toBeInTheDocument();
+    });
+  });
 });

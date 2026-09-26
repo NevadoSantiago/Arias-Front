@@ -258,15 +258,61 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
   }
 
   if (purchase.status === 'IN_MEDIATION') {
+    // F11 (prototipo `PurchaseMediation.dc.html`). Decisión del usuario
+    // (2026-09-26): sin promesa de aviso por correo. El copy depende de
+    // `creditedAt`: si es `null`, la compra nunca se acreditó y los
+    // almuerzos quedan en espera; si tiene valor, se acreditó ANTES de la
+    // disputa y esos almuerzos siguen en el saldo mientras se resuelve.
+    const holdCopy = purchase.creditedAt
+      ? `Los ${purchase.creditAmount} almuerzos de esta compra siguen en tu saldo mientras Mercado Pago lo revisa.`
+      : `Los ${purchase.creditAmount} almuerzos de esta compra quedan en espera hasta que se resuelva.`;
+
     return (
-      <div className="flex flex-col items-center gap-3 py-8 text-center">
+      <div className="flex flex-col items-center gap-4 py-6 text-center">
         <StatusIcon tone="info">
           <Info className="h-9 w-9" aria-hidden="true" />
         </StatusIcon>
-        <h1 className="font-display text-2xl font-bold leading-tight text-foreground">Tu pago está en revisión</h1>
-        <p role="status" className="text-sm text-muted-foreground">
-          Tu pago está en revisión.
-        </p>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">Tu pago está en revisión</h1>
+          <p role="status" className="text-sm leading-relaxed text-muted-foreground">
+            Se abrió un reclamo sobre este pago y Mercado Pago lo está revisando. No tenés que hacer nada desde
+            Arias.
+          </p>
+        </div>
+        <dl className="m-0 flex w-full flex-col gap-2.5 rounded-lg border border-border bg-card p-4 text-left">
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Compra</dt>
+            <dd className="m-0 font-semibold text-foreground">{purchaseLabel(purchase)}</dd>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Almuerzos</dt>
+            <dd className="m-0 font-semibold text-foreground">{purchase.creditAmount}</dd>
+          </div>
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Total</dt>
+            <dd className="m-0 font-semibold text-foreground">{formatAmount(purchase)}</dd>
+          </div>
+          <div aria-hidden="true" className="border-t border-dashed border-border" />
+          <div className="flex justify-between gap-3 text-sm">
+            <dt className="text-muted-foreground">Estado</dt>
+            <dd className="m-0 font-bold text-foreground">En revisión por Mercado Pago</dd>
+          </div>
+        </dl>
+        <p className="text-sm leading-relaxed text-foreground">{holdCopy}</p>
+        <div className="flex w-full flex-col gap-2.5">
+          <Link
+            to="/credits"
+            className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+          >
+            Volver a mis almuerzos
+          </Link>
+          <Link
+            to="/orders/today"
+            className="flex h-[52px] items-center justify-center rounded-md border border-border bg-card text-sm font-semibold text-foreground no-underline"
+          >
+            Ir al menú
+          </Link>
+        </div>
       </div>
     );
   }
