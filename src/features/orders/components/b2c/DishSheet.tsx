@@ -24,6 +24,7 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
   const [notas, setNotas] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [suggestedNote, setSuggestedNote] = useState<string | null>(null);
+  const [imgFailed, setImgFailed] = useState(false);
   /** true apenas el usuario elige una guarnición a mano — evita que una preferencia que llega tarde la pise. */
   const sideTouchedRef = useRef(false);
 
@@ -33,6 +34,7 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
     setNotas('');
     setError(null);
     setSuggestedNote(null);
+    setImgFailed(false);
     sideTouchedRef.current = false;
   }, [open, dish?.id]);
 
@@ -70,6 +72,7 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
 
   if (!dish) return null;
 
+  const showFallback = !dish.fotoUrl || imgFailed;
   const requiresSide = dish.sideType !== null;
   const sideLabel = dish.sideType === 'GUARNICION' ? 'guarnición' : 'salsa';
   const sidesTitle = dish.sideType === 'GUARNICION' ? 'Elegí tu guarnición' : 'Elegí tu salsa';
@@ -91,13 +94,19 @@ export function DishSheet({ dish, open, onClose, onConfirm }: Props) {
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent aria-label={dish.nombre} className="p-0">
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div
-            className={cn(
-              'relative flex h-[140px] items-center justify-center text-primary-foreground/70',
-              'bg-primary',
+          <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-muted">
+            {showFallback ? (
+              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                <UtensilsCrossed className="h-16 w-16 opacity-40" aria-hidden="true" />
+              </div>
+            ) : (
+              <img
+                src={dish.fotoUrl!}
+                alt={dish.nombre}
+                className="h-full w-full object-cover [filter:contrast(1.05)_saturate(1.1)_brightness(1.02)]"
+                onError={() => setImgFailed(true)}
+              />
             )}
-          >
-            <UtensilsCrossed className="h-16 w-16 opacity-70" aria-hidden="true" />
           </div>
           <div className="flex flex-col gap-4 p-4">
             <div className="flex flex-col gap-1.5">

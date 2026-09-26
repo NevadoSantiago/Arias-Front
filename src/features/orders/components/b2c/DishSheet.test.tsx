@@ -32,6 +32,13 @@ const dishWithoutSides: Dish = {
   allowedSides: [],
 };
 
+const dishWithPhoto: Dish = {
+  ...dishWithSides,
+  id: 3,
+  nombre: 'Ensalada César',
+  fotoUrl: 'https://example.com/ensalada.jpg',
+};
+
 function renderSheet(props: Partial<Parameters<typeof DishSheet>[0]> = {}) {
   const onClose = vi.fn();
   const onConfirm = vi.fn();
@@ -104,6 +111,27 @@ describe('DishSheet', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /^cerrar$/i }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  /**
+   * F8.1: la hoja no mostraba la foto del plato — el usuario lo notó al
+   * probar la app ("no se ve la imagen en el detalle"). Igual que
+   * `DishDetailDialog`/`DishCard`: foto si `dish.fotoUrl` existe.
+   */
+  it('shows the dish photo as an image with the dish name as alt text', async () => {
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    renderSheet({ dish: dishWithPhoto });
+
+    const img = await screen.findByRole('img', { name: dishWithPhoto.nombre });
+    expect(img).toHaveAttribute('src', dishWithPhoto.fotoUrl);
+  });
+
+  it('shows the plate placeholder and no img when the dish has no photo', async () => {
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    renderSheet();
+
+    await screen.findByRole('dialog', { name: /tira de asado/i });
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
   it('renders nothing when there is no dish', () => {
