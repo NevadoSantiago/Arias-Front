@@ -410,3 +410,48 @@ describe('B2cOrderPage — pickup time picker (F3)', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('B2cOrderPage — hides stock indicators on future days (F8.1)', () => {
+  const lowStockDish: Dish = { ...dish, stockActual: 2 };
+
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([lowStockDish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  /**
+   * F8.1: como `CompanyOrderPage` ya hace con `isFuture`, el stock (badge de
+   * "Últimos N" y el bloqueo por "Sin stock") solo aplica al día de hoy —
+   * un día futuro no tiene stock real todavía.
+   */
+  it('shows the low-stock badge today and hides it for a future day', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    renderPage();
+
+    expect(await screen.findByText(/Últimos 2/i)).toBeInTheDocument();
+
+    const futureDayButton = screen
+      .getByText(String(Number(futureDate.split('-')[2])))
+      .closest('button');
+    fireEvent.click(futureDayButton!);
+
+    await screen.findByText('¿Qué querés comer?');
+    expect(screen.queryByText(/Últimos/i)).not.toBeInTheDocument();
+  });
+});
