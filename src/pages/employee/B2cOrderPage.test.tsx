@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { B2cOrderPage } from './B2cOrderPage';
 import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
 import {
+  cancelOrderV2,
   getAvailableDishes,
   getDisabledDates,
   getDishPreference,
@@ -25,6 +26,7 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
   );
   return {
     ...actual,
+    cancelOrderV2: vi.fn(),
     getAvailableDishes: vi.fn(),
     getDisabledDates: vi.fn(),
     getDishPreference: vi.fn(),
@@ -699,5 +701,155 @@ describe('B2cOrderPage — offers today on weekends (F13)', () => {
     expect(todayButton).not.toBeDisabled();
 
     expect(getAvailableDishes).toHaveBeenCalledWith(SATURDAY_ISO);
+  });
+});
+
+describe('B2cOrderPage — shows the selected day existing orders (F15)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  function orderFor(fecha: string, overrides: Partial<OrderV2> = {}): OrderV2 {
+    return {
+      id: 501,
+      fecha,
+      pickupAt: `${fecha}T15:00:00Z`,
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [
+        {
+          id: 1,
+          dishId: 10,
+          dishNombre: 'Milanesa napolitana',
+          dishCategoria: 'Básico',
+          sideId: null,
+          sideNombre: null,
+          creditCost: 2,
+          notas: null,
+        },
+      ],
+      cancellable: true,
+      ...overrides,
+    };
+  }
+
+  async function clickFutureDay(futureDate: string) {
+    const futureDayButton = (
+      await screen.findByText(String(Number(futureDate.split('-')[2])))
+    ).closest('button');
+    fireEvent.click(futureDayButton!);
+  }
+
+  it('shows a section with the dish, pickup time and status badge for a day with a non-cancelled order', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor(futureDate)]);
+
+    renderPage();
+    await clickFutureDay(futureDate);
+
+    const section = await screen.findByTestId('selected-day-orders');
+    expect(within(section).getByText(/^tu pedido para/i)).toBeInTheDocument();
+    expect(within(section).getByText('Milanesa napolitana')).toBeInTheDocument();
+    expect(within(section).getByText(/retiro \d{2}:\d{2} hs/i)).toBeInTheDocument();
+    expect(within(section).getByText('Programado')).toBeInTheDocument();
+  });
+
+  it('does not show the section for a day without orders', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+
+    renderPage();
+
+    await screen.findByText('¡Buen día, Lucía!');
+    expect(screen.queryByTestId('selected-day-orders')).not.toBeInTheDocument();
+  });
+
+  it('does not show the section for a day with only a cancelled order', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      orderFor(futureDate, { estado: 'CANCELADO', cancellable: false }),
+    ]);
+
+    renderPage();
+    await clickFutureDay(futureDate);
+
+    await screen.findByText('¿Qué querés comer?');
+    expect(screen.queryByTestId('selected-day-orders')).not.toBeInTheDocument();
+  });
+
+  it('offers "Cancelar pedido" only when the order is cancellable', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor(futureDate, { cancellable: false })]);
+
+    renderPage();
+    await clickFutureDay(futureDate);
+
+    await screen.findByTestId('selected-day-orders');
+    expect(screen.queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the cancel sheet and cancels the order, invalidating ordersV2 and creditsWallet', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor(futureDate, { id: 777 })]);
+    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+
+    const { queryClient } = renderPage();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    await clickFutureDay(futureDate);
+
+    await screen.findByTestId('selected-day-orders');
+    fireEvent.click(await screen.findByRole('button', { name: /cancelar pedido/i }));
+    expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
+
+    await waitFor(() => expect(vi.mocked(cancelOrderV2).mock.calls[0]?.[0]).toBe(777));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ordersV2'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+  });
+
+  it('shows the plural heading when there are two orders for the same day', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      orderFor(futureDate, { id: 1 }),
+      orderFor(futureDate, {
+        id: 2,
+        items: [
+          {
+            id: 2,
+            dishId: 11,
+            dishNombre: 'Ensalada',
+            dishCategoria: 'Básico',
+            sideId: null,
+            sideNombre: null,
+            creditCost: 1,
+            notas: null,
+          },
+        ],
+      }),
+    ]);
+
+    renderPage();
+    await clickFutureDay(futureDate);
+
+    const section = await screen.findByTestId('selected-day-orders');
+    expect(within(section).getByText(/^tus pedidos para/i)).toBeInTheDocument();
   });
 });

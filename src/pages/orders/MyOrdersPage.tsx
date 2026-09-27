@@ -1,13 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { OrderCard } from '@/features/orders/components/OrderCard';
+import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useOrders } from '@/features/orders/hooks/useOrders';
-import { cancelOrderV2 } from '@/features/orders/services/ordersApi';
-import { formatLunches } from '@/features/orders/lunches';
-import type { OrderV2 } from '@/features/orders/services/ordersApi';
 
 /**
  * Ruta `/orders/mine` — "Mis pedidos" del cliente B2C (`GET /api/v2/orders`,
@@ -22,34 +18,16 @@ import type { OrderV2 } from '@/features/orders/services/ordersApi';
  * "Anteriores" (retiro < ahora, descendente). "ahora" se calcula una vez
  * por carga de datos, no en cada render, para que la lista no salte de
  * grupo sola mientras el usuario la mira.
+ *
+ * Cancelar (hoja de confirmación, toast e invalidaciones) usa `useCancelOrder`
+ * — extraído en F15 para que `B2cOrderPage` ("Tu pedido para <día>") lo
+ * reutilice sin duplicar la lógica.
  */
 export function MyOrdersPage() {
-  const queryClient = useQueryClient();
   const { data: orders, isLoading, isError } = useOrders();
-  const [cancelTarget, setCancelTarget] = useState<OrderV2 | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
   const now = useMemo(() => new Date(), [orders]);
-
-  const cancelMutation = useMutation({
-    // Se pasa el pedido completo como variable de la mutación (no solo el
-    // id) para que `onSuccess` pueda leer su `creditTotal` de ahí en vez de
-    // depender de `cancelTarget` (estado de React), que puede haber
-    // cambiado o quedar en null para cuando la mutación resuelve.
-    mutationFn: (order: OrderV2) => cancelOrderV2(order.id),
-    onSuccess: (_data, order) => {
-      queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
-      queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
-      const count = order.creditTotal;
-      toast.success(
-        `Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`,
-      );
-      setCancelTarget(null);
-      setCancelError(null);
-    },
-    onError: () => {
-      setCancelError('No pudimos cancelar el pedido.');
-    },
-  });
+  const { cancelTarget, cancelError, cancelling, requestCancel, closeSheet, confirmCancel } =
+    useCancelOrder();
 
   if (isLoading) {
     return (
@@ -80,11 +58,6 @@ export function MyOrdersPage() {
         .filter((order) => new Date(order.pickupAt).getTime() < now.getTime())
         .sort((a, b) => new Date(b.pickupAt).getTime() - new Date(a.pickupAt).getTime())
     : [];
-
-  function requestCancel(order: OrderV2) {
-    setCancelTarget(order);
-    setCancelError(null);
-  }
 
   return (
     <div className="container max-w-2xl space-y-6 py-8">
@@ -147,13 +120,10 @@ export function MyOrdersPage() {
       <CancelOrderSheet
         order={cancelTarget}
         now={now}
-        cancelling={cancelMutation.isPending}
+        cancelling={cancelling}
         errorMessage={cancelError}
-        onConfirm={() => cancelTarget && cancelMutation.mutate(cancelTarget)}
-        onClose={() => {
-          setCancelTarget(null);
-          setCancelError(null);
-        }}
+        onConfirm={confirmCancel}
+        onClose={closeSheet}
       />
     </div>
   );

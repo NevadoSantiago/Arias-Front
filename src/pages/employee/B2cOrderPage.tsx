@@ -5,12 +5,15 @@ import { DishCard } from '@/features/orders/components/DishCard';
 import { FilterPills } from '@/features/orders/components/FilterPills';
 import type { ActiveFilter } from '@/features/orders/components/FilterPills';
 import { WeekDaySelector } from '@/features/orders/components/WeekDaySelector';
+import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
 import type { ConfirmedItem } from '@/features/orders/components/b2c/OrderConfirmedView';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
+import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
+import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useCart } from '@/features/orders/hooks/useCart';
 import {
   getAvailableDishes,
@@ -170,8 +173,23 @@ export function B2cOrderPage() {
     [myOrders],
   );
 
+  /**
+   * Pedido(s) NO cancelados del día seleccionado — "Tu pedido para <día>"
+   * (F15, pedido del usuario: un día con pedido programado no mostraba
+   * forma de verlo ni modificarlo). `now` se calcula una vez por carga de
+   * `myOrders` para las etiquetas de `OrderCard`, igual que `MyOrdersPage`.
+   */
+  const now = useMemo(() => new Date(), [myOrders]);
+  const ordersForSelectedDay = useMemo(
+    () => (myOrders ?? []).filter((o) => o.fecha === selectedDate && o.estado !== 'CANCELADO'),
+    [myOrders, selectedDate],
+  );
+  const { cancelTarget, cancelError, cancelling, requestCancel, closeSheet, confirmCancel } =
+    useCancelOrder();
+
   const isToday = selectedDate === todayStr;
   const dayShortLabel = formatDayLabel(selectedDate).toLowerCase();
+  const dayHeadingLabel = isToday ? 'hoy' : dayShortLabel;
 
   /**
    * Hora local "HH:MM" del último pedido NO cancelado (mayor `id`) — decisión
@@ -404,6 +422,13 @@ export function B2cOrderPage() {
           </div>
         </div>
 
+        <SelectedDayOrders
+          orders={ordersForSelectedDay}
+          dayHeadingLabel={dayHeadingLabel}
+          now={now}
+          onRequestCancel={requestCancel}
+        />
+
         <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
           <FilterPills
             sections={sections}
@@ -481,6 +506,15 @@ export function B2cOrderPage() {
         submitError={submitError}
         insufficientBalance={insufficientBalance}
         onConfirm={handleConfirm}
+      />
+
+      <CancelOrderSheet
+        order={cancelTarget}
+        now={now}
+        cancelling={cancelling}
+        errorMessage={cancelError}
+        onConfirm={confirmCancel}
+        onClose={closeSheet}
       />
     </div>
   );
