@@ -340,12 +340,23 @@ describe('MyOrdersPage — PENDIENTE_PAGO ("Pago pendiente")', () => {
   // Reloj fijo el mismo día del pedido (antes del retiro) para que
   // `isDefaultUpcoming` lo muestre en "Próximos" sin depender de la fecha
   // real de la corrida — los tests que necesitan otra fecha la pisan.
+  //
+  // Fix de review: un test más abajo reemplaza `window.location` con
+  // `Object.defineProperty` para poder leer `.href` tras la redirección a
+  // Mercado Pago. Guardamos el descriptor real de jsdom acá y lo
+  // restauramos en el `afterEach` para no filtrar el stub a los tests que
+  // corren después.
+  const originalLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-09-26T10:00:00-03:00'));
   });
 
   afterEach(() => {
+    if (originalLocationDescriptor) {
+      Object.defineProperty(window, 'location', originalLocationDescriptor);
+    }
     vi.clearAllMocks();
     vi.useRealTimers();
     vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
@@ -392,6 +403,16 @@ describe('MyOrdersPage — PENDIENTE_PAGO ("Pago pendiente")', () => {
 
     await waitFor(() => expect(resumeDirectCheckoutV2).toHaveBeenCalledWith(400));
     await waitFor(() => expect(window.location.href).toBe('https://mp.example/checkout/p-1'));
+  });
+
+  // Fix de review: el test anterior reemplaza `window.location` con
+  // `Object.defineProperty` y nunca lo restauraba, filtrando el stub
+  // (`{ href: '' }`, sin `assign`/`reload`/`origin`) a los tests siguientes.
+  // Verifica que el `afterEach` deje `window.location` como el objeto
+  // `Location` real de jsdom otra vez.
+  it('restores the real window.location after a test overrides it for the redirect assertion', () => {
+    expect(typeof window.location.assign).toBe('function');
+    expect(typeof window.location.reload).toBe('function');
   });
 
   it('shows "Este pago ya no se puede retomar." and refetches orders on a 409', async () => {

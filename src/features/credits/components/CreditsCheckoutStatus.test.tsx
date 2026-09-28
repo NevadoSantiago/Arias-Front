@@ -240,6 +240,25 @@ describe('CreditsCheckoutStatus', () => {
       expect(screen.getByRole('link', { name: /ver mi pedido/i })).toHaveAttribute('href', '/orders/mine');
     });
 
+    it('never claims lunches were credited to the wallet for a DIRECT approved purchase', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({
+        ...directPurchase,
+        status: 'APPROVED',
+        creditedAt: '2026-01-01T00:05:00Z',
+      });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.queryByText(/se acreditaron/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/ya podés usarlos/i)).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/mercado pago confirmó el pago\. tu pedido quedó programado/i),
+      ).toBeInTheDocument();
+    });
+
     it('shows "Tu pedido queda programado" as the last step while PENDING', async () => {
       vi.mocked(getPurchase).mockResolvedValue(directPurchase);
 

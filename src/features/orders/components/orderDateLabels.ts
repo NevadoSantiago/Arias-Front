@@ -29,12 +29,17 @@ export function formatOrderDayLabel(pickupAt: string, now: Date): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
-/** "HH:MM" en horario de 24hs. */
+/**
+ * "HH:MM" en horario de 24hs. Usa `hourCycle: 'h23'` en vez de
+ * `hour12: false` — en algunos builds de ICU, `hour12: false` igual
+ * renderiza la medianoche como "24:00" en vez de "00:00"; `hourCycle: 'h23'`
+ * es la opción que fuerza el rango 0-23 de forma consistente.
+ */
 export function formatOrderTimeLabel(pickupAt: string): string {
   return new Date(pickupAt).toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
     timeZone: RESTAURANT_TIME_ZONE,
   });
 }
@@ -69,10 +74,11 @@ export function isRestaurantDayOnOrAfter(pickupAt: string, now: Date): boolean {
 export function formatOrderPayDeadlineLabel(pickupAt: string, leadMinutes: number | null | undefined): string | null {
   if (leadMinutes == null) return null;
   const deadline = new Date(new Date(pickupAt).getTime() - leadMinutes * 60_000);
+  // `hourCycle: 'h23'` instead of `hour12: false` — see `formatOrderTimeLabel`.
   return deadline.toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
+    hourCycle: 'h23',
     timeZone: RESTAURANT_TIME_ZONE,
   });
 }

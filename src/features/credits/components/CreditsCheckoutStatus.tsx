@@ -232,7 +232,11 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
           <h1 className="font-display text-2xl font-bold leading-tight text-foreground">
             {isDirect ? '¡Listo! Tu pedido quedó programado' : `¡Listo! Sumaste ${purchase.creditAmount} almuerzos`}
           </h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">Mercado Pago confirmó el pago y ya podés usarlos.</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {isDirect
+              ? 'Mercado Pago confirmó el pago. Tu pedido quedó programado.'
+              : 'Mercado Pago confirmó el pago y ya podés usarlos.'}
+          </p>
         </div>
         <dl className="m-0 flex w-full flex-col gap-2.5 rounded-lg border border-border bg-card p-4 text-left">
           <div className="flex justify-between gap-3 text-sm">
@@ -248,9 +252,11 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
             <dd className="m-0 font-semibold text-foreground">{formatAmount(purchase)}</dd>
           </div>
         </dl>
-        <p role="status" className="text-sm text-foreground">
-          ¡Listo! Se acreditaron {purchase.creditAmount} almuerzos en tu billetera.
-        </p>
+        {!isDirect && (
+          <p role="status" className="text-sm text-foreground">
+            ¡Listo! Se acreditaron {purchase.creditAmount} almuerzos en tu billetera.
+          </p>
+        )}
         <div className="flex w-full flex-col gap-2.5">
           {isDirect ? (
             <Link

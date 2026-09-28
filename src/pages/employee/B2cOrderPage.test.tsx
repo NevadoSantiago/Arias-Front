@@ -120,6 +120,13 @@ async function openReview() {
 }
 
 describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
+  // Fix de review: un test más abajo reemplaza `window.location` con
+  // `Object.defineProperty` para poder leer `.href` tras la redirección a
+  // Mercado Pago. Guardamos el descriptor real de jsdom acá y lo
+  // restauramos en el `afterEach` de abajo para no filtrar el stub a los
+  // tests que corren después.
+  const originalLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+
   beforeEach(() => {
     useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
     vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
@@ -137,6 +144,9 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   });
 
   afterEach(() => {
+    if (originalLocationDescriptor) {
+      Object.defineProperty(window, 'location', originalLocationDescriptor);
+    }
     useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
     vi.clearAllMocks();
   });
@@ -269,6 +279,16 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     // El carrito del día se vació antes de redirigir — la barra inferior
     // vuelve al estado vacío.
     expect(await screen.findByText('Tocá un plato para armar tu pedido.')).toBeInTheDocument();
+  });
+
+  // Fix de review: el test anterior reemplaza `window.location` con
+  // `Object.defineProperty` y nunca lo restauraba, filtrando el stub
+  // (`{ href: '' }`, sin `assign`/`reload`/`origin`) a los tests que corren
+  // después de él, en este archivo y en otros. Verifica que el `afterEach`
+  // deje `window.location` como el objeto `Location` real de jsdom otra vez.
+  it('restores the real window.location after a test overrides it for the redirect assertion', () => {
+    expect(typeof window.location.assign).toBe('function');
+    expect(typeof window.location.reload).toBe('function');
   });
 
   /**

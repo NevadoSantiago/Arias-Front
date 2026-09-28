@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   formatOrderDayLabel,
   formatOrderPayDeadlineLabel,
@@ -35,6 +35,29 @@ describe('formatOrderDayLabel', () => {
 describe('formatOrderTimeLabel', () => {
   it('formats the pickup time as 24h "HH:MM"', () => {
     expect(formatOrderTimeLabel('2026-09-26T21:05:00-03:00')).toBe('21:05');
+  });
+
+  it('renders midnight as "00:05", not "24:05"', () => {
+    expect(formatOrderTimeLabel('2026-09-26T00:05:00-03:00')).toBe('00:05');
+  });
+
+  it('renders 23:50 correctly, just before the day rolls over', () => {
+    expect(formatOrderTimeLabel('2026-09-26T23:50:00-03:00')).toBe('23:50');
+  });
+
+  // Bug: on some ICU builds, `hour12: false` still renders midnight as
+  // "24:00" instead of "00:00". `hourCycle: 'h23'` is the option that
+  // actually forces a 0-23 hour range across ICU implementations — assert
+  // the implementation uses it (and not `hour12: false`) so the fix is
+  // verified regardless of this machine's own ICU behavior.
+  it('formats using hourCycle "h23", not hour12:false', () => {
+    const spy = vi.spyOn(Date.prototype, 'toLocaleTimeString');
+    formatOrderTimeLabel('2026-09-26T00:05:00-03:00');
+
+    expect(spy).toHaveBeenCalledWith('es-AR', expect.objectContaining({ hourCycle: 'h23' }));
+    expect(spy).not.toHaveBeenCalledWith('es-AR', expect.objectContaining({ hour12: false }));
+
+    spy.mockRestore();
   });
 });
 
@@ -87,5 +110,26 @@ describe('formatOrderPayDeadlineLabel', () => {
   it('returns null when leadMinutes is null or undefined, so the caller can omit the time', () => {
     expect(formatOrderPayDeadlineLabel('2026-09-26T13:00:00-03:00', null)).toBeNull();
     expect(formatOrderPayDeadlineLabel('2026-09-26T13:00:00-03:00', undefined)).toBeNull();
+  });
+
+  it('renders a deadline at 00:05 (restaurant TZ) as "00:05", not "24:05"', () => {
+    // pickupAt 00:25 − 20 min de antelación = 00:05.
+    expect(formatOrderPayDeadlineLabel('2026-09-26T00:25:00-03:00', 20)).toBe('00:05');
+  });
+
+  it('renders a deadline at 23:50 (restaurant TZ) as "23:50"', () => {
+    // pickupAt 2026-09-27T00:10 − 20 min de antelación = 2026-09-26T23:50.
+    expect(formatOrderPayDeadlineLabel('2026-09-27T00:10:00-03:00', 20)).toBe('23:50');
+  });
+
+  // Same rationale as `formatOrderTimeLabel`'s hourCycle test above.
+  it('formats using hourCycle "h23", not hour12:false', () => {
+    const spy = vi.spyOn(Date.prototype, 'toLocaleTimeString');
+    formatOrderPayDeadlineLabel('2026-09-26T00:25:00-03:00', 20);
+
+    expect(spy).toHaveBeenCalledWith('es-AR', expect.objectContaining({ hourCycle: 'h23' }));
+    expect(spy).not.toHaveBeenCalledWith('es-AR', expect.objectContaining({ hour12: false }));
+
+    spy.mockRestore();
   });
 });

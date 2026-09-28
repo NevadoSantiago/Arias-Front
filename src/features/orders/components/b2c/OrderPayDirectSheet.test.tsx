@@ -168,4 +168,49 @@ describe('OrderPayDirectSheet', () => {
       await screen.findByRole('alert'),
     ).toHaveTextContent('El pago directo no está disponible ahora. Comprá un paquete para pedir.');
   });
+
+  // Fix de review: cuando el precio no se puede calcular (falla `getPacks`
+  // o no hay un pack DAY habilitado), el botón de pago quedaba habilitado
+  // con "Pagar  con Mercado Pago" (doble espacio) y un total "—". Ahora se
+  // deshabilita y se explica el motivo, con un link a los paquetes.
+  it('disables the pay button and explains the price could not be calculated when there is no enabled DAY pack', async () => {
+    vi.mocked(getPacks).mockResolvedValue([weekPack]); // sin DAY habilitado
+    renderSheet({ totalLunches: 2 });
+
+    expect(
+      await screen.findByText(/no pudimos calcular el precio\. probá de nuevo en un momento o comprá un paquete/i),
+    ).toBeInTheDocument();
+    const payButton = screen.getByRole('button', { name: /con mercado pago/i });
+    expect(payButton).toBeDisabled();
+    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits/packs');
+  });
+
+  it('disables the pay button and explains the price could not be calculated when getPacks fails', async () => {
+    vi.mocked(getPacks).mockRejectedValue(new Error('network error'));
+    renderSheet({ totalLunches: 2 });
+
+    expect(
+      await screen.findByText(/no pudimos calcular el precio\. probá de nuevo en un momento o comprá un paquete/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /con mercado pago/i })).toBeDisabled();
+    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits/packs');
+  });
+
+  it('shows a disabled loading state while packs are still loading', () => {
+    vi.mocked(getPacks).mockReturnValue(new Promise(() => {})); // never resolves
+    renderSheet({ totalLunches: 2 });
+
+    expect(screen.getByRole('button', { name: /calculando precio/i })).toBeDisabled();
+    expect(
+      screen.queryByText(/no pudimos calcular el precio/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('enables the pay button with the calculated amount once packs load successfully', async () => {
+    vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+    renderSheet({ totalLunches: 2 });
+
+    const payButton = await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i });
+    expect(payButton).not.toBeDisabled();
+  });
 });

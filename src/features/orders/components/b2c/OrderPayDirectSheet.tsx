@@ -43,7 +43,11 @@ export function OrderPayDirectSheet({
   paying,
   payError,
 }: Props) {
-  const { data: packs } = useQuery({ queryKey: ['creditPacks'], queryFn: getPacks, enabled: open });
+  const { data: packs, isLoading: packsLoading, isError: packsError } = useQuery({
+    queryKey: ['creditPacks'],
+    queryFn: getPacks,
+    enabled: open,
+  });
 
   const dayPack = packs?.find((p) => p.code === DAY_CODE && p.enabled) ?? null;
   const namedPacks = (packs ?? []).filter((p) => p.code !== DAY_CODE && p.enabled);
@@ -53,6 +57,13 @@ export function OrderPayDirectSheet({
   // backend (`CreditPurchaseService`) — nunca mostrar de menos.
   const perLunchCents = dayPack ? Math.ceil(dayPack.priceCents / dayPack.creditAmount) : null;
   const totalCents = perLunchCents !== null ? perLunchCents * totalLunches : null;
+
+  // Fix de review: si `getPacks` falla o no hay un pack DAY habilitado, el
+  // precio es desconocido — antes el botón quedaba habilitado con un total
+  // "—" y "Pagar  con Mercado Pago" (doble espacio). Ahora se deshabilita y
+  // se explica el motivo en vez de dejar pagar un monto que no se pudo
+  // calcular.
+  const priceUnavailable = !packsLoading && (packsError || perLunchCents === null);
 
   const recommendedPerLunchCents = recommended ? perLunchPriceCents(recommended) : null;
   const showCallout =
@@ -155,6 +166,17 @@ export function OrderPayDirectSheet({
             </div>
           )}
 
+          {priceUnavailable && (
+            <div className="flex flex-col gap-1.5 rounded-md border border-destructive bg-destructive/10 p-3.5">
+              <p role="alert" className="m-0 text-[13.5px] leading-relaxed text-foreground">
+                No pudimos calcular el precio. Probá de nuevo en un momento o comprá un paquete.
+              </p>
+              <Link to="/credits/packs" className="flex h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep">
+                Ver paquetes
+              </Link>
+            </div>
+          )}
+
           {payError && (
             <p role="alert" className="text-xs text-destructive">
               {payError}
@@ -165,10 +187,16 @@ export function OrderPayDirectSheet({
           <button
             type="button"
             onClick={onPay}
-            disabled={paying}
+            disabled={paying || packsLoading || priceUnavailable}
             className="flex h-[54px] w-full items-center justify-center gap-2 rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground disabled:opacity-60"
           >
-            {paying ? 'Redirigiendo…' : `Pagar ${totalCents !== null ? formatPrice(totalCents) : ''} con Mercado Pago`}
+            {paying
+              ? 'Redirigiendo…'
+              : packsLoading
+                ? 'Calculando precio…'
+                : totalCents !== null
+                  ? `Pagar ${formatPrice(totalCents)} con Mercado Pago`
+                  : 'Pagar con Mercado Pago'}
           </button>
           <span className="text-center text-xs leading-relaxed text-muted-foreground">
             Reservamos tu pedido mientras pagás. Si el pago no se aprueba, se cancela solo.
