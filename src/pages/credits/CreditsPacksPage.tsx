@@ -6,30 +6,10 @@ import { PackOptionCard } from '@/features/credits/components/PackOptionCard';
 import { PackCheckoutSheet } from '@/features/credits/components/PackCheckoutSheet';
 import type { PackCheckoutSelection } from '@/features/credits/components/PackCheckoutSheet';
 import { createPurchase, getPacks, getWallet } from '@/features/credits/services/creditsApi';
-import type { CreditPack } from '@/features/credits/types';
+import { formatPrice, pickRecommended } from '@/features/credits/packPricing';
 import { formatLunches } from '@/features/orders/lunches';
 
 const DAY_CODE = 'DAY';
-
-function formatPrice(priceCents: number): string {
-  return (priceCents / 100).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
-}
-
-/**
- * Elige el pack "Recomendado" entre los packs con nombre (no Sueltos):
- * el que tiene el mayor `discountPercent` — el mejor valor real para el
- * cliente, no una posición fija en la lista. Ante empate, gana el de menor
- * `ordenDisplay`. Documentado acá porque el documento de la feature (F6)
- * deja la regla a elección de quien implementa.
- */
-function pickRecommended(packs: CreditPack[]): CreditPack | null {
-  if (packs.length === 0) return null;
-  return packs.reduce((best, p) => {
-    if (p.discountPercent > best.discountPercent) return p;
-    if (p.discountPercent === best.discountPercent && p.ordenDisplay < best.ordenDisplay) return p;
-    return best;
-  }, packs[0]);
-}
 
 type Selection = { kind: 'loose' } | { kind: 'pack'; packId: number };
 

@@ -18,9 +18,10 @@ import {
   OrderNotModifiableError,
   placeOrderV2,
   removeOrderItemV2,
+  startDirectCheckoutV2,
   type OrderV2,
 } from '@/features/orders/services/ordersApi';
-import { getWallet } from '@/features/credits/services/creditsApi';
+import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
 import type { Dish } from '@/features/orders/types';
 
 vi.mock('@/features/orders/services/ordersApi', async () => {
@@ -40,11 +41,13 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     getRestaurantConfig: vi.fn(),
     placeOrderV2: vi.fn(),
     removeOrderItemV2: vi.fn(),
+    startDirectCheckoutV2: vi.fn(),
   };
 });
 
 vi.mock('@/features/credits/services/creditsApi', () => ({
   getWallet: vi.fn(),
+  getPacks: vi.fn(),
 }));
 
 /** Replica el algoritmo de `WeekDaySelector` para ubicar, de forma
@@ -212,18 +215,60 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     });
   });
 
-  it('surfaces insufficient balance from the backend without calculating it on the client', async () => {
+  /**
+   * F18: en un pedido NUEVO, el saldo insuficiente reportado por el backend
+   * ya no solo avisa — abre la hoja "Pagá este pedido con Mercado Pago" (el
+   * servidor sigue decidiendo: se intenta `placeOrderV2` y se reacciona a su
+   * `InsufficientCreditsError`). Cambio de comportamiento intencional sobre
+   * el aviso inline de antes; el aviso inline se conserva en modo "agregar
+   * al pedido" (ver el describe de F16 más abajo).
+   */
+  it('surfaces insufficient balance from the backend by opening the pay-direct sheet, without calculating it on the client', async () => {
     vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
+    vi.mocked(getPacks).mockResolvedValue([]);
     renderPage();
 
     await addDishToCart();
     await openReview();
     fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
-    expect(
-      await screen.findByText(/no te alcanzan los almuerzos disponibles/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Pagá este pedido con Mercado Pago')).toBeInTheDocument();
     expect(screen.queryByText('¡Pedido confirmado!')).not.toBeInTheDocument();
+  });
+
+  it('shows the pay-direct sheet total and pays via startDirectCheckoutV2 with the cart payload, then redirects and clears the cart', async () => {
+    Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
+    vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
+    vi.mocked(getPacks).mockResolvedValue([
+      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+    ]);
+    vi.mocked(startDirectCheckoutV2).mockResolvedValueOnce({
+      orderId: 42,
+      purchaseId: 'p-1',
+      initPoint: 'https://mp.example/checkout/p-1',
+    });
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+
+    await screen.findByText('Pagá este pedido con Mercado Pago');
+    // 2 almuerzos (categoría "Básico", creditCost 2) × $1.500,00 = $3.000,00.
+    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i }));
+
+    await waitFor(() =>
+      expect(startDirectCheckoutV2).toHaveBeenCalledWith({
+        items: [{ dishId: 10, sideId: null, notas: null }],
+        pickupAt: '2026-05-21T15:00:00Z',
+        notas: null,
+      }),
+    );
+    await vi.waitFor(() => expect(window.location.href).toBe('https://mp.example/checkout/p-1'));
+
+    // El carrito del día se vació antes de redirigir — la barra inferior
+    // vuelve al estado vacío.
+    expect(await screen.findByText('Tocá un plato para armar tu pedido.')).toBeInTheDocument();
   });
 
   /**
@@ -332,6 +377,35 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     expect(activeDayButton?.querySelector('svg')).toBeTruthy();
     expect(cancelledDayButton?.querySelector('svg')).toBeFalsy();
+  });
+
+  /**
+   * F18, decisión del usuario (2026-09-28): un pedido `PENDIENTE_PAGO` se
+   * trata como un pedido activo en el tilde del día — el pedido ya existe y
+   * reserva stock, aunque el pago no esté confirmado todavía. Sin cambio de
+   * código: `orderedDates` ya filtraba solo por `estado !== 'CANCELADO'`.
+   */
+  it('shows a check on a day with a PENDIENTE_PAGO order (treated as active)', async () => {
+    const [activeDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      {
+        id: 1,
+        fecha: activeDate,
+        pickupAt: `${activeDate}T15:00:00Z`,
+        estado: 'PENDIENTE_PAGO',
+        creditTotal: 2,
+        notas: null,
+        items: [],
+        cancellable: true,
+      },
+    ]);
+
+    renderPage();
+
+    const activeDayButton = (
+      await screen.findByText(String(Number(activeDate.split('-')[2])))
+    ).closest('button');
+    expect(activeDayButton?.querySelector('svg')).toBeTruthy();
   });
 
   it('shows the today heading and pill, and switches to the scheduled heading and pill for a future day', async () => {
@@ -1001,7 +1075,12 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
     expect(addOrderItemsV2).not.toHaveBeenCalled();
   });
 
-  it('surfaces insufficient balance from addOrderItemsV2 with the same UX as placing a new order', async () => {
+  /**
+   * F18: el pago directo aplica solo a pedidos NUEVOS. En modo "agregar al
+   * pedido" el saldo insuficiente conserva el aviso inline de siempre — no
+   * se ofrece "Pagá este pedido con Mercado Pago".
+   */
+  it('surfaces insufficient balance from addOrderItemsV2 with the same UX as placing a new order (never the pay-direct sheet)', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
     vi.mocked(addOrderItemsV2).mockRejectedValueOnce(new InsufficientCreditsError());
     renderPage();
@@ -1013,6 +1092,8 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
     expect(
       await screen.findByText(/no te alcanzan los almuerzos disponibles/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Pagá este pedido con Mercado Pago')).not.toBeInTheDocument();
+    expect(startDirectCheckoutV2).not.toHaveBeenCalled();
   });
 
   it('shows a fallback message and falls back to normal new-order mode when the order stopped being modifiable', async () => {

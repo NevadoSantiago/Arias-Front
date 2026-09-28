@@ -13,6 +13,7 @@ import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
 import type { ConfirmedItem } from '@/features/orders/components/b2c/OrderConfirmedView';
+import { OrderPayDirectSheet } from '@/features/orders/components/b2c/OrderPayDirectSheet';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
@@ -20,6 +21,7 @@ import { useCart } from '@/features/orders/hooks/useCart';
 import { useRemoveOrderItem } from '@/features/orders/hooks/useRemoveOrderItem';
 import {
   addOrderItemsV2,
+  DirectCheckoutUnavailableError,
   getAvailableDishes,
   getDisabledDates,
   getMenuSections,
@@ -28,6 +30,7 @@ import {
   InsufficientCreditsError,
   OrderNotModifiableError,
   placeOrderV2,
+  startDirectCheckoutV2,
 } from '@/features/orders/services/ordersApi';
 import type { Dish, RestaurantConfig } from '@/features/orders/types';
 import { useWallet } from '@/features/credits/hooks/useWallet';
@@ -130,6 +133,15 @@ export function B2cOrderPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<DoneData | null>(null);
+  /**
+   * "Pagá este pedido con Mercado Pago" (F18) — se abre cuando `placeOrderV2`
+   * rechaza un pedido NUEVO (no "agregar al pedido") con
+   * `InsufficientCreditsError`. Independiente de `insufficientBalance`, que
+   * sigue siendo el aviso inline de "agregar al pedido" (sin cambios).
+   */
+  const [payDirectOpen, setPayDirectOpen] = useState(false);
+  const [payingDirect, setPayingDirect] = useState(false);
+  const [payDirectError, setPayDirectError] = useState<string | null>(null);
 
   const todayStr = useMemo(() => {
     const d = new Date();
@@ -373,12 +385,54 @@ export function B2cOrderPage() {
       });
     } catch (err) {
       if (err instanceof InsufficientCreditsError) {
-        setInsufficientBalance(true);
+        // F18: en un pedido NUEVO, el saldo insuficiente ofrece pagar
+        // directo con Mercado Pago en vez de solo avisar — el servidor
+        // sigue decidiendo (se intentó `placeOrderV2` primero). En "agregar
+        // al pedido" el aviso inline de siempre no cambia (`handleAddToOrder`).
+        setPayDirectError(null);
+        setReviewOpen(false);
+        setPayDirectOpen(true);
       } else {
         setSubmitError(err instanceof Error ? err.message : 'Ocurrió un error al confirmar el pedido.');
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * "Pagar $X con Mercado Pago" en la hoja de pago directo (F18, backend B7)
+   * — mismo body que `handleConfirm`, pero crea el pedido `PENDIENTE_PAGO`
+   * (sin comprometer saldo) junto a la compra DIRECT y redirige a Mercado
+   * Pago. El carrito se vacía ANTES de redirigir (unidad F18, pedido del
+   * usuario), igual que un pedido confirmado normal.
+   */
+  const handlePayDirect = async () => {
+    if (!pickupAt) return;
+    setPayDirectError(null);
+    setPayingDirect(true);
+    try {
+      const checkout = await startDirectCheckoutV2({
+        items: cart.lines.map((line) => ({
+          dishId: line.dish.id,
+          sideId: line.sideId,
+          notas: line.notas,
+        })),
+        pickupAt,
+        notas: null,
+      });
+      cart.clear();
+      window.location.href = checkout.initPoint;
+    } catch (err) {
+      setPayDirectError(
+        err instanceof DirectCheckoutUnavailableError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'No pudimos iniciar el pago.',
+      );
+    } finally {
+      setPayingDirect(false);
     }
   };
 
@@ -614,6 +668,24 @@ export function B2cOrderPage() {
         submitError={submitError}
         insufficientBalance={insufficientBalance}
         onConfirm={handleReviewConfirm}
+      />
+
+      <OrderPayDirectSheet
+        open={payDirectOpen}
+        onClose={() => {
+          // "Volver" cierra la hoja y conserva el carrito — reabre la
+          // revisión, de donde salió (F18, pedido del usuario).
+          setPayDirectOpen(false);
+          setPayDirectError(null);
+          setReviewOpen(true);
+        }}
+        pickupLabel={confirmLabel}
+        lines={cart.lines}
+        totalLunches={cart.totalCredits}
+        walletAvailable={wallet?.available ?? 0}
+        onPay={handlePayDirect}
+        paying={payingDirect}
+        payError={payDirectError}
       />
 
       <CancelOrderSheet
