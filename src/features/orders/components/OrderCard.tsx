@@ -1,15 +1,23 @@
-import { Clock3, UtensilsCrossed } from 'lucide-react';
+import { Clock3, UtensilsCrossed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatLunches } from '../lunches';
 import { formatOrderDayLabel, formatOrderTimeLabel } from './orderDateLabels';
 import { OrderStatusBadge } from './OrderStatusBadge';
-import type { OrderV2 } from '../services/ordersApi';
+import type { OrderItemV2, OrderV2 } from '../services/ordersApi';
 
 interface Props {
   order: OrderV2;
   /** Instante de referencia para el prefijo "Hoy, " — se calcula una vez por carga de datos en la página. */
   now: Date;
   onRequestCancel: () => void;
+  /**
+   * Optativo (F16) — cuando se pasa, cada plato de un pedido modificable
+   * (`order.cancellable`) muestra una "×" para quitarlo, que abre un modal
+   * de confirmación en la página (no acá: este componente sigue siendo
+   * presentacional puro). Prop aditiva con default `undefined`: sin ella no
+   * aparece ninguna "×", así que `MyOrdersPage` queda sin cambios.
+   */
+  onRequestRemoveItem?: (item: OrderItemV2) => void;
 }
 
 /**
@@ -21,7 +29,7 @@ interface Props {
  * botón abre la hoja de confirmación (`CancelOrderSheet`) en la página, no
  * cancela directamente.
  */
-export function OrderCard({ order, now, onRequestCancel }: Props) {
+export function OrderCard({ order, now, onRequestCancel, onRequestRemoveItem }: Props) {
   const dayLabel = formatOrderDayLabel(order.pickupAt, now);
   const timeLabel = formatOrderTimeLabel(order.pickupAt);
   const isCancelled = order.estado === 'CANCELADO';
@@ -51,12 +59,24 @@ export function OrderCard({ order, now, onRequestCancel }: Props) {
 
         <div className="flex flex-col gap-1.5 px-4 py-2.5">
           {order.items.map((item) => (
-            <p key={item.id} className="m-0 text-[14.5px] leading-snug">
-              <span className="font-semibold text-foreground">{item.dishNombre}</span>
-              {item.sideNombre && (
-                <span className="text-muted-foreground"> · {item.sideNombre.toLowerCase()}</span>
+            <div key={item.id} className="flex items-center justify-between gap-2">
+              <p className="m-0 text-[14.5px] leading-snug">
+                <span className="font-semibold text-foreground">{item.dishNombre}</span>
+                {item.sideNombre && (
+                  <span className="text-muted-foreground"> · {item.sideNombre.toLowerCase()}</span>
+                )}
+              </p>
+              {onRequestRemoveItem && order.cancellable && (
+                <button
+                  type="button"
+                  onClick={() => onRequestRemoveItem(item)}
+                  aria-label={`Quitar ${item.dishNombre}`}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
               )}
-            </p>
+            </div>
           ))}
           {order.notas && <p className="m-0 text-[13px] italic text-muted-foreground">{order.notas}</p>}
         </div>

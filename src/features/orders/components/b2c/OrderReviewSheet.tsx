@@ -3,6 +3,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '
 import { CartSummary } from '../CartSummary';
 import { PickupTimePicker } from './PickupTimePicker';
 import { formatLunches } from '../../lunches';
+import { formatOrderTimeLabel } from '../orderDateLabels';
 import type { CartLine } from '../../hooks/useCart';
 
 interface Props {
@@ -13,6 +14,14 @@ interface Props {
   fecha: string;
   lastUsedTimeOfDay: string | null;
   onSelectPickup: (pickupAt: string) => void;
+  /**
+   * Pedido modificable del día seleccionado (F16) — cuando no es `null`, la
+   * hoja agrega el carrito a ESE pedido en vez de armar uno nuevo: sin
+   * selector de horario, con la línea "Se agrega a tu pedido de las HH:MM"
+   * (el horario del pedido, no uno elegido acá). `B2cOrderPage` decide si
+   * hay un pedido modificable para el día — nunca esta hoja.
+   */
+  addToOrder: { pickupAt: string } | null;
   lines: CartLine[];
   totalLunches: number;
   onRemoveLine: (localId: string) => void;
@@ -41,6 +50,7 @@ export function OrderReviewSheet({
   fecha,
   lastUsedTimeOfDay,
   onSelectPickup,
+  addToOrder,
   lines,
   totalLunches,
   onRemoveLine,
@@ -81,18 +91,24 @@ export function OrderReviewSheet({
             Agregar otro plato
           </button>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
-              ¿A qué hora lo retirás?
-            </span>
-            <PickupTimePicker
-              fecha={fecha}
-              isToday={isToday}
-              dayShortLabel={dayShortLabel}
-              lastUsedTimeOfDay={lastUsedTimeOfDay}
-              onSelect={onSelectPickup}
-            />
-          </div>
+          {addToOrder ? (
+            <p className="text-sm font-semibold text-foreground">
+              Se agrega a tu pedido de las {formatOrderTimeLabel(addToOrder.pickupAt)}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
+                ¿A qué hora lo retirás?
+              </span>
+              <PickupTimePicker
+                fecha={fecha}
+                isToday={isToday}
+                dayShortLabel={dayShortLabel}
+                lastUsedTimeOfDay={lastUsedTimeOfDay}
+                onSelect={onSelectPickup}
+              />
+            </div>
+          )}
 
           {left !== null && (
             <div className="flex flex-col gap-2 rounded-md bg-muted p-3.5">

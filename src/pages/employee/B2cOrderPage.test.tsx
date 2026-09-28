@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { B2cOrderPage } from './B2cOrderPage';
 import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
 import {
+  addOrderItemsV2,
   cancelOrderV2,
   getAvailableDishes,
   getDisabledDates,
@@ -14,7 +15,9 @@ import {
   getPickupSlots,
   getRestaurantConfig,
   InsufficientCreditsError,
+  OrderNotModifiableError,
   placeOrderV2,
+  removeOrderItemV2,
   type OrderV2,
 } from '@/features/orders/services/ordersApi';
 import { getWallet } from '@/features/credits/services/creditsApi';
@@ -26,6 +29,7 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
   );
   return {
     ...actual,
+    addOrderItemsV2: vi.fn(),
     cancelOrderV2: vi.fn(),
     getAvailableDishes: vi.fn(),
     getDisabledDates: vi.fn(),
@@ -35,6 +39,7 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     getPickupSlots: vi.fn(),
     getRestaurantConfig: vi.fn(),
     placeOrderV2: vi.fn(),
+    removeOrderItemV2: vi.fn(),
   };
 });
 
@@ -851,5 +856,316 @@ describe('B2cOrderPage — shows the selected day existing orders (F15)', () => 
 
     const section = await screen.findByTestId('selected-day-orders');
     expect(within(section).getByText(/^tus pedidos para/i)).toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)', () => {
+  // Fecha fija (mismo patrón que F12/F13): así "hoy" es directamente el día
+  // del pedido existente, sin depender de a qué día del selector hay que
+  // hacer click.
+  const TODAY = '2026-06-01T09:00:00';
+  const TODAY_ISO = '2026-06-01';
+
+  function orderFor(overrides: Partial<OrderV2> = {}): OrderV2 {
+    return {
+      id: 900,
+      fecha: TODAY_ISO,
+      pickupAt: `${TODAY_ISO}T15:00:00Z`,
+      estado: 'PENDIENTE',
+      creditTotal: 1,
+      notas: null,
+      // Nombre distinto de "Milanesa napolitana" (el plato del menú que usa
+      // `addDishToCart`) para que sus botones no se confundan por texto.
+      items: [
+        {
+          id: 1,
+          dishId: 20,
+          dishNombre: 'Ensalada',
+          dishCategoria: 'Básico',
+          sideId: null,
+          sideNombre: null,
+          creditCost: 1,
+          notas: null,
+        },
+      ],
+      cancellable: true,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.setSystemTime(new Date(TODAY));
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-06-01T18:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('switches the review sheet to add mode and calls addOrderItemsV2 with the order id and cart items', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
+    vi.mocked(addOrderItemsV2).mockResolvedValueOnce({
+      ...orderFor(),
+      creditTotal: 3,
+      items: [
+        ...orderFor().items,
+        { id: 2, dishId: 10, dishNombre: 'Milanesa napolitana', dishCategoria: 'Básico', sideId: null, sideNombre: null, creditCost: 2, notas: null },
+      ],
+    });
+    const { queryClient } = renderPage();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await addDishToCart();
+    await openReview();
+
+    expect(
+      await screen.findByText(/se agrega a tu pedido de las \d{2}:\d{2}/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^agregar a mi pedido$/i }));
+
+    await waitFor(() =>
+      expect(addOrderItemsV2).toHaveBeenCalledWith(900, [{ dishId: 10, sideId: null, notas: null }]),
+    );
+    expect(placeOrderV2).not.toHaveBeenCalled();
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ordersV2'] }));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument(),
+    );
+  });
+
+  it('keeps the normal new-order flow (PickupTimePicker + placeOrderV2) when there is no modifiable order for the day', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({
+      id: 950,
+      fecha: TODAY_ISO,
+      pickupAt: '2026-06-01T18:00:00Z',
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [],
+      cancellable: true,
+    });
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+
+    expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+
+    await waitFor(() => expect(placeOrderV2).toHaveBeenCalled());
+    expect(addOrderItemsV2).not.toHaveBeenCalled();
+  });
+
+  it('keeps the normal new-order flow for a CONFIRMADO (locked) order of the day', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      orderFor({ estado: 'CONFIRMADO', cancellable: false }),
+    ]);
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({
+      id: 951,
+      fecha: TODAY_ISO,
+      pickupAt: '2026-06-01T18:00:00Z',
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [],
+      cancellable: true,
+    });
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+
+    expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument();
+    expect(screen.queryByText(/se agrega a tu pedido/i)).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+
+    await waitFor(() => expect(placeOrderV2).toHaveBeenCalled());
+    expect(addOrderItemsV2).not.toHaveBeenCalled();
+  });
+
+  it('surfaces insufficient balance from addOrderItemsV2 with the same UX as placing a new order', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
+    vi.mocked(addOrderItemsV2).mockRejectedValueOnce(new InsufficientCreditsError());
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^agregar a mi pedido$/i }));
+
+    expect(
+      await screen.findByText(/no te alcanzan los almuerzos disponibles/i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a fallback message and falls back to normal new-order mode when the order stopped being modifiable', async () => {
+    let call = 0;
+    vi.mocked(getOrdersV2).mockImplementation(async () => {
+      call += 1;
+      return call === 1 ? [orderFor()] : [];
+    });
+    vi.mocked(addOrderItemsV2).mockRejectedValueOnce(new OrderNotModifiableError());
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^agregar a mi pedido$/i }));
+
+    expect(
+      await screen.findByText(/tu pedido ya no se puede modificar; armá uno nuevo\./i),
+    ).toBeInTheDocument();
+
+    // El refetch de `ordersV2` ya no trae el pedido modificable: la hoja
+    // vuelve a modo "pedido nuevo" (picker de horario, sin la línea de "se
+    // agrega a tu pedido").
+    await waitFor(() => expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument());
+  });
+});
+
+describe('B2cOrderPage — removing a dish with confirmation (F16)', () => {
+  const TODAY = '2026-06-01T09:00:00';
+  const TODAY_ISO = '2026-06-01';
+
+  function orderFor(overrides: Partial<OrderV2> = {}): OrderV2 {
+    return {
+      id: 900,
+      fecha: TODAY_ISO,
+      pickupAt: `${TODAY_ISO}T15:00:00Z`,
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [
+        {
+          id: 1,
+          dishId: 20,
+          dishNombre: 'Ensalada',
+          dishCategoria: 'Básico',
+          sideId: null,
+          sideNombre: null,
+          creditCost: 1,
+          notas: null,
+        },
+        {
+          id: 2,
+          dishId: 21,
+          dishNombre: 'Tarta',
+          dishCategoria: 'Básico',
+          sideId: null,
+          sideNombre: null,
+          creditCost: 1,
+          notas: null,
+        },
+      ],
+      cancellable: true,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.setSystemTime(new Date(TODAY));
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-06-01T18:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('opens the confirmation modal from the "×" and removes the item, invalidating ordersV2 and creditsWallet', async () => {
+    vi.mocked(removeOrderItemV2).mockResolvedValueOnce({
+      ...orderFor(),
+      creditTotal: 1,
+      items: [orderFor().items[1]],
+    });
+    const { queryClient } = renderPage();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await screen.findByTestId('selected-day-orders');
+    fireEvent.click(await screen.findByRole('button', { name: /quitar ensalada/i }));
+
+    expect(await screen.findByText('¿Quitar Ensalada de tu pedido?')).toBeInTheDocument();
+    expect(screen.getByText(/vuelve 1 almuerzo a tu saldo/i)).toBeInTheDocument();
+    expect(screen.queryByText(/se cancela el pedido/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^sí, quitar$/i }));
+
+    await waitFor(() => expect(removeOrderItemV2).toHaveBeenCalledWith(900, 1));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ordersV2'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+    await waitFor(() =>
+      expect(screen.queryByText('¿Quitar Ensalada de tu pedido?')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('warns that the order will be cancelled when removing the only dish', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      orderFor({ creditTotal: 1, items: [orderFor().items[0]] }),
+    ]);
+    renderPage();
+
+    await screen.findByTestId('selected-day-orders');
+    fireEvent.click(await screen.findByRole('button', { name: /quitar ensalada/i }));
+
+    expect(await screen.findByText(/es el único plato: se cancela el pedido\./i)).toBeInTheDocument();
+  });
+
+  it('shows no "×" for a non-modifiable order', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor({ cancellable: false })]);
+    renderPage();
+
+    await screen.findByTestId('selected-day-orders');
+    expect(screen.queryByRole('button', { name: /quitar ensalada/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the modal open while the removal is pending', async () => {
+    let resolveRemove: (order: OrderV2) => void = () => {};
+    vi.mocked(removeOrderItemV2).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRemove = resolve;
+      }),
+    );
+    renderPage();
+
+    await screen.findByTestId('selected-day-orders');
+    fireEvent.click(await screen.findByRole('button', { name: /quitar ensalada/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^sí, quitar$/i }));
+
+    expect(await screen.findByRole('button', { name: /quitando…/i })).toBeDisabled();
+    expect(screen.getByText('¿Quitar Ensalada de tu pedido?')).toBeInTheDocument();
+
+    resolveRemove({ ...orderFor(), creditTotal: 1, items: [orderFor().items[1]] });
+    await waitFor(() =>
+      expect(screen.queryByText('¿Quitar Ensalada de tu pedido?')).not.toBeInTheDocument(),
+    );
   });
 });

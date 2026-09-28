@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { OrderCard } from '../OrderCard';
-import type { OrderV2 } from '../../services/ordersApi';
+import type { OrderItemV2, OrderV2 } from '../../services/ordersApi';
 
 interface Props {
   /** Pedidos NO cancelados del día seleccionado — el filtrado lo hace la página. */
@@ -10,6 +10,8 @@ interface Props {
   dayHeadingLabel: string;
   now: Date;
   onRequestCancel: (order: OrderV2) => void;
+  /** Optativo (F16) — ver `OrderCard.onRequestRemoveItem`; sin esta prop no aparece ninguna "×". */
+  onRequestRemoveItem?: (order: OrderV2, item: OrderItemV2) => void;
 }
 
 /**
@@ -23,7 +25,7 @@ interface Props {
  * guarnición/notas y los almuerzos usados, y solo ofrece "Cancelar pedido"
  * cuando `order.cancellable` es `true` (el backend decide esa ventana).
  */
-export function SelectedDayOrders({ orders, dayHeadingLabel, now, onRequestCancel }: Props) {
+export function SelectedDayOrders({ orders, dayHeadingLabel, now, onRequestCancel, onRequestRemoveItem }: Props) {
   if (orders.length === 0) return null;
 
   const heading =
@@ -36,7 +38,14 @@ export function SelectedDayOrders({ orders, dayHeadingLabel, now, onRequestCance
       <ul className="space-y-2">
         {orders.map((order) => (
           <Fragment key={order.id}>
-            <OrderCard order={order} now={now} onRequestCancel={() => onRequestCancel(order)} />
+            <OrderCard
+              order={order}
+              now={now}
+              onRequestCancel={() => onRequestCancel(order)}
+              onRequestRemoveItem={
+                onRequestRemoveItem ? (item) => onRequestRemoveItem(order, item) : undefined
+              }
+            />
             <li>
               <Link
                 to="/orders/mine"

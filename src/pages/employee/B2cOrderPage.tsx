@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
 import { DishCard } from '@/features/orders/components/DishCard';
 import { FilterPills } from '@/features/orders/components/FilterPills';
 import type { ActiveFilter } from '@/features/orders/components/FilterPills';
 import { WeekDaySelector } from '@/features/orders/components/WeekDaySelector';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
+import { RemoveOrderItemSheet } from '@/features/orders/components/RemoveOrderItemSheet';
 import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
@@ -15,13 +17,16 @@ import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSh
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useCart } from '@/features/orders/hooks/useCart';
+import { useRemoveOrderItem } from '@/features/orders/hooks/useRemoveOrderItem';
 import {
+  addOrderItemsV2,
   getAvailableDishes,
   getDisabledDates,
   getMenuSections,
   getOrdersV2,
   getRestaurantConfig,
   InsufficientCreditsError,
+  OrderNotModifiableError,
   placeOrderV2,
 } from '@/features/orders/services/ordersApi';
 import type { Dish, RestaurantConfig } from '@/features/orders/types';
@@ -186,6 +191,29 @@ export function B2cOrderPage() {
   );
   const { cancelTarget, cancelError, cancelling, requestCancel, closeSheet, confirmCancel } =
     useCancelOrder();
+  const {
+    removeTarget,
+    removeError,
+    removing,
+    requestRemoveItem,
+    closeRemoveSheet,
+    confirmRemoveItem,
+  } = useRemoveOrderItem();
+
+  /**
+   * Pedido(s) modificable(s) del día seleccionado (F16, backend B6) — un
+   * pedido no cancelado con `cancellable: true`. Si hay varios (caso raro:
+   * el cliente ya tiene más de un pedido modificable el mismo día), se usa
+   * el de retiro más próximo, y la línea "Se agrega a tu pedido de las
+   * HH:MM" de la hoja de revisión queda atada a ESE horario.
+   */
+  const modifiableOrderForSelectedDay = useMemo(() => {
+    const candidates = ordersForSelectedDay.filter((o) => o.cancellable);
+    if (candidates.length === 0) return null;
+    return candidates.reduce((earliest, order) =>
+      new Date(order.pickupAt) < new Date(earliest.pickupAt) ? order : earliest,
+    );
+  }, [ordersForSelectedDay]);
 
   const isToday = selectedDate === todayStr;
   const dayShortLabel = formatDayLabel(selectedDate).toLowerCase();
@@ -212,11 +240,13 @@ export function B2cOrderPage() {
         return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
       })()
     : null;
-  const confirmLabel = pickupTimeLabel
-    ? isToday
-      ? `Retiro hoy ${pickupTimeLabel} hs`
-      : `Retiro ${dayShortLabel} a las ${pickupTimeLabel}`
-    : 'Confirmar pedido';
+  const confirmLabel = modifiableOrderForSelectedDay
+    ? 'Agregar a mi pedido'
+    : pickupTimeLabel
+      ? isToday
+        ? `Retiro hoy ${pickupTimeLabel} hs`
+        : `Retiro ${dayShortLabel} a las ${pickupTimeLabel}`
+      : 'Confirmar pedido';
 
   const specialDishes = useMemo(() => dishes?.filter((d) => d.especial) ?? [], [dishes]);
   const regularDishes = useMemo(() => dishes?.filter((d) => !d.especial) ?? [], [dishes]);
@@ -239,7 +269,9 @@ export function B2cOrderPage() {
       .filter((g) => g.dishes.length > 0);
   }, [regularDishes, sections]);
 
-  const canConfirm = cart.lines.length > 0 && !!pickupAt && !submitting;
+  const canConfirm = modifiableOrderForSelectedDay
+    ? cart.lines.length > 0 && !submitting
+    : cart.lines.length > 0 && !!pickupAt && !submitting;
 
   const handleAddToCart = (selection: { sideId: number | null; notas: string | null }) => {
     if (!selectedDish) return;
@@ -327,6 +359,58 @@ export function B2cOrderPage() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * Agrega el carrito del día al pedido modificable existente en vez de
+   * armar uno nuevo (F16, backend B6 — `POST /api/v2/orders/{id}/items`).
+   * Sin ticket de confirmación (a diferencia de `handleConfirm`): un aviso
+   * (`toast`) alcanza, ya el pedido existía y solo cambió su contenido.
+   */
+  const handleAddToOrder = async () => {
+    if (!modifiableOrderForSelectedDay) return;
+    setSubmitError(null);
+    setInsufficientBalance(false);
+    setSubmitting(true);
+    const count = cart.lines.length;
+    try {
+      await addOrderItemsV2(
+        modifiableOrderForSelectedDay.id,
+        cart.lines.map((line) => ({
+          dishId: line.dish.id,
+          sideId: line.sideId,
+          notas: line.notas,
+        })),
+      );
+      cart.clear();
+      setReviewOpen(false);
+      toast.success(`Agregamos ${count} ${count === 1 ? 'plato' : 'platos'} a tu pedido`);
+      queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
+      queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
+    } catch (err) {
+      if (err instanceof InsufficientCreditsError) {
+        setInsufficientBalance(true);
+      } else if (err instanceof OrderNotModifiableError) {
+        // El pedido dejó de ser modificable mientras la hoja estaba abierta
+        // (p. ej. se cerró la ventana de cancelación) — se avisa y se
+        // refetchea `ordersV2`, así `modifiableOrderForSelectedDay` deja de
+        // encontrarlo y la hoja cae sola al modo de pedido nuevo.
+        setSubmitError(err.message);
+        queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
+      } else {
+        setSubmitError(err instanceof Error ? err.message : 'Ocurrió un error al agregar los platos.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReviewConfirm = () => {
+    if (modifiableOrderForSelectedDay) {
+      void handleAddToOrder();
+    } else {
+      void handleConfirm();
     }
   };
 
@@ -427,6 +511,7 @@ export function B2cOrderPage() {
           dayHeadingLabel={dayHeadingLabel}
           now={now}
           onRequestCancel={requestCancel}
+          onRequestRemoveItem={requestRemoveItem}
         />
 
         <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
@@ -496,6 +581,9 @@ export function B2cOrderPage() {
         fecha={selectedDate}
         lastUsedTimeOfDay={lastUsedTimeOfDay}
         onSelectPickup={(time) => setPickupSelection({ date: selectedDate, time })}
+        addToOrder={
+          modifiableOrderForSelectedDay ? { pickupAt: modifiableOrderForSelectedDay.pickupAt } : null
+        }
         lines={cart.lines}
         totalLunches={cart.totalCredits}
         onRemoveLine={handleRemoveLine}
@@ -505,7 +593,7 @@ export function B2cOrderPage() {
         submitting={submitting}
         submitError={submitError}
         insufficientBalance={insufficientBalance}
-        onConfirm={handleConfirm}
+        onConfirm={handleReviewConfirm}
       />
 
       <CancelOrderSheet
@@ -515,6 +603,14 @@ export function B2cOrderPage() {
         errorMessage={cancelError}
         onConfirm={confirmCancel}
         onClose={closeSheet}
+      />
+
+      <RemoveOrderItemSheet
+        target={removeTarget}
+        removing={removing}
+        errorMessage={removeError}
+        onConfirm={confirmRemoveItem}
+        onClose={closeRemoveSheet}
       />
     </div>
   );

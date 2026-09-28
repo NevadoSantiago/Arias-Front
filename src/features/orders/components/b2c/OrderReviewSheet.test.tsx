@@ -35,6 +35,7 @@ function baseProps(overrides: Partial<Parameters<typeof OrderReviewSheet>[0]> = 
     fecha: '2026-05-21',
     lastUsedTimeOfDay: null,
     onSelectPickup: vi.fn(),
+    addToOrder: null,
     lines: [line],
     totalLunches: 2,
     onRemoveLine: vi.fn(),
@@ -147,5 +148,33 @@ describe('OrderReviewSheet', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /agregar otro plato/i }));
     expect(props.onClose).toHaveBeenCalled();
+  });
+});
+
+// F16: agregar platos a un pedido modificable en vez de armar uno nuevo.
+describe('OrderReviewSheet — add to an existing order (F16)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows "Se agrega a tu pedido de las HH:MM" and hides the pickup time picker when addToOrder is set', () => {
+    renderSheet({
+      addToOrder: { pickupAt: '2026-05-21T15:00:00Z' },
+      confirmLabel: 'Agregar a mi pedido',
+    });
+
+    expect(screen.getByText(/se agrega a tu pedido de las \d{2}:\d{2}/i)).toBeInTheDocument();
+    expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /lo antes posible/i })).not.toBeInTheDocument();
+    expect(getPickupSlots).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /agregar a mi pedido/i })).toBeInTheDocument();
+  });
+
+  it('shows the pickup time picker (no addToOrder line) for a normal new order', () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    renderSheet({ addToOrder: null });
+
+    expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument();
+    expect(screen.queryByText(/se agrega a tu pedido de las/i)).not.toBeInTheDocument();
   });
 });
