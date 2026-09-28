@@ -213,6 +213,63 @@ describe('CreditsCheckoutStatus', () => {
     expect(screen.getByText('Compra directa')).toBeInTheDocument();
   });
 
+  // F18: `purchase.type === 'DIRECT'` (pago directo de un pedido, unidad
+  // B7) tiene su propia copia orientada a pedidos en vez de a almuerzos —
+  // la lógica de polling/estado de arriba no cambia (mismos tests PENDING/
+  // APPROVED/FAILED de arriba, con `type: 'PACK'` por defecto, siguen verdes).
+  describe('purchase.type === DIRECT', () => {
+    const directPurchase: CreditPurchase = {
+      ...pendingPurchase,
+      type: 'DIRECT',
+      packNombre: null,
+    };
+
+    it('shows "¡Listo! Tu pedido quedó programado" with a link to Mis pedidos when approved', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({
+        ...directPurchase,
+        status: 'APPROVED',
+        creditedAt: '2026-01-01T00:05:00Z',
+      });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByText('¡Listo! Tu pedido quedó programado')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /ver mi pedido/i })).toHaveAttribute('href', '/orders/mine');
+    });
+
+    it('shows "Tu pedido queda programado" as the last step while PENDING', async () => {
+      vi.mocked(getPurchase).mockResolvedValue(directPurchase);
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByText('Pago enviado')).toBeInTheDocument();
+      expect(screen.getByText('Confirmación de Mercado Pago')).toBeInTheDocument();
+      expect(screen.getByText('Tu pedido queda programado')).toBeInTheDocument();
+      expect(screen.queryByText('Almuerzos en tu saldo')).not.toBeInTheDocument();
+    });
+
+    it('shows "No se aprobó el pago. Tu pedido se canceló" with a link to order again when rejected', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({ ...directPurchase, status: 'REJECTED' });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(
+        screen.getByRole('heading', { name: /no se aprobó el pago\. tu pedido se canceló/i }),
+      ).toBeInTheDocument();
+      const retryLink = screen.getByRole('link', { name: /volver a pedir/i });
+      expect(retryLink).toHaveAttribute('href', '/orders/today');
+    });
+  });
+
   // F11 (prototipo `PurchaseMediation.dc.html`): estado IN_MEDIATION —
   // decisión del usuario (2026-09-26): sin promesa de aviso por correo.
   describe('IN_MEDIATION', () => {

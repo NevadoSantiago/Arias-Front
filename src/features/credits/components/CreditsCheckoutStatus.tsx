@@ -164,6 +164,8 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
     );
   }
 
+  const isDirect = purchase.type === 'DIRECT';
+
   if (purchase.status === 'PENDING' && gaveUp) {
     return (
       <div className="flex flex-col items-center gap-5 py-6 text-center">
@@ -179,7 +181,11 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
         <ol aria-label="Estado de la compra" className="m-0 flex w-full list-none flex-col gap-3.5 rounded-lg border border-border bg-card p-4">
           <StepItem state="done" title="Pago enviado" detail={`${purchaseLabel(purchase)} · ${formatAmount(purchase)}`} />
           <StepItem state="active" title="Confirmación de Mercado Pago" detail="Suele tardar unos segundos; a veces, unos minutos." />
-          <StepItem state="upcoming" title="Almuerzos en tu saldo" detail="Se suman solos, sin que hagas nada." />
+          {isDirect ? (
+            <StepItem state="upcoming" title="Tu pedido queda programado" detail="Se confirma solo, sin que hagas nada." />
+          ) : (
+            <StepItem state="upcoming" title="Almuerzos en tu saldo" detail="Se suman solos, sin que hagas nada." />
+          )}
         </ol>
         <p role="status" className="text-sm text-muted-foreground">
           Tu pago está demorando más de lo esperado. Te avisamos por correo apenas se acredite.
@@ -203,7 +209,11 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
         <ol aria-label="Estado de la compra" className="m-0 flex w-full list-none flex-col gap-3.5 rounded-lg border border-border bg-card p-4">
           <StepItem state="done" title="Pago enviado" detail={`${purchaseLabel(purchase)} · ${formatAmount(purchase)}`} />
           <StepItem state="active" title="Confirmación de Mercado Pago" detail="Suele tardar unos segundos; a veces, unos minutos." />
-          <StepItem state="upcoming" title="Almuerzos en tu saldo" detail="Se suman solos, sin que hagas nada." />
+          {isDirect ? (
+            <StepItem state="upcoming" title="Tu pedido queda programado" detail="Se confirma solo, sin que hagas nada." />
+          ) : (
+            <StepItem state="upcoming" title="Almuerzos en tu saldo" detail="Se suman solos, sin que hagas nada." />
+          )}
         </ol>
         <p role="status" className="text-sm text-muted-foreground">
           Estamos procesando tu pago…
@@ -219,7 +229,9 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
           <Check className="h-10 w-10" aria-hidden="true" strokeWidth={2.4} />
         </StatusIcon>
         <div className="flex flex-col gap-1.5">
-          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">¡Listo! Sumaste {purchase.creditAmount} almuerzos</h1>
+          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">
+            {isDirect ? '¡Listo! Tu pedido quedó programado' : `¡Listo! Sumaste ${purchase.creditAmount} almuerzos`}
+          </h1>
           <p className="text-sm leading-relaxed text-muted-foreground">Mercado Pago confirmó el pago y ya podés usarlos.</p>
         </div>
         <dl className="m-0 flex w-full flex-col gap-2.5 rounded-lg border border-border bg-card p-4 text-left">
@@ -240,12 +252,21 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
           ¡Listo! Se acreditaron {purchase.creditAmount} almuerzos en tu billetera.
         </p>
         <div className="flex w-full flex-col gap-2.5">
-          <Link
-            to="/orders/today"
-            className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
-          >
-            Pedir mi almuerzo
-          </Link>
+          {isDirect ? (
+            <Link
+              to="/orders/mine"
+              className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+            >
+              Ver mi pedido
+            </Link>
+          ) : (
+            <Link
+              to="/orders/today"
+              className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+            >
+              Pedir mi almuerzo
+            </Link>
+          )}
           <Link
             to="/credits"
             className="flex h-[52px] items-center justify-center rounded-md border border-border bg-card text-sm font-semibold text-foreground no-underline"
@@ -324,9 +345,13 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
           <X className="h-9 w-9" aria-hidden="true" strokeWidth={2.4} />
         </StatusIcon>
         <div className="flex flex-col gap-1.5">
-          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">No se pudo completar el pago</h1>
+          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">
+            {isDirect ? 'No se aprobó el pago. Tu pedido se canceló' : 'No se pudo completar el pago'}
+          </h1>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            No se acreditó ningún almuerzo. Podés intentarlo de nuevo con el mismo u otro medio de pago.
+            {isDirect
+              ? 'El pedido se canceló y el stock reservado se liberó. Podés volver a pedir cuando quieras.'
+              : 'No se acreditó ningún almuerzo. Podés intentarlo de nuevo con el mismo u otro medio de pago.'}
           </p>
         </div>
         <dl className="m-0 flex w-full flex-col gap-2.5 rounded-lg border border-border bg-card p-4 text-left">
@@ -345,15 +370,26 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
           </div>
         </dl>
         <p role="alert" className="text-sm text-destructive">
-          El pago no se pudo completar. No se acreditó ningún almuerzo.
+          {isDirect
+            ? 'No se aprobó el pago. Tu pedido se canceló.'
+            : 'El pago no se pudo completar. No se acreditó ningún almuerzo.'}
         </p>
         <div className="flex w-full flex-col gap-2.5">
-          <Link
-            to="/credits/packs"
-            className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
-          >
-            Intentar de nuevo
-          </Link>
+          {isDirect ? (
+            <Link
+              to="/orders/today"
+              className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+            >
+              Volver a pedir
+            </Link>
+          ) : (
+            <Link
+              to="/credits/packs"
+              className="flex h-[52px] items-center justify-center rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+            >
+              Intentar de nuevo
+            </Link>
+          )}
           <Link
             to="/credits"
             className="flex h-[52px] items-center justify-center rounded-md border border-border bg-card text-sm font-semibold text-foreground no-underline"
