@@ -15,6 +15,7 @@ export type MovementType =
   | 'WELCOME_GRANT'
   | 'PACK_PURCHASE'
   | 'DIRECT_PURCHASE'
+  | 'DIRECT_PURCHASE_REFUND'
   | 'COMMIT'
   | 'RELEASE'
   | 'CONSUME'

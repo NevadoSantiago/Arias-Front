@@ -76,4 +76,18 @@ describe('PurchaseHistory', () => {
 
     expect(await screen.findByText('-1')).toBeInTheDocument();
   });
+
+  // F18 (backend B7): una compra DIRECT aprobada con el pedido ya cancelado
+  // manda los almuerzos a disponibles en vez de perderlos — se muestra como
+  // un movimiento positivo, con su propia etiqueta.
+  it('labels DIRECT_PURCHASE_REFUND as a positive movement back to the balance', async () => {
+    vi.mocked(getMovements).mockResolvedValueOnce([
+      movement({ id: 1, type: 'DIRECT_PURCHASE_REFUND', deltaAvailable: 2 }),
+    ]);
+
+    renderHistory();
+
+    expect(await screen.findByText(/pago de un pedido cancelado/i)).toBeInTheDocument();
+    expect(screen.getByText('+2')).toHaveClass('text-success');
+  });
 });

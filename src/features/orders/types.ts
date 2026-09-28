@@ -50,8 +50,11 @@ export interface Dish {
  * Compartido por el pedido viejo (`DailyChoice`, sin `CANCELADO` porque
  * cancela con DELETE) y el pedido nuevo por créditos (`Order`, que sí puede
  * llegar a `CANCELADO` — soft-cancel, ver `OrderV2` en `ordersApi.ts`).
+ * `PENDIENTE_PAGO` (unidad B7/F18) es exclusivo de `Order`: pedido recién
+ * creado por `/api/v2/orders/direct-checkout`, esperando que Mercado Pago
+ * apruebe la compra DIRECT asociada, sin créditos comprometidos.
  */
-export type OrderEstado = 'PENDIENTE' | 'CONFIRMADO' | 'COMANDADO' | 'ENTREGADO' | 'CANCELADO';
+export type OrderEstado = 'PENDIENTE_PAGO' | 'PENDIENTE' | 'CONFIRMADO' | 'COMANDADO' | 'ENTREGADO' | 'CANCELADO';
 
 export interface DailyChoice {
   id: number;
@@ -91,4 +94,12 @@ export interface RestaurantConfig {
   pickupWindowEnd: string | null; // "23:00"
   /** Franja de retiro por día de la semana (lunes a domingo). Ausente en un backend viejo (tolerancia, F14b). */
   pickupSchedule?: PickupScheduleDay[];
+  /**
+   * Minutos de antelación al retiro que usa el backend para la ventana de
+   * cancelación/modificación (`OrderPlacementService.isCancellable`) y para
+   * el corte que cancela solo un pedido `PENDIENTE_PAGO` sin pagar (F18).
+   * Optional: `getRestaurantConfig` lo mapea tolerante a un valor ausente,
+   * y la UI omite el horario del aviso cuando no está.
+   */
+  pickupLeadMinutes?: number;
 }

@@ -17,6 +17,7 @@ export async function getRestaurantConfig(): Promise<RestaurantConfig> {
       windowStart: string | null;
       windowEnd: string | null;
     }[] | null;
+    pickupLeadMinutes?: number | null;
   }>(`${BASE}/restaurant-config`);
   return {
     horaCorte: data.horaCorte.substring(0, 5),
@@ -32,6 +33,10 @@ export async function getRestaurantConfig(): Promise<RestaurantConfig> {
       windowStart: d.windowStart ? d.windowStart.substring(0, 5) : null,
       windowEnd: d.windowEnd ? d.windowEnd.substring(0, 5) : null,
     })) ?? undefined,
+    // F18: usado por el aviso de corte de "Pago pendiente". Ya viajaba en
+    // esta respuesta (unidad 8) pero el frontend no lo leía — tolerante a un
+    // backend viejo sin el campo.
+    pickupLeadMinutes: data.pickupLeadMinutes ?? undefined,
   };
 }
 
@@ -195,6 +200,32 @@ export class OrderNotModifiableError extends Error {
 }
 
 /**
+ * La compra directa no está disponible (503 `direct-purchase-unavailable`)
+ * — el backend no tiene un paquete `DAY` habilitado para calcular el precio
+ * por almuerzo. F18/B7.
+ */
+export class DirectCheckoutUnavailableError extends Error {
+  constructor() {
+    super('El pago directo no está disponible ahora. Comprá un paquete para pedir.');
+    this.name = 'DirectCheckoutUnavailableError';
+  }
+}
+
+/**
+ * El pago directo ya no se puede retomar — el pedido dejó de estar
+ * `PENDIENTE_PAGO` (409 `order-not-awaiting-payment`, p. ej. se canceló o ya
+ * se aprobó) o no queda una compra `DIRECT` pendiente para retomar (409
+ * `direct-checkout-not-resumable`). Mismo mensaje para ambos: desde el punto
+ * de vista del cliente, "Pagar ahora" ya no sirve. F18/B7.
+ */
+export class DirectCheckoutNotResumableError extends Error {
+  constructor() {
+    super('Este pago ya no se puede retomar.');
+    this.name = 'DirectCheckoutNotResumableError';
+  }
+}
+
+/**
  * Horarios de retiro válidos para `fecha` — únicamente los que ofrece el
  * backend (ventana de servicio, antelación, semana actual/siguiente,
  * fechas deshabilitadas). El frontend nunca genera horarios por su cuenta.
@@ -220,6 +251,50 @@ export async function placeOrderV2(payload: PlaceOrderV2Payload): Promise<OrderV
 /** Cancela un pedido del camino nuevo — el backend libera crédito y stock. */
 export async function cancelOrderV2(orderId: number): Promise<void> {
   await api.delete(`${BASE_V2}/${orderId}`);
+}
+
+/**
+ * Respuesta de `POST /api/v2/orders/direct-checkout` y de
+ * `GET /api/v2/orders/{id}/direct-checkout` (unidad B7/F18) — a diferencia
+ * de {@link CreditPurchaseCheckout} (compra de créditos "sueltos"), esta
+ * respuesta también trae `orderId`: el pedido y la compra DIRECT nacen
+ * juntos, en la misma transacción del backend.
+ */
+export interface DirectCheckoutDto {
+  orderId: number;
+  purchaseId: string;
+  initPoint: string;
+}
+
+/**
+ * "Pagá este pedido con Mercado Pago" (F18, backend B7) — mismo body que
+ * {@link placeOrderV2}, pero el pedido nace `PENDIENTE_PAGO` (sin comprometer
+ * saldo, con stock reservado) junto a una compra DIRECT que cobra el total
+ * exacto del pedido. El saldo insuficiente (o cero) nunca se calcula acá:
+ * este endpoint se llama después de que `placeOrderV2` ya rechazó el pedido
+ * con `InsufficientCreditsError`.
+ */
+export async function startDirectCheckoutV2(payload: PlaceOrderV2Payload): Promise<DirectCheckoutDto> {
+  try {
+    const { data } = await api.post<DirectCheckoutDto>(`${BASE_V2}/direct-checkout`, payload);
+    return data;
+  } catch (err) {
+    throw mapOrderV2Error(err);
+  }
+}
+
+/**
+ * Retoma un pago directo abandonado ("Pagar ahora" sobre un pedido
+ * `PENDIENTE_PAGO`, F18/B7) — NUNCA crea una compra ni un cobro nuevo, solo
+ * devuelve el `initPoint` de la compra DIRECT `PENDING` ya persistida.
+ */
+export async function resumeDirectCheckoutV2(orderId: number): Promise<DirectCheckoutDto> {
+  try {
+    const { data } = await api.get<DirectCheckoutDto>(`${BASE_V2}/${orderId}/direct-checkout`);
+    return data;
+  } catch (err) {
+    throw mapOrderV2Error(err);
+  }
 }
 
 /**
@@ -270,6 +345,12 @@ function mapOrderV2Error(err: unknown): Error {
     }
     if (data?.title === 'order-not-modifiable') {
       return new OrderNotModifiableError();
+    }
+    if (data?.title === 'direct-purchase-unavailable') {
+      return new DirectCheckoutUnavailableError();
+    }
+    if (data?.title === 'order-not-awaiting-payment' || data?.title === 'direct-checkout-not-resumable') {
+      return new DirectCheckoutNotResumableError();
     }
   }
   return err instanceof Error ? err : new Error('Error de red');

@@ -18,6 +18,7 @@ const MOVEMENT_LABELS: Record<MovementType, string> = {
   WELCOME_GRANT: 'Almuerzo de bienvenida',
   PACK_PURCHASE: 'Compra de paquete',
   DIRECT_PURCHASE: 'Compra directa',
+  DIRECT_PURCHASE_REFUND: 'Pago de un pedido cancelado · vuelve a tu saldo',
   COMMIT: 'Reservado para un pedido',
   RELEASE: 'Pedido cancelado',
   CONSUME: 'Pedido retirado',
@@ -36,6 +37,9 @@ const MOVEMENT_ICON: Record<MovementType, { Icon: typeof Clock3; tone: string }>
   PAYMENT_REVERSAL: { Icon: TriangleAlert, tone: 'bg-destructive/15 text-destructive' },
   PACK_PURCHASE: { Icon: Banknote, tone: 'bg-success/15 text-success' },
   DIRECT_PURCHASE: { Icon: Banknote, tone: 'bg-success/15 text-success' },
+  // F18 (backend B7): compra DIRECT aprobada con el pedido ya cancelado —
+  // los almuerzos vuelven a disponibles en vez de perderse, siempre positivo.
+  DIRECT_PURCHASE_REFUND: { Icon: RotateCcw, tone: 'bg-success/15 text-success' },
   WELCOME_GRANT: { Icon: Gift, tone: 'bg-primary-deep/15 text-primary-deep' },
   EXPIRATION: { Icon: CalendarX, tone: 'bg-muted text-muted-foreground' },
   ADMIN_ADJUSTMENT: { Icon: SlidersHorizontal, tone: 'bg-muted text-muted-foreground' },
