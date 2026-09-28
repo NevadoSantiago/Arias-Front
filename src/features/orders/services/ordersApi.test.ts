@@ -1,9 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
-import { getPickupSlots, getRestaurantConfig } from './ordersApi';
+import {
+  addOrderItemsV2,
+  getPickupSlots,
+  getRestaurantConfig,
+  InsufficientCreditsError,
+  OrderNotModifiableError,
+  removeOrderItemV2,
+} from './ordersApi';
 
 vi.mock('@/lib/api', () => ({
-  api: { get: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
 
 describe('getPickupSlots', () => {
@@ -120,5 +127,80 @@ describe('getRestaurantConfig', () => {
     const config = await getRestaurantConfig();
 
     expect(config.pickupSchedule).toBeUndefined();
+  });
+});
+
+// F16: agregar/quitar ítems de un pedido v2 existente (backend B6).
+describe('addOrderItemsV2', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('POSTs to /api/v2/orders/{id}/items with the items in the body', async () => {
+    const order = {
+      id: 5,
+      fecha: '2026-05-21',
+      pickupAt: '2026-05-21T15:00:00Z',
+      estado: 'PENDIENTE',
+      creditTotal: 4,
+      notas: null,
+      items: [],
+      cancellable: true,
+    };
+    vi.mocked(api.post).mockResolvedValueOnce({ data: order });
+
+    const result = await addOrderItemsV2(5, [{ dishId: 10, sideId: null, notas: null }]);
+
+    expect(api.post).toHaveBeenCalledWith('/api/v2/orders/5/items', {
+      items: [{ dishId: 10, sideId: null, notas: null }],
+    });
+    expect(result).toEqual(order);
+  });
+
+  it('maps a 409 insufficient-credits response to InsufficientCreditsError', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce({ response: { data: { title: 'insufficient-credits' } } });
+
+    await expect(addOrderItemsV2(5, [{ dishId: 10, sideId: null, notas: null }])).rejects.toBeInstanceOf(
+      InsufficientCreditsError,
+    );
+  });
+
+  it('maps a 409 order-not-modifiable response to OrderNotModifiableError', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce({ response: { data: { title: 'order-not-modifiable' } } });
+
+    await expect(addOrderItemsV2(5, [{ dishId: 10, sideId: null, notas: null }])).rejects.toBeInstanceOf(
+      OrderNotModifiableError,
+    );
+  });
+});
+
+describe('removeOrderItemV2', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('DELETEs /api/v2/orders/{id}/items/{itemId}', async () => {
+    const order = {
+      id: 5,
+      fecha: '2026-05-21',
+      pickupAt: '2026-05-21T15:00:00Z',
+      estado: 'CANCELADO',
+      creditTotal: 0,
+      notas: null,
+      items: [],
+      cancellable: false,
+    };
+    vi.mocked(api.delete).mockResolvedValueOnce({ data: order });
+
+    const result = await removeOrderItemV2(5, 42);
+
+    expect(api.delete).toHaveBeenCalledWith('/api/v2/orders/5/items/42');
+    expect(result).toEqual(order);
+  });
+
+  it('maps a 409 order-not-modifiable response to OrderNotModifiableError', async () => {
+    vi.mocked(api.delete).mockRejectedValueOnce({ response: { data: { title: 'order-not-modifiable' } } });
+
+    await expect(removeOrderItemV2(5, 42)).rejects.toBeInstanceOf(OrderNotModifiableError);
   });
 });

@@ -182,6 +182,19 @@ export class InsufficientCreditsError extends Error {
 }
 
 /**
+ * El pedido dejó de ser modificable (`cancellable: false`) entre que se
+ * abrió la hoja y se confirmó — el backend es siempre quien decide esa
+ * ventana (`OrderPlacementService.assertModifiable`, mismo código
+ * `order-not-modifiable` que la cancelación). F16.
+ */
+export class OrderNotModifiableError extends Error {
+  constructor() {
+    super('Tu pedido ya no se puede modificar; armá uno nuevo.');
+    this.name = 'OrderNotModifiableError';
+  }
+}
+
+/**
  * Horarios de retiro válidos para `fecha` — únicamente los que ofrece el
  * backend (ventana de servicio, antelación, semana actual/siguiente,
  * fechas deshabilitadas). El frontend nunca genera horarios por su cuenta.
@@ -210,6 +223,36 @@ export async function cancelOrderV2(orderId: number): Promise<void> {
 }
 
 /**
+ * Agrega ítems a un pedido v2 existente en vez de armar uno nuevo (F16,
+ * backend B6 — `POST /api/v2/orders/{id}/items`). Solo funciona mientras el
+ * pedido es modificable (`cancellable: true`, misma regla que cancelar); el
+ * backend rechaza con `order-not-modifiable` si dejó de serlo.
+ */
+export async function addOrderItemsV2(orderId: number, items: OrderItemV2Payload[]): Promise<OrderV2> {
+  try {
+    const { data } = await api.post<OrderV2>(`${BASE_V2}/${orderId}/items`, { items });
+    return data;
+  } catch (err) {
+    throw mapOrderV2Error(err);
+  }
+}
+
+/**
+ * Quita un plato de un pedido v2 existente (F16, backend B6 —
+ * `DELETE /api/v2/orders/{id}/items/{itemId}`). Libera el almuerzo del
+ * ítem; si era el último, el backend cancela el pedido entero y lo devuelve
+ * con `estado: 'CANCELADO'`.
+ */
+export async function removeOrderItemV2(orderId: number, itemId: number): Promise<OrderV2> {
+  try {
+    const { data } = await api.delete<OrderV2>(`${BASE_V2}/${orderId}/items/${itemId}`);
+    return data;
+  } catch (err) {
+    throw mapOrderV2Error(err);
+  }
+}
+
+/**
  * Pedidos del usuario autenticado — últimos 30, con retiro más próximo
  * primero, incluye pedidos cancelados. Scope por el usuario del JWT en el
  * backend, nunca por un parámetro que el cliente pudiera manipular.
@@ -224,6 +267,9 @@ function mapOrderV2Error(err: unknown): Error {
     const data = (err as { response?: { data?: { title?: string } } }).response?.data;
     if (data?.title === 'insufficient-credits') {
       return new InsufficientCreditsError();
+    }
+    if (data?.title === 'order-not-modifiable') {
+      return new OrderNotModifiableError();
     }
   }
   return err instanceof Error ? err : new Error('Error de red');
