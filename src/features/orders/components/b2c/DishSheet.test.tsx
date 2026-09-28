@@ -53,6 +53,16 @@ describe('DishSheet', () => {
     vi.clearAllMocks();
   });
 
+  it('shows the photo at its full 4:3 ratio, without a viewport-height cap (the sheet scrolls instead)', async () => {
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    renderSheet({ dish: dishWithPhoto });
+
+    const photo = await screen.findByRole('img', { name: /ensalada césar/i });
+    const frame = photo.parentElement!;
+    expect(frame.className).toContain('aspect-[4/3]');
+    expect(frame.className).not.toContain('max-h-[40vh]');
+  });
+
   it('renders as a dialog with the dish name, description and cost in "almuerzos"', async () => {
     vi.mocked(getDishPreference).mockResolvedValue(null);
     renderSheet();
