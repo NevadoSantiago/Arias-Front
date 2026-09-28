@@ -358,9 +358,31 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     cancellable: false,
     notas: 'Pedido cancelado futuro',
   };
+  // Fix de revisión: un CONFIRMADO con retiro en un día FUTURO (no hoy)
+  // quedaba oculto por defecto porque `isDefaultUpcoming` solo aceptaba
+  // CONFIRMADO de hoy. Debe mostrarse igual que un PENDIENTE futuro.
+  const futureConfirmado: OrderV2 = {
+    ...cancellableOrder,
+    id: 306,
+    pickupAt: '2026-09-28T13:00:00-03:00',
+    estado: 'CONFIRMADO',
+    cancellable: false,
+    notas: 'Pedido confirmado futuro',
+  };
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('shows a future CONFIRMADO (not just today\'s) by default', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([futureConfirmado, pastConfirmado]);
+
+    renderPage();
+
+    expect(await screen.findByText('Pedido confirmado futuro')).toBeInTheDocument();
+    expect(screen.queryByText('Pedido confirmado pasado')).not.toBeInTheDocument();
   });
 
   it('shows only the future PENDIENTE and today\'s CONFIRMADO by default, hiding the rest', async () => {

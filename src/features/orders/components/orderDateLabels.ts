@@ -47,3 +47,13 @@ export function formatOrderTimeLabel(pickupAt: string): string {
 export function isSameRestaurantDay(pickupAt: string, now: Date): boolean {
   return restaurantDateKey(new Date(pickupAt)) === restaurantDateKey(now);
 }
+
+/**
+ * True si `pickupAt` cae hoy o en un día posterior, en la zona del
+ * restaurante (F17 fix: "Mis pedidos" la usa para decidir si un CONFIRMADO
+ * cuenta como "próximo" por defecto — no solo los de hoy). Las claves son
+ * "AAAA-MM-DD", así que la comparación lexicográfica alcanza.
+ */
+export function isRestaurantDayOnOrAfter(pickupAt: string, now: Date): boolean {
+  return restaurantDateKey(new Date(pickupAt)) >= restaurantDateKey(now);
+}

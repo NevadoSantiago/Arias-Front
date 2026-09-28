@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatOrderDayLabel, formatOrderTimeLabel, isSameRestaurantDay } from './orderDateLabels';
+import {
+  formatOrderDayLabel,
+  formatOrderTimeLabel,
+  isRestaurantDayOnOrAfter,
+  isSameRestaurantDay,
+} from './orderDateLabels';
 
 describe('formatOrderDayLabel', () => {
   const now = new Date('2026-09-26T10:00:00-03:00'); // sábado 26 de septiembre de 2026
@@ -49,5 +54,23 @@ describe('isSameRestaurantDay', () => {
   it('is false for a different calendar day, past or future', () => {
     expect(isSameRestaurantDay('2026-09-25T22:00:00-03:00', now)).toBe(false);
     expect(isSameRestaurantDay('2026-09-27T00:30:00-03:00', now)).toBe(false);
+  });
+});
+
+// F17 fix: "Mis pedidos" usa esto para decidir si un CONFIRMADO cuenta como
+// "próximo" por defecto — hoy o cualquier día posterior, no solo hoy.
+describe('isRestaurantDayOnOrAfter', () => {
+  const now = new Date('2026-09-26T10:00:00-03:00');
+
+  it('is true when pickupAt falls on the same calendar day as now', () => {
+    expect(isRestaurantDayOnOrAfter('2026-09-26T08:00:00-03:00', now)).toBe(true);
+  });
+
+  it('is true for a later calendar day, even earlier in the clock day', () => {
+    expect(isRestaurantDayOnOrAfter('2026-09-27T00:30:00-03:00', now)).toBe(true);
+  });
+
+  it('is false for an earlier calendar day', () => {
+    expect(isRestaurantDayOnOrAfter('2026-09-25T22:00:00-03:00', now)).toBe(false);
   });
 });

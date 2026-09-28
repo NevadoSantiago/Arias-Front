@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { OrderCard } from '@/features/orders/components/OrderCard';
-import { isSameRestaurantDay } from '@/features/orders/components/orderDateLabels';
+import { isRestaurantDayOnOrAfter } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useOrders } from '@/features/orders/hooks/useOrders';
 import type { OrderV2 } from '@/features/orders/services/ordersApi';
@@ -26,11 +26,12 @@ import type { OrderV2 } from '@/features/orders/services/ordersApi';
  * reutilice sin duplicar la lógica.
  *
  * F17, pedido del usuario: por defecto solo se muestran los próximos
- * programados (PENDIENTE con retiro >= ahora) y los confirmados de HOY
- * (CONFIRMADO cuyo día de retiro es hoy en la zona del restaurante,
- * `isSameRestaurantDay`). Todo lo demás — pasados, confirmados de otro día
- * y cancelados (incluso futuros) — queda oculto detrás de "Ver pedidos
- * anteriores", que revela la sección "Anteriores" de siempre.
+ * programados (PENDIENTE con retiro >= ahora) y los confirmados de HOY EN
+ * ADELANTE (CONFIRMADO cuyo día de retiro es hoy o un día posterior en la
+ * zona del restaurante, `isRestaurantDayOnOrAfter` — corrección de revisión:
+ * un CONFIRMADO con retiro futuro no debía caer en "Anteriores"). Todo lo
+ * demás — pasados y cancelados (incluso futuros) — queda oculto detrás de
+ * "Ver pedidos anteriores", que revela la sección "Anteriores" de siempre.
  */
 export function MyOrdersPage() {
   const { data: orders, isLoading, isError } = useOrders();
@@ -64,7 +65,7 @@ export function MyOrdersPage() {
       return new Date(order.pickupAt).getTime() >= now.getTime();
     }
     if (order.estado === 'CONFIRMADO') {
-      return isSameRestaurantDay(order.pickupAt, now);
+      return isRestaurantDayOnOrAfter(order.pickupAt, now);
     }
     return false;
   };

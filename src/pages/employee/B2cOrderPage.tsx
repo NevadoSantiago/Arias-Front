@@ -215,6 +215,26 @@ export function B2cOrderPage() {
     );
   }, [ordersForSelectedDay]);
 
+  /**
+   * Corrección de revisión: si `handleAddToOrder` falla con
+   * `OrderNotModifiableError`, `submitError` queda con el mensaje "armá uno
+   * nuevo" mientras se refetchea `ordersV2`. Cuando ese refetch llega y
+   * `modifiableOrderForSelectedDay` pasa de haber un pedido a no haberlo, la
+   * hoja cae sola a modo "pedido nuevo" — pero el mensaje viejo seguía
+   * mostrándose ahí, ya sin sentido. Se limpia ajustando el estado durante el
+   * render (patrón de React para "adjusting state when a prop changes"),
+   * comparando con el id anterior en vez de un `useEffect` que dispararía un
+   * segundo render.
+   */
+  const [prevModifiableOrderId, setPrevModifiableOrderId] = useState<number | null>(null);
+  const modifiableOrderId = modifiableOrderForSelectedDay?.id ?? null;
+  if (modifiableOrderId !== prevModifiableOrderId) {
+    if (prevModifiableOrderId !== null && modifiableOrderId === null) {
+      setSubmitError(null);
+    }
+    setPrevModifiableOrderId(modifiableOrderId);
+  }
+
   const isToday = selectedDate === todayStr;
   const dayShortLabel = formatDayLabel(selectedDate).toLowerCase();
   const dayHeadingLabel = isToday ? 'hoy' : dayShortLabel;

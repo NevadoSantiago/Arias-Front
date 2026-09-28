@@ -271,19 +271,37 @@ const WEEKDAY_NAMES: Record<number, string> = {
 const WEEKDAY_TARGETS = [2, 3, 4, 5];
 
 /**
- * Sin `pickupSchedule` (backend anterior a V24) se parte de la franja global
- * con todos los días abiertos, que es lo que el backend aplica en ese caso.
- * Mostrarlos cerrados haría que un "Guardar" cierre el local toda la semana.
+ * Sin `pickupSchedule` ENTERO (backend anterior a V24) se parte de la franja
+ * global con todos los días abiertos, que es lo que el backend aplica en ese
+ * caso — mostrarlos cerrados haría que un "Guardar" cierre el local toda la
+ * semana. Pero si la franja global también falta (`pickupWindowStart`/`End`
+ * null), no hay horario que ofrecer: esos días quedan cerrados.
+ *
+ * Corrección de revisión: ese fallback global NO debe aplicar cuando
+ * `pickupSchedule` SÍ vino pero le falta un día puntual (backend
+ * inconsistente) — ese caso vuelve al comportamiento previo a F14, día
+ * cerrado por defecto.
  */
 function toScheduleForm(config: RestaurantConfig): PickupScheduleDay[] {
+  const scheduleEntirelyMissing = config.pickupSchedule == null;
   const byDay = new Map((config.pickupSchedule ?? []).map((d) => [d.dayOfWeek, d]));
-  const fallback = (dayOfWeek: number): PickupScheduleDay => ({
+  const closedDay = (dayOfWeek: number): PickupScheduleDay => ({
     dayOfWeek,
-    open: true,
-    windowStart: config.pickupWindowStart?.slice(0, 5) ?? null,
-    windowEnd: config.pickupWindowEnd?.slice(0, 5) ?? null,
+    open: false,
+    windowStart: null,
+    windowEnd: null,
   });
-  return SCHEDULE_DAYS.map((dayOfWeek) => byDay.get(dayOfWeek) ?? fallback(dayOfWeek));
+  const globalWindowFallback = (dayOfWeek: number): PickupScheduleDay => {
+    const windowStart = config.pickupWindowStart?.slice(0, 5) ?? null;
+    const windowEnd = config.pickupWindowEnd?.slice(0, 5) ?? null;
+    if (!windowStart || !windowEnd) return closedDay(dayOfWeek);
+    return { dayOfWeek, open: true, windowStart, windowEnd };
+  };
+  return SCHEDULE_DAYS.map((dayOfWeek) => {
+    const existing = byDay.get(dayOfWeek);
+    if (existing) return existing;
+    return scheduleEntirelyMissing ? globalWindowFallback(dayOfWeek) : closedDay(dayOfWeek);
+  });
 }
 
 function toMinutes(hhmm: string | null): number | null {

@@ -1016,10 +1016,18 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
   });
 
   it('shows a fallback message and falls back to normal new-order mode when the order stopped being modifiable', async () => {
+    // El refetch de `ordersV2` (2do llamado, disparado por la invalidación
+    // tras el error) se controla a mano para poder afirmar el estado
+    // intermedio (mensaje visible, todavía en modo "agregar") antes de que
+    // llegue, y el estado final (mensaje obsoleto limpio) después.
     let call = 0;
-    vi.mocked(getOrdersV2).mockImplementation(async () => {
+    let resolveRefetch: (orders: OrderV2[]) => void = () => {};
+    vi.mocked(getOrdersV2).mockImplementation(() => {
       call += 1;
-      return call === 1 ? [orderFor()] : [];
+      if (call === 1) return Promise.resolve([orderFor()]);
+      return new Promise((resolve) => {
+        resolveRefetch = resolve;
+      });
     });
     vi.mocked(addOrderItemsV2).mockRejectedValueOnce(new OrderNotModifiableError());
     renderPage();
@@ -1031,11 +1039,20 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
     expect(
       await screen.findByText(/tu pedido ya no se puede modificar; armá uno nuevo\./i),
     ).toBeInTheDocument();
+    // Todavía en modo "agregar a mi pedido": el refetch no llegó.
+    expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument();
 
     // El refetch de `ordersV2` ya no trae el pedido modificable: la hoja
     // vuelve a modo "pedido nuevo" (picker de horario, sin la línea de "se
     // agrega a tu pedido").
+    resolveRefetch([]);
     await waitFor(() => expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument());
+    // Corrección de revisión: una vez en modo "pedido nuevo", el mensaje de
+    // error del modo anterior ("armá uno nuevo") queda obsoleto y no debe
+    // seguir mostrándose.
+    expect(
+      screen.queryByText(/tu pedido ya no se puede modificar; armá uno nuevo\./i),
+    ).not.toBeInTheDocument();
   });
 });
 

@@ -94,6 +94,48 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
     expect((region.getByLabelText(/domingo, hasta/i) as HTMLInputElement).value).toBe('23:00');
   });
 
+  // Fix de revisión: el fallback a la franja global solo debe aplicar cuando
+  // `pickupSchedule` falta ENTERO. Si viene presente pero le falta un día
+  // (backend inconsistente), ese día se muestra cerrado — como antes de F14.
+  it('defaults a day missing from a present pickupSchedule to closed, not open with the global window', async () => {
+    const partialSchedule = baseConfig.pickupSchedule!.filter((d) => d.dayOfWeek !== 1); // sin lunes
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue({
+      ...baseConfig,
+      pickupSchedule: partialSchedule,
+    });
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    const region = within(await scheduleRegion());
+
+    const mondaySwitch = region.getAllByRole('switch')[0];
+    expect(mondaySwitch).toHaveAttribute('aria-checked', 'false');
+    expect((region.getByLabelText(/lunes, desde/i) as HTMLInputElement).value).toBe('');
+    expect((region.getByLabelText(/lunes, hasta/i) as HTMLInputElement).value).toBe('');
+  });
+
+  // Fix de revisión: si falta `pickupSchedule` ENTERO y además la franja
+  // global (`pickupWindowStart`/`End`) es null, el fallback no debe abrir
+  // los días con horario nulo — deben quedar cerrados.
+  it('shows all days closed when pickupSchedule and the global window are both missing', async () => {
+    const { pickupSchedule: _omit, ...rest } = baseConfig;
+    const withoutScheduleOrWindow = {
+      ...rest,
+      pickupWindowStart: null,
+      pickupWindowEnd: null,
+    } as unknown as RestaurantConfig;
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(withoutScheduleOrWindow);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    const region = within(await scheduleRegion());
+
+    for (const sw of region.getAllByRole('switch')) {
+      expect(sw).toHaveAttribute('aria-checked', 'false');
+    }
+    expect((region.getByLabelText(/domingo, desde/i) as HTMLInputElement).value).toBe('');
+  });
+
   it('widens the page container beyond the old max-w-2xl', async () => {
     vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
     vi.mocked(getDisabledDates).mockResolvedValue([]);
