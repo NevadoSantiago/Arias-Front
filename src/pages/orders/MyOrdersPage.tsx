@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { OrderCard } from '@/features/orders/components/OrderCard';
 import { isRestaurantDayOnOrAfter } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useOrders } from '@/features/orders/hooks/useOrders';
-import type { OrderV2 } from '@/features/orders/services/ordersApi';
+import { usePayNow } from '@/features/orders/hooks/usePayNow';
+import { getRestaurantConfig, type OrderV2 } from '@/features/orders/services/ordersApi';
 
 /**
  * Ruta `/orders/mine` — "Mis pedidos" del cliente B2C (`GET /api/v2/orders`,
@@ -32,6 +34,10 @@ import type { OrderV2 } from '@/features/orders/services/ordersApi';
  * un CONFIRMADO con retiro futuro no debía caer en "Anteriores"). Todo lo
  * demás — pasados y cancelados (incluso futuros) — queda oculto detrás de
  * "Ver pedidos anteriores", que revela la sección "Anteriores" de siempre.
+ * `PENDIENTE_PAGO` (F18) sigue la misma regla que CONFIRMADO —
+ * `isRestaurantDayOnOrAfter` — porque el corte de pago es independiente del
+ * horario de retiro: un "Pago pendiente" de hoy cuenta como próximo aunque
+ * su horario ya haya pasado.
  */
 export function MyOrdersPage() {
   const { data: orders, isLoading, isError } = useOrders();
@@ -39,6 +45,16 @@ export function MyOrdersPage() {
   const [showPast, setShowPast] = useState(false);
   const { cancelTarget, cancelError, cancelling, requestCancel, closeSheet, confirmCancel } =
     useCancelOrder();
+  const { payingOrderId, payNow } = usePayNow();
+  /**
+   * `pickupLeadMinutes` para el aviso de corte de "Pago pendiente" (F18) —
+   * la misma config pública que ya usa `B2cOrderPage`. Tolerante a que no
+   * cargue todavía: `OrderCard` omite el horario del aviso en ese caso.
+   */
+  const { data: restaurantConfig } = useQuery({
+    queryKey: ['restaurantConfig'],
+    queryFn: getRestaurantConfig,
+  });
 
   if (isLoading) {
     return (
@@ -64,7 +80,7 @@ export function MyOrdersPage() {
     if (order.estado === 'PENDIENTE') {
       return new Date(order.pickupAt).getTime() >= now.getTime();
     }
-    if (order.estado === 'CONFIRMADO') {
+    if (order.estado === 'CONFIRMADO' || order.estado === 'PENDIENTE_PAGO') {
       return isRestaurantDayOnOrAfter(order.pickupAt, now);
     }
     return false;
@@ -114,6 +130,9 @@ export function MyOrdersPage() {
                     order={order}
                     now={now}
                     onRequestCancel={() => requestCancel(order)}
+                    pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+                    onRequestPayNow={(o) => payNow(o.id)}
+                    payingNow={payingOrderId === order.id}
                   />
                 ))}
               </ul>
@@ -157,6 +176,9 @@ export function MyOrdersPage() {
                     order={order}
                     now={now}
                     onRequestCancel={() => requestCancel(order)}
+                    pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+                    onRequestPayNow={(o) => payNow(o.id)}
+                    payingNow={payingOrderId === order.id}
                   />
                 ))}
               </ul>

@@ -1,7 +1,7 @@
-import { Clock3, UtensilsCrossed, X } from 'lucide-react';
+import { Clock3, CreditCard, UtensilsCrossed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatLunches } from '../lunches';
-import { formatOrderDayLabel, formatOrderTimeLabel } from './orderDateLabels';
+import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from './orderDateLabels';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import type { OrderItemV2, OrderV2 } from '../services/ordersApi';
 
@@ -15,9 +15,21 @@ interface Props {
    * (`order.cancellable`) muestra una "×" para quitarlo, que abre un modal
    * de confirmación en la página (no acá: este componente sigue siendo
    * presentacional puro). Prop aditiva con default `undefined`: sin ella no
-   * aparece ninguna "×", así que `MyOrdersPage` queda sin cambios.
+   * aparece ninguna "×", así que `MyOrdersPage` queda sin cambios. NUNCA se
+   * ofrece para un pedido `PENDIENTE_PAGO` — no es modificable aunque
+   * `cancellable` sea `true` (ver `assertModifiable` en el backend).
    */
   onRequestRemoveItem?: (item: OrderItemV2) => void;
+  /**
+   * `getRestaurantConfig().pickupLeadMinutes` (F18) — antelación de corte
+   * para el aviso de "Pago pendiente". `undefined`/`null` cuando no se
+   * conoce (backend viejo, config sin cargar): el aviso omite el horario.
+   */
+  pickupLeadMinutes?: number | null;
+  /** Optativo (F18) — cuando se pasa, un pedido `PENDIENTE_PAGO` cancelable ofrece "Pagar ahora". */
+  onRequestPayNow?: (order: OrderV2) => void;
+  /** true mientras `onRequestPayNow` está en curso PARA ESTE pedido — deshabilita el botón. */
+  payingNow?: boolean;
 }
 
 /**
@@ -29,10 +41,26 @@ interface Props {
  * botón abre la hoja de confirmación (`CancelOrderSheet`) en la página, no
  * cancela directamente.
  */
-export function OrderCard({ order, now, onRequestCancel, onRequestRemoveItem }: Props) {
+export function OrderCard({
+  order,
+  now,
+  onRequestCancel,
+  onRequestRemoveItem,
+  pickupLeadMinutes,
+  onRequestPayNow,
+  payingNow,
+}: Props) {
   const dayLabel = formatOrderDayLabel(order.pickupAt, now);
   const timeLabel = formatOrderTimeLabel(order.pickupAt);
   const isCancelled = order.estado === 'CANCELADO';
+  const isAwaitingPayment = order.estado === 'PENDIENTE_PAGO';
+  // F18: mismo par (isCancellable) que decide "Cancelar pedido" — el
+  // backend nunca la deja modificable aunque cancellable sea true.
+  const canRemoveItems = !!onRequestRemoveItem && order.cancellable && !isAwaitingPayment;
+  const deadlineLabel = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
+  const payDeadlineText = deadlineLabel
+    ? `Estamos esperando la confirmación de Mercado Pago. Si no se confirma antes de las ${deadlineLabel}, se cancela.`
+    : 'Estamos esperando la confirmación de Mercado Pago. Si no se confirma a tiempo, se cancela.';
 
   return (
     // data-testid: la tarjeta y sus ítems son ambos <li>, así que el rol
@@ -66,7 +94,7 @@ export function OrderCard({ order, now, onRequestCancel, onRequestRemoveItem }: 
                   <span className="text-muted-foreground"> · {item.sideNombre.toLowerCase()}</span>
                 )}
               </p>
-              {onRequestRemoveItem && order.cancellable && (
+              {canRemoveItems && (
                 <button
                   type="button"
                   onClick={() => onRequestRemoveItem(item)}
@@ -79,6 +107,11 @@ export function OrderCard({ order, now, onRequestCancel, onRequestRemoveItem }: 
             </div>
           ))}
           {order.notas && <p className="m-0 text-[13px] italic text-muted-foreground">{order.notas}</p>}
+          {isAwaitingPayment && (
+            <p role="status" className="m-0 text-[13px] leading-relaxed text-muted-foreground">
+              {payDeadlineText}
+            </p>
+          )}
         </div>
 
         <div aria-hidden="true" className="mx-4 border-t border-dashed border-border" />
@@ -94,15 +127,28 @@ export function OrderCard({ order, now, onRequestCancel, onRequestRemoveItem }: 
             <span>{formatLunches(order.creditTotal)}</span>
           </span>
 
-          {order.cancellable && (
-            <button
-              type="button"
-              onClick={onRequestCancel}
-              className="flex h-11 items-center rounded-md px-2.5 text-[13px] font-bold uppercase tracking-brand text-destructive"
-            >
-              Cancelar pedido
-            </button>
-          )}
+          <span className="flex items-center gap-1">
+            {isAwaitingPayment && order.cancellable && onRequestPayNow && (
+              <button
+                type="button"
+                onClick={() => onRequestPayNow(order)}
+                disabled={payingNow}
+                className="flex h-11 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-bold uppercase tracking-brand text-primary-deep disabled:opacity-60"
+              >
+                <CreditCard className="h-[15px] w-[15px]" aria-hidden="true" />
+                Pagar ahora
+              </button>
+            )}
+            {order.cancellable && (
+              <button
+                type="button"
+                onClick={onRequestCancel}
+                className="flex h-11 items-center rounded-md px-2.5 text-[13px] font-bold uppercase tracking-brand text-destructive"
+              >
+                Cancelar pedido
+              </button>
+            )}
+          </span>
         </div>
       </div>
     </li>

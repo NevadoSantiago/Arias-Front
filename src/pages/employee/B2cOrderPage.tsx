@@ -18,6 +18,7 @@ import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSh
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useCart } from '@/features/orders/hooks/useCart';
+import { usePayNow } from '@/features/orders/hooks/usePayNow';
 import { useRemoveOrderItem } from '@/features/orders/hooks/useRemoveOrderItem';
 import {
   addOrderItemsV2,
@@ -211,6 +212,7 @@ export function B2cOrderPage() {
     closeRemoveSheet,
     confirmRemoveItem,
   } = useRemoveOrderItem();
+  const { payingOrderId, payNow } = usePayNow();
 
   /**
    * Pedido(s) modificable(s) del día seleccionado (F16, backend B6) — un
@@ -586,6 +588,9 @@ export function B2cOrderPage() {
           now={now}
           onRequestCancel={requestCancel}
           onRequestRemoveItem={requestRemoveItem}
+          pickupLeadMinutes={config?.pickupLeadMinutes}
+          onRequestPayNow={(order) => payNow(order.id)}
+          payingOrderId={payingOrderId}
         />
 
         <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">

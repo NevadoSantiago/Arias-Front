@@ -1,10 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MyOrdersPage } from './MyOrdersPage';
-import { cancelOrderV2, getOrdersV2 } from '@/features/orders/services/ordersApi';
+import {
+  cancelOrderV2,
+  DirectCheckoutNotResumableError,
+  getOrdersV2,
+  getRestaurantConfig,
+  resumeDirectCheckoutV2,
+} from '@/features/orders/services/ordersApi';
 import { getWallet } from '@/features/credits/services/creditsApi';
 import type { OrderV2 } from '@/features/orders/services/ordersApi';
 
@@ -16,6 +22,8 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     ...actual,
     getOrdersV2: vi.fn(),
     cancelOrderV2: vi.fn(),
+    getRestaurantConfig: vi.fn(),
+    resumeDirectCheckoutV2: vi.fn(),
   };
 });
 
@@ -36,6 +44,14 @@ vi.mock('sonner', () => ({
 // Default: la mayoría de los tests no abren la hoja de cancelación, pero
 // dejamos un valor resuelto por si el componente la consulta igual.
 vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+// F18: "Pago pendiente" necesita `pickupLeadMinutes` para el aviso de corte
+// — valor por defecto para los tests que no lo ejercitan directamente.
+vi.mocked(getRestaurantConfig).mockResolvedValue({
+  horaCorte: '10:00',
+  pickupWindowStart: null,
+  pickupWindowEnd: null,
+  pickupLeadMinutes: 20,
+});
 
 function renderPage() {
   const queryClient = new QueryClient({
@@ -306,6 +322,115 @@ describe('MyOrdersPage', () => {
     renderPage();
 
     expect(await screen.findByText('Mostramos tus últimos 30 pedidos.')).toBeInTheDocument();
+  });
+});
+
+// F18 (backend B7): "Pago pendiente" — pedido esperando la confirmación de
+// Mercado Pago, cancelable con la misma ventana que uno PENDIENTE, pero no
+// modificable (ver `OrderPlacementService.assertModifiable`).
+describe('MyOrdersPage — PENDIENTE_PAGO ("Pago pendiente")', () => {
+  const pendingPaymentOrder: OrderV2 = {
+    ...cancellableOrder,
+    id: 400,
+    pickupAt: '2026-09-26T13:00:00-03:00',
+    estado: 'PENDIENTE_PAGO',
+    cancellable: true,
+  };
+
+  // Reloj fijo el mismo día del pedido (antes del retiro) para que
+  // `isDefaultUpcoming` lo muestre en "Próximos" sin depender de la fecha
+  // real de la corrida — los tests que necesitan otra fecha la pisan.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-26T10:00:00-03:00'));
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: null,
+      pickupWindowEnd: null,
+      pickupLeadMinutes: 20,
+    });
+  });
+
+  it('shows the "Pago pendiente" badge and the Mercado Pago confirmation deadline line', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
+
+    renderPage();
+
+    expect(await screen.findByText('Pago pendiente')).toBeInTheDocument();
+    // pickupAt 13:00 − 20 min de antelación = 12:40.
+    expect(
+      await screen.findByText(/si no se confirma antes de las 12:40, se cancela/i),
+    ).toBeInTheDocument();
+  });
+
+  it('offers "Cancelar pedido" for a cancellable PENDIENTE_PAGO order, same as PENDIENTE', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /cancelar pedido/i })).toBeInTheDocument();
+  });
+
+  it('resumes the payment via "Pagar ahora" and redirects to Mercado Pago', async () => {
+    Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
+    vi.mocked(resumeDirectCheckoutV2).mockResolvedValueOnce({
+      orderId: 400,
+      purchaseId: 'p-1',
+      initPoint: 'https://mp.example/checkout/p-1',
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /pagar ahora/i }));
+
+    await waitFor(() => expect(resumeDirectCheckoutV2).toHaveBeenCalledWith(400));
+    await waitFor(() => expect(window.location.href).toBe('https://mp.example/checkout/p-1'));
+  });
+
+  it('shows "Este pago ya no se puede retomar." and refetches orders on a 409', async () => {
+    vi.mocked(getOrdersV2)
+      .mockResolvedValueOnce([pendingPaymentOrder])
+      .mockResolvedValueOnce([{ ...pendingPaymentOrder, estado: 'CANCELADO', cancellable: false }]);
+    vi.mocked(resumeDirectCheckoutV2).mockRejectedValueOnce(new DirectCheckoutNotResumableError());
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /pagar ahora/i }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Este pago ya no se puede retomar.'),
+    );
+    await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows a future PENDIENTE_PAGO order by default, in "Próximos"', async () => {
+    vi.setSystemTime(new Date('2026-09-25T10:00:00-03:00'));
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
+
+    renderPage();
+
+    const proximosHeader = (await screen.findByText('Próximos')).closest('header');
+    expect(proximosHeader).not.toBeNull();
+    expect(screen.getByText('Pago pendiente')).toBeInTheDocument();
+  });
+
+  // F18: cuenta como "próximo" hoy o en el futuro, no solo si el horario de
+  // retiro todavía no pasó — el corte de pago es independiente del retiro.
+  it("shows today's PENDIENTE_PAGO order by default even if its pickup time already passed", async () => {
+    vi.setSystemTime(new Date('2026-09-26T20:00:00-03:00'));
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
+
+    renderPage();
+
+    expect(await screen.findByText('Pago pendiente')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ver pedidos anteriores/i })).not.toBeInTheDocument();
   });
 });
 

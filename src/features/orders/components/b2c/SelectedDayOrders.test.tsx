@@ -29,7 +29,11 @@ function order(overrides: Partial<OrderV2> = {}): OrderV2 {
   };
 }
 
-function renderList(orders: OrderV2[], onRequestRemoveItem?: (order: OrderV2, item: OrderV2['items'][number]) => void) {
+function renderList(
+  orders: OrderV2[],
+  onRequestRemoveItem?: (order: OrderV2, item: OrderV2['items'][number]) => void,
+  extra: Partial<Parameters<typeof SelectedDayOrders>[0]> = {},
+) {
   render(
     <MemoryRouter>
       <SelectedDayOrders
@@ -38,6 +42,7 @@ function renderList(orders: OrderV2[], onRequestRemoveItem?: (order: OrderV2, it
         now={new Date('2026-09-24T10:00:00Z')}
         onRequestCancel={vi.fn()}
         onRequestRemoveItem={onRequestRemoveItem}
+        {...extra}
       />
     </MemoryRouter>,
   );
@@ -67,5 +72,34 @@ describe('SelectedDayOrders — remove-item "×" (F16)', () => {
     renderList([order({ cancellable: true })]);
 
     expect(screen.queryByRole('button', { name: /quitar milanesa/i })).not.toBeInTheDocument();
+  });
+
+  // F18: un pedido PENDIENTE_PAGO es cancelable pero nunca modificable — no
+  // debe ofrecer la "×" aunque `cancellable` sea true.
+  it('does not show a "×" for a PENDIENTE_PAGO order even though it is cancellable', () => {
+    const onRequestRemoveItem = vi.fn();
+    renderList([order({ cancellable: true, estado: 'PENDIENTE_PAGO' })], onRequestRemoveItem);
+
+    expect(screen.queryByRole('button', { name: /quitar milanesa/i })).not.toBeInTheDocument();
+  });
+});
+
+// F18: "Tu pedido para <día>" también muestra el badge, el aviso de corte y
+// "Pagar ahora" para un pedido PENDIENTE_PAGO — mismas props que "Mis
+// pedidos", enhebradas a través de `SelectedDayOrders`.
+describe('SelectedDayOrders — PENDIENTE_PAGO', () => {
+  it('shows the badge, the deadline line and "Pagar ahora", wired through onRequestPayNow', () => {
+    const onRequestPayNow = vi.fn();
+    renderList(
+      [order({ estado: 'PENDIENTE_PAGO', cancellable: true, pickupAt: '2026-09-24T16:00:00Z' })],
+      undefined,
+      { pickupLeadMinutes: 20, onRequestPayNow },
+    );
+
+    expect(screen.getByText('Pago pendiente')).toBeInTheDocument();
+    expect(screen.getByText(/estamos esperando la confirmación de mercado pago/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /pagar ahora/i }));
+    expect(onRequestPayNow).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
   });
 });

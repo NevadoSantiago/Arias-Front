@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatOrderDayLabel,
+  formatOrderPayDeadlineLabel,
   formatOrderTimeLabel,
   isRestaurantDayOnOrAfter,
   isSameRestaurantDay,
@@ -72,5 +73,19 @@ describe('isRestaurantDayOnOrAfter', () => {
 
   it('is false for an earlier calendar day', () => {
     expect(isRestaurantDayOnOrAfter('2026-09-25T22:00:00-03:00', now)).toBe(false);
+  });
+});
+
+// F18: "Pago pendiente" avisa la hora de corte (pickupAt − pickupLeadMinutes,
+// en la zona del restaurante) a la que se cancela solo si Mercado Pago no
+// confirmó el pago.
+describe('formatOrderPayDeadlineLabel', () => {
+  it('subtracts the lead minutes from pickupAt and formats it as "HH:MM" in the restaurant timezone', () => {
+    expect(formatOrderPayDeadlineLabel('2026-09-26T13:00:00-03:00', 20)).toBe('12:40');
+  });
+
+  it('returns null when leadMinutes is null or undefined, so the caller can omit the time', () => {
+    expect(formatOrderPayDeadlineLabel('2026-09-26T13:00:00-03:00', null)).toBeNull();
+    expect(formatOrderPayDeadlineLabel('2026-09-26T13:00:00-03:00', undefined)).toBeNull();
   });
 });

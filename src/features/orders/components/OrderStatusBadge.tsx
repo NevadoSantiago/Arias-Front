@@ -6,8 +6,10 @@ import type { OrderEstado } from '../types';
 // ENTREGADO → "Retirado" (v2 no lo produce hoy, pero se mantiene el mapeo
 // para cuando exista). CONFIRMADO y CANCELADO no cambian: un pedido
 // CONFIRMADO ya consumió el almuerzo y no se puede cancelar, así que tanto
-// el pasado como el futuro muestran "Confirmado".
+// el pasado como el futuro muestran "Confirmado". F18: PENDIENTE_PAGO →
+// "Pago pendiente", mismo tono mostaza que "Programado" (`bg-warning`).
 const ESTADO_MAP: Record<OrderEstado, { label: string; className: string }> = {
+  PENDIENTE_PAGO: { label: 'Pago pendiente', className: 'bg-warning text-warning-foreground' },
   PENDIENTE: { label: 'Programado', className: 'bg-warning text-warning-foreground' },
   CONFIRMADO: { label: 'Confirmado', className: 'bg-primary text-primary-foreground' },
   COMANDADO: { label: 'Comandado', className: 'bg-blue-500 text-white' },
