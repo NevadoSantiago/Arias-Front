@@ -31,6 +31,8 @@ const order: OrderV2 = {
     },
   ],
   cancellable: true,
+  modifiable: true,
+  pickupTimeChangeable: true,
 };
 
 function renderSheet(props: Partial<React.ComponentProps<typeof CancelOrderSheet>> = {}) {

@@ -15,13 +15,31 @@ interface Props {
   lastUsedTimeOfDay: string | null;
   onSelectPickup: (pickupAt: string) => void;
   /**
-   * Pedido modificable del día seleccionado (F16) — cuando no es `null`, la
-   * hoja agrega el carrito a ESE pedido en vez de armar uno nuevo: sin
-   * selector de horario, con la línea "Se agrega a tu pedido de las HH:MM"
-   * (el horario del pedido, no uno elegido acá). `B2cOrderPage` decide si
-   * hay un pedido modificable para el día — nunca esta hoja.
+   * Pedido modificable del día cuyo horario es IGUAL al elegido (F16, F21) —
+   * cuando no es `null`, la hoja agrega el carrito a ESE pedido en vez de
+   * armar uno nuevo, con el aviso "Se agrega a tu pedido de las HH:MM". El
+   * selector de horario queda siempre visible. `B2cOrderPage` decide si hay
+   * un pedido al que sumar — nunca esta hoja.
    */
   addToOrder: { pickupAt: string } | null;
+  /** Horario elegido, "HH:MM" — para el título "Nuevo pedido a las HH:MM". `null` mientras cargan los horarios. */
+  pickupTimeLabel: string | null;
+  /**
+   * Aviso de pedido NUEVO cuando el día ya tiene pedidos (F21); `null` si el
+   * día no tiene pedidos o el carrito se suma a uno (`addToOrder`).
+   * `otherPickupAts`: pedidos del día que quedan como están;
+   * `lockedSamePickupAt`: el horario elegido coincide con un pedido NO
+   * modificable (esperando pago o pagado aparte); `joinablePickupAt`: horario
+   * de un pedido modificable al que el atajo permite volver.
+   */
+  newOrderNotice: {
+    otherPickupAts: string[];
+    lockedSamePickupAt: string | null;
+    joinablePickupAt: string | null;
+  } | null;
+  /** Pedido de salto de horario para el selector (atajo "Sumarlo al pedido de las HH:MM"). */
+  pickupJumpTo: { pickupAt: string } | null;
+  onJoinOrder: (pickupAt: string) => void;
   lines: CartLine[];
   totalLunches: number;
   onRemoveLine: (localId: string) => void;
@@ -51,6 +69,10 @@ export function OrderReviewSheet({
   lastUsedTimeOfDay,
   onSelectPickup,
   addToOrder,
+  pickupTimeLabel,
+  newOrderNotice,
+  pickupJumpTo,
+  onJoinOrder,
   lines,
   totalLunches,
   onRemoveLine,
@@ -91,22 +113,46 @@ export function OrderReviewSheet({
             Agregar otro plato
           </button>
 
-          {addToOrder ? (
-            <p className="text-sm font-semibold text-foreground">
-              Se agrega a tu pedido de las {formatOrderTimeLabel(addToOrder.pickupAt)}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
-                ¿A qué hora lo retirás?
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
+              ¿A qué hora lo retirás?
+            </span>
+            <PickupTimePicker
+              fecha={fecha}
+              isToday={isToday}
+              dayShortLabel={dayShortLabel}
+              lastUsedTimeOfDay={lastUsedTimeOfDay}
+              onSelect={onSelectPickup}
+              jumpTo={pickupJumpTo}
+            />
+          </div>
+
+          {addToOrder && (
+            <div role="status" className="flex flex-col gap-0.5 rounded-lg border-[1.5px] border-success bg-success/10 px-3.5 py-3">
+              <strong className="text-sm font-bold text-foreground">
+                Se agrega a tu pedido de las {formatOrderTimeLabel(addToOrder.pickupAt)}
+              </strong>
+              <span className="text-[13px] leading-snug text-muted-foreground">Retirás todo junto.</span>
+            </div>
+          )}
+
+          {!addToOrder && newOrderNotice && pickupTimeLabel && (
+            <div role="status" className="flex flex-col gap-0.5 rounded-lg border-[1.5px] border-dashed border-border bg-card px-3.5 py-3">
+              <strong className="text-sm font-bold text-foreground">Nuevo pedido a las {pickupTimeLabel}</strong>
+              <span className="text-[13px] leading-snug text-muted-foreground">
+                {newOrderNotice.lockedSamePickupAt
+                  ? `Tu pedido de las ${formatOrderTimeLabel(newOrderNotice.lockedSamePickupAt)} espera el pago, así que este va aparte.`
+                  : `Tu pedido de las ${newOrderNotice.otherPickupAts.map(formatOrderTimeLabel).join(' y de las ')} queda como está.`}
               </span>
-              <PickupTimePicker
-                fecha={fecha}
-                isToday={isToday}
-                dayShortLabel={dayShortLabel}
-                lastUsedTimeOfDay={lastUsedTimeOfDay}
-                onSelect={onSelectPickup}
-              />
+              {newOrderNotice.joinablePickupAt && (
+                <button
+                  type="button"
+                  onClick={() => onJoinOrder(newOrderNotice.joinablePickupAt!)}
+                  className="mt-0.5 flex min-h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep underline underline-offset-2"
+                >
+                  Sumarlo al pedido de las {formatOrderTimeLabel(newOrderNotice.joinablePickupAt)}
+                </button>
+              )}
             </div>
           )}
 

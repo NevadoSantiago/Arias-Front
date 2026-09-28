@@ -176,6 +176,16 @@ export interface OrderV2 {
    * NUNCA recalcula esta ventana, siempre confía en el valor del backend.
    */
   cancellable: boolean;
+  /**
+   * `true` si el backend admite AGREGAR platos a este pedido (`POST
+   * /orders/{id}/items`): sólo un pedido `PENDIENTE`, antes del corte y no
+   * pagado aparte con Mercado Pago. Es más estricto que `cancellable` (un
+   * pedido `PENDIENTE_PAGO` es cancelable pero no modificable). El frontend
+   * nunca lo recalcula (B10).
+   */
+  modifiable: boolean;
+  /** `true` si el backend admite cambiar el horario de retiro (F19, `PATCH /orders/{id}/pickup-time`). */
+  pickupTimeChangeable: boolean;
 }
 
 /** Saldo de almuerzos insuficiente para confirmar el pedido — nunca se calcula en el cliente, viene del backend. */

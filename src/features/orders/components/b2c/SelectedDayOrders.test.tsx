@@ -25,6 +25,8 @@ function order(overrides: Partial<OrderV2> = {}): OrderV2 {
       },
     ],
     cancellable: true,
+    modifiable: true,
+    pickupTimeChangeable: true,
     ...overrides,
   };
 }
@@ -101,5 +103,32 @@ describe('SelectedDayOrders — PENDIENTE_PAGO', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /pagar ahora/i }));
     expect(onRequestPayNow).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+  });
+});
+
+// Regla de pedidos del mismo día: el aviso del banner explica qué pasa según
+// haya (o no) un pedido modificable ese día.
+describe('SelectedDayOrders — same-day hint', () => {
+  it('explains that the same time adds to the order and another time makes a new one', () => {
+    renderList([order({ modifiable: true })]);
+
+    expect(
+      screen.getByText(/si elegís el mismo horario, lo que pidas se suma a ese pedido. con otro horario, armás un pedido nuevo./i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/cancelalo y armá uno nuevo/i)).not.toBeInTheDocument();
+  });
+
+  it('explains that an order awaiting payment is not added to', () => {
+    renderList([order({ estado: 'PENDIENTE_PAGO', modifiable: false })]);
+
+    expect(
+      screen.getByText(/ese pedido espera el pago, así que lo que pidas ahora va en un pedido nuevo./i),
+    ).toBeInTheDocument();
+  });
+
+  it('shows no same-day hint when no order can be added to nor is awaiting payment', () => {
+    renderList([order({ estado: 'CONFIRMADO', cancellable: false, modifiable: false })]);
+
+    expect(screen.queryByText(/lo que pidas/i)).not.toBeInTheDocument();
   });
 });

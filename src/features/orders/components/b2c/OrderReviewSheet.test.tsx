@@ -36,6 +36,10 @@ function baseProps(overrides: Partial<Parameters<typeof OrderReviewSheet>[0]> = 
     lastUsedTimeOfDay: null,
     onSelectPickup: vi.fn(),
     addToOrder: null,
+    newOrderNotice: null,
+    pickupTimeLabel: null,
+    pickupJumpTo: null,
+    onJoinOrder: vi.fn(),
     lines: [line],
     totalLunches: 2,
     onRemoveLine: vi.fn(),
@@ -157,17 +161,62 @@ describe('OrderReviewSheet — add to an existing order (F16)', () => {
     vi.clearAllMocks();
   });
 
-  it('shows "Se agrega a tu pedido de las HH:MM" and hides the pickup time picker when addToOrder is set', () => {
+  it('shows "Se agrega a tu pedido de las HH:MM" and KEEPS the pickup time picker visible when addToOrder is set', () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
     renderSheet({
       addToOrder: { pickupAt: '2026-05-21T15:00:00Z' },
-      confirmLabel: 'Agregar a mi pedido',
+      confirmLabel: 'Sumar a mi pedido de las 12:00',
     });
 
     expect(screen.getByText(/se agrega a tu pedido de las \d{2}:\d{2}/i)).toBeInTheDocument();
-    expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: /lo antes posible/i })).not.toBeInTheDocument();
-    expect(getPickupSlots).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /agregar a mi pedido/i })).toBeInTheDocument();
+    expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument();
+    expect(getPickupSlots).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /sumar a mi pedido de las/i })).toBeInTheDocument();
+  });
+
+  it('explains that a different time makes a new order and leaves the existing one as is', () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T18:00:00Z']);
+    renderSheet({
+      pickupTimeLabel: '15:00',
+      newOrderNotice: {
+        otherPickupAts: ['2026-05-21T15:00:00Z'],
+        lockedSamePickupAt: null,
+        joinablePickupAt: '2026-05-21T15:00:00Z',
+      },
+    });
+
+    expect(screen.getByText('Nuevo pedido a las 15:00')).toBeInTheDocument();
+    expect(screen.getByText(/tu pedido de las \d{2}:\d{2} queda como está/i)).toBeInTheDocument();
+  });
+
+  it('offers a shortcut to switch to the existing order time', () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T18:00:00Z']);
+    const { onJoinOrder } = renderSheet({
+      pickupTimeLabel: '15:00',
+      newOrderNotice: {
+        otherPickupAts: ['2026-05-21T15:00:00Z'],
+        lockedSamePickupAt: null,
+        joinablePickupAt: '2026-05-21T15:00:00Z',
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /sumarlo al pedido de las \d{2}:\d{2}/i }));
+    expect(onJoinOrder).toHaveBeenCalledWith('2026-05-21T15:00:00Z');
+  });
+
+  it('says the order goes apart when the same-time order is awaiting payment, with no shortcut', () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    renderSheet({
+      pickupTimeLabel: '12:00',
+      newOrderNotice: {
+        otherPickupAts: ['2026-05-21T15:00:00Z'],
+        lockedSamePickupAt: '2026-05-21T15:00:00Z',
+        joinablePickupAt: null,
+      },
+    });
+
+    expect(screen.getByText(/espera el pago, así que este va aparte/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /sumarlo al pedido/i })).not.toBeInTheDocument();
   });
 
   it('shows the pickup time picker (no addToOrder line) for a normal new order', () => {

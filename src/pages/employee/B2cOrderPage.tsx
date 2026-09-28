@@ -16,6 +16,7 @@ import type { ConfirmedItem } from '@/features/orders/components/b2c/OrderConfir
 import { OrderPayDirectSheet } from '@/features/orders/components/b2c/OrderPayDirectSheet';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
+import { formatOrderTimeLabel } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useCart } from '@/features/orders/hooks/useCart';
 import { usePayNow } from '@/features/orders/hooks/usePayNow';
@@ -143,6 +144,8 @@ export function B2cOrderPage() {
   const [payDirectOpen, setPayDirectOpen] = useState(false);
   const [payingDirect, setPayingDirect] = useState(false);
   const [payDirectError, setPayDirectError] = useState<string | null>(null);
+  /** Atajo "Sumarlo al pedido de las HH:MM" de la hoja de revisión (F21): cada objeto nuevo mueve el selector de horario. */
+  const [pickupJumpTo, setPickupJumpTo] = useState<{ pickupAt: string } | null>(null);
 
   const todayStr = useMemo(() => {
     const d = new Date();
@@ -214,41 +217,6 @@ export function B2cOrderPage() {
   } = useRemoveOrderItem();
   const { payingOrderId, payNow } = usePayNow();
 
-  /**
-   * Pedido(s) modificable(s) del día seleccionado (F16, backend B6) — un
-   * pedido no cancelado con `cancellable: true`. Si hay varios (caso raro:
-   * el cliente ya tiene más de un pedido modificable el mismo día), se usa
-   * el de retiro más próximo, y la línea "Se agrega a tu pedido de las
-   * HH:MM" de la hoja de revisión queda atada a ESE horario.
-   */
-  const modifiableOrderForSelectedDay = useMemo(() => {
-    const candidates = ordersForSelectedDay.filter((o) => o.cancellable);
-    if (candidates.length === 0) return null;
-    return candidates.reduce((earliest, order) =>
-      new Date(order.pickupAt) < new Date(earliest.pickupAt) ? order : earliest,
-    );
-  }, [ordersForSelectedDay]);
-
-  /**
-   * Corrección de revisión: si `handleAddToOrder` falla con
-   * `OrderNotModifiableError`, `submitError` queda con el mensaje "armá uno
-   * nuevo" mientras se refetchea `ordersV2`. Cuando ese refetch llega y
-   * `modifiableOrderForSelectedDay` pasa de haber un pedido a no haberlo, la
-   * hoja cae sola a modo "pedido nuevo" — pero el mensaje viejo seguía
-   * mostrándose ahí, ya sin sentido. Se limpia ajustando el estado durante el
-   * render (patrón de React para "adjusting state when a prop changes"),
-   * comparando con el id anterior en vez de un `useEffect` que dispararía un
-   * segundo render.
-   */
-  const [prevModifiableOrderId, setPrevModifiableOrderId] = useState<number | null>(null);
-  const modifiableOrderId = modifiableOrderForSelectedDay?.id ?? null;
-  if (modifiableOrderId !== prevModifiableOrderId) {
-    if (prevModifiableOrderId !== null && modifiableOrderId === null) {
-      setSubmitError(null);
-    }
-    setPrevModifiableOrderId(modifiableOrderId);
-  }
-
   const isToday = selectedDate === todayStr;
   const dayShortLabel = formatDayLabel(selectedDate).toLowerCase();
   const dayHeadingLabel = isToday ? 'hoy' : dayShortLabel;
@@ -274,8 +242,53 @@ export function B2cOrderPage() {
         return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
       })()
     : null;
+  /**
+   * Regla de pedidos del mismo día (F21, decisión del usuario): si el
+   * horario elegido es IGUAL al de un pedido `modifiable` del día, el
+   * carrito se AGREGA a ese pedido; con cualquier otro horario se crea un
+   * pedido NUEVO y el existente no cambia. `modifiable` lo decide siempre el
+   * backend (B10): un pedido `PENDIENTE_PAGO` o pagado aparte con Mercado
+   * Pago es cancelable pero no admite platos, así que nunca es el destino.
+   */
+  const pickupMillis = pickupAt ? new Date(pickupAt).getTime() : null;
+  const samePickup = (order: { pickupAt: string }) =>
+    pickupMillis !== null && new Date(order.pickupAt).getTime() === pickupMillis;
+  const modifiableOrderForSelectedDay =
+    ordersForSelectedDay.find((o) => o.modifiable && samePickup(o)) ?? null;
+  const lockedSameTimeOrder =
+    modifiableOrderForSelectedDay ? null : (ordersForSelectedDay.find((o) => !o.modifiable && samePickup(o)) ?? null);
+  const joinableOrder = ordersForSelectedDay.find((o) => o.modifiable) ?? null;
+  const newOrderNotice =
+    ordersForSelectedDay.length > 0 && !modifiableOrderForSelectedDay
+      ? {
+          otherPickupAts: ordersForSelectedDay.map((o) => o.pickupAt),
+          lockedSamePickupAt: lockedSameTimeOrder?.pickupAt ?? null,
+          joinablePickupAt: joinableOrder?.pickupAt ?? null,
+        }
+      : null;
+
+  /**
+   * Corrección de revisión: si `handleAddToOrder` falla con
+   * `OrderNotModifiableError`, `submitError` queda con el mensaje "armá uno
+   * nuevo" mientras se refetchea `ordersV2`. Cuando ese refetch llega y
+   * `modifiableOrderForSelectedDay` pasa de haber un pedido a no haberlo, la
+   * hoja cae sola a modo "pedido nuevo" — pero el mensaje viejo seguía
+   * mostrándose ahí, ya sin sentido. Se limpia ajustando el estado durante el
+   * render (patrón de React para "adjusting state when a prop changes"),
+   * comparando con el id anterior en vez de un `useEffect` que dispararía un
+   * segundo render.
+   */
+  const [prevModifiableOrderId, setPrevModifiableOrderId] = useState<number | null>(null);
+  const modifiableOrderId = modifiableOrderForSelectedDay?.id ?? null;
+  if (modifiableOrderId !== prevModifiableOrderId) {
+    if (prevModifiableOrderId !== null && modifiableOrderId === null) {
+      setSubmitError(null);
+    }
+    setPrevModifiableOrderId(modifiableOrderId);
+  }
+
   const confirmLabel = modifiableOrderForSelectedDay
-    ? 'Agregar a mi pedido'
+    ? `Sumar a mi pedido de las ${formatOrderTimeLabel(modifiableOrderForSelectedDay.pickupAt)}`
     : pickupTimeLabel
       ? isToday
         ? `Retiro hoy ${pickupTimeLabel} hs`
@@ -303,9 +316,7 @@ export function B2cOrderPage() {
       .filter((g) => g.dishes.length > 0);
   }, [regularDishes, sections]);
 
-  const canConfirm = modifiableOrderForSelectedDay
-    ? cart.lines.length > 0 && !submitting
-    : cart.lines.length > 0 && !!pickupAt && !submitting;
+  const canConfirm = cart.lines.length > 0 && !!pickupAt && !submitting;
 
   const handleAddToCart = (selection: { sideId: number | null; notas: string | null }) => {
     if (!selectedDish) return;
@@ -663,6 +674,10 @@ export function B2cOrderPage() {
         addToOrder={
           modifiableOrderForSelectedDay ? { pickupAt: modifiableOrderForSelectedDay.pickupAt } : null
         }
+        pickupTimeLabel={pickupTimeLabel}
+        newOrderNotice={newOrderNotice}
+        pickupJumpTo={pickupJumpTo}
+        onJoinOrder={(time) => setPickupJumpTo({ pickupAt: time })}
         lines={cart.lines}
         totalLunches={cart.totalCredits}
         onRemoveLine={handleRemoveLine}

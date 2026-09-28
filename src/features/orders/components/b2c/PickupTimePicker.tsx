@@ -33,6 +33,12 @@ interface Props {
   lastUsedTimeOfDay: string | null;
   /** ISO-8601 exacto del slot elegido, tal como lo devolvió `getPickupSlots`. */
   onSelect: (pickupAt: string) => void;
+  /**
+   * Pedido de saltar a un horario (F21, atajo "Sumarlo al pedido de las
+   * HH:MM"): cada objeto nuevo es un pedido nuevo. Si el horario está entre
+   * los slots del día, el selector pasa a "Elegir horario" con ese valor.
+   */
+  jumpTo?: { pickupAt: string } | null;
 }
 
 /**
@@ -45,7 +51,7 @@ interface Props {
  * click — igual que el prototipo aprobado, donde el readout y el botón de
  * confirmar ya muestran un horario válido apenas cargan los slots.
  */
-export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOfDay, onSelect }: Props) {
+export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOfDay, onSelect, jumpTo = null }: Props) {
   const { data: slots, isLoading, isError, refetch } = useQuery({
     queryKey: ['pickupSlots', fecha],
     queryFn: () => getPickupSlots(fecha),
@@ -92,6 +98,20 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
     setMode('auto');
     setCustomH(null);
     setCustomM(null);
+  }
+
+  // Atajo de la hoja de revisión: ajuste de estado durante el render (mismo
+  // patrón que el reseteo por `fecha`) al recibir un pedido de salto nuevo.
+  const [handledJump, setHandledJump] = useState<Props['jumpTo']>(null);
+  if (jumpTo && jumpTo !== handledJump && slotsInfo.length > 0) {
+    setHandledJump(jumpTo);
+    const target = timeOfDay(jumpTo.pickupAt);
+    const match = slotsInfo.find((s) => s.h === target.h && s.m === target.m);
+    if (match) {
+      setCustomH(match.h);
+      setCustomM(match.m);
+      setMode('custom');
+    }
   }
 
   const customSlot = useMemo(() => {

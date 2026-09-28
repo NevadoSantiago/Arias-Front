@@ -101,6 +101,8 @@ const cancellableOrder: OrderV2 = {
     },
   ],
   cancellable: true,
+  modifiable: true,
+  pickupTimeChangeable: true,
 };
 
 const nonCancellableOrder: OrderV2 = {
@@ -108,6 +110,8 @@ const nonCancellableOrder: OrderV2 = {
   id: 124,
   estado: 'CONFIRMADO',
   cancellable: false,
+  modifiable: false,
+  pickupTimeChangeable: false,
 };
 
 const cancelledOrder: OrderV2 = {
@@ -115,6 +119,8 @@ const cancelledOrder: OrderV2 = {
   id: 125,
   estado: 'CANCELADO',
   cancellable: false,
+  modifiable: false,
+  pickupTimeChangeable: false,
 };
 
 const pastOrder: OrderV2 = {
@@ -123,6 +129,8 @@ const pastOrder: OrderV2 = {
   pickupAt: pastIso(3),
   estado: 'ENTREGADO',
   cancellable: false,
+  modifiable: false,
+  pickupTimeChangeable: false,
 };
 
 describe('MyOrdersPage', () => {
@@ -335,6 +343,8 @@ describe('MyOrdersPage — PENDIENTE_PAGO ("Pago pendiente")', () => {
     pickupAt: '2026-09-26T13:00:00-03:00',
     estado: 'PENDIENTE_PAGO',
     cancellable: true,
+    modifiable: true,
+    pickupTimeChangeable: true,
   };
 
   // Reloj fijo el mismo día del pedido (antes del retiro) para que
@@ -470,6 +480,8 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     pickupAt: '2026-09-28T13:00:00-03:00',
     estado: 'PENDIENTE',
     cancellable: true,
+    modifiable: true,
+    pickupTimeChangeable: true,
     notas: 'Pedido futuro programado',
   };
   const todayConfirmado: OrderV2 = {
@@ -478,6 +490,8 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     pickupAt: '2026-09-27T08:00:00-03:00',
     estado: 'CONFIRMADO',
     cancellable: false,
+    modifiable: false,
+    pickupTimeChangeable: false,
     notas: 'Pedido confirmado de hoy',
   };
   const pastConfirmado: OrderV2 = {
@@ -486,6 +500,8 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     pickupAt: '2026-09-26T13:00:00-03:00',
     estado: 'CONFIRMADO',
     cancellable: false,
+    modifiable: false,
+    pickupTimeChangeable: false,
     notas: 'Pedido confirmado pasado',
   };
   const pastPendiente: OrderV2 = {
@@ -494,6 +510,8 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     pickupAt: '2026-09-26T13:00:00-03:00',
     estado: 'PENDIENTE',
     cancellable: false,
+    modifiable: false,
+    pickupTimeChangeable: false,
     notas: 'Pedido pendiente pasado',
   };
   const futureCancelado: OrderV2 = {
@@ -502,6 +520,8 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     pickupAt: '2026-09-28T13:00:00-03:00',
     estado: 'CANCELADO',
     cancellable: false,
+    modifiable: false,
+    pickupTimeChangeable: false,
     notas: 'Pedido cancelado futuro',
   };
   // Fix de revisión: un CONFIRMADO con retiro en un día FUTURO (no hoy)
@@ -513,6 +533,8 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     pickupAt: '2026-09-28T13:00:00-03:00',
     estado: 'CONFIRMADO',
     cancellable: false,
+    modifiable: false,
+    pickupTimeChangeable: false,
     notas: 'Pedido confirmado futuro',
   };
 

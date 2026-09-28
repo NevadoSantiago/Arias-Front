@@ -22,9 +22,9 @@ interface Props {
 
 /**
  * "Tu pedido para <día>" (F15) — pedido del usuario: un día con pedido
- * programado no mostraba forma de verlo ni modificarlo. No hay endpoint de
- * edición de pedidos v2 (solo cancelar), así que la acción es cancelar y
- * armar uno nuevo con el menú, que sigue disponible debajo.
+ * programado no mostraba forma de verlo ni modificarlo. Agregar platos al
+ * pedido lo decide el horario elegido en la hoja de revisión (F21); acá solo
+ * se explica la regla.
  *
  * Reutiliza `OrderCard` tal cual (mismo lenguaje visual que "Mis pedidos"):
  * ya trae el badge de estado, el reloj con el horario, los platos con
@@ -45,7 +45,11 @@ export function SelectedDayOrders({
 
   const heading =
     orders.length > 1 ? `Tus pedidos para ${dayHeadingLabel}` : `Tu pedido para ${dayHeadingLabel}`;
-  const someCancellable = orders.some((order) => order.cancellable);
+  // Aviso según la regla de pedidos del mismo día (prototipo): con un pedido
+  // modificable, el mismo horario suma; si sólo hay uno esperando el pago,
+  // lo que se pida va en un pedido nuevo.
+  const someModifiable = orders.some((order) => order.modifiable);
+  const someAwaitingPayment = orders.some((order) => order.estado === 'PENDIENTE_PAGO');
 
   return (
     <section data-testid="selected-day-orders" className="mb-6 space-y-3">
@@ -75,8 +79,16 @@ export function SelectedDayOrders({
           </Fragment>
         ))}
       </ul>
-      {someCancellable && (
-        <p className="text-xs text-muted-foreground">¿Querés cambiar algo? Cancelalo y armá uno nuevo.</p>
+      {someModifiable ? (
+        <p className="text-xs text-muted-foreground">
+          Si elegís el mismo horario, lo que pidas se suma a ese pedido. Con otro horario, armás un pedido nuevo.
+        </p>
+      ) : (
+        someAwaitingPayment && (
+          <p className="text-xs text-muted-foreground">
+            Ese pedido espera el pago, así que lo que pidas ahora va en un pedido nuevo.
+          </p>
+        )
       )}
     </section>
   );

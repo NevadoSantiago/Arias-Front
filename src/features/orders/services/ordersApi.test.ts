@@ -241,6 +241,8 @@ describe('addOrderItemsV2', () => {
       notas: null,
       items: [],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
     };
     vi.mocked(api.post).mockResolvedValueOnce({ data: order });
 
@@ -284,6 +286,8 @@ describe('removeOrderItemV2', () => {
       notas: null,
       items: [],
       cancellable: false,
+      modifiable: false,
+      pickupTimeChangeable: false,
     };
     vi.mocked(api.delete).mockResolvedValueOnce({ data: order });
 

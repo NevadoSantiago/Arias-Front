@@ -35,6 +35,8 @@ function order(items: OrderItemV2[]): OrderV2 {
     notas: null,
     items,
     cancellable: true,
+    modifiable: true,
+    pickupTimeChangeable: true,
   };
 }
 

@@ -210,6 +210,8 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       notas: null,
       items: [],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
     });
     renderPage();
 
@@ -307,6 +309,8 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       notas: null,
       items: [],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
     });
     const { queryClient } = renderPage();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -379,6 +383,8 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
       notas: null,
       items: [],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
       ...overrides,
     });
     vi.mocked(getOrdersV2).mockResolvedValue([
@@ -417,6 +423,8 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
         notas: null,
         items: [],
         cancellable: true,
+        modifiable: true,
+        pickupTimeChangeable: true,
       },
     ]);
 
@@ -726,6 +734,8 @@ describe('B2cOrderPage — the cart is independent per day (F12)', () => {
       notas: null,
       items: [],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
     });
     renderPage();
 
@@ -846,6 +856,8 @@ describe('B2cOrderPage — shows the selected day existing orders (F15)', () => 
         },
       ],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
       ...overrides,
     };
   }
@@ -953,7 +965,7 @@ describe('B2cOrderPage — shows the selected day existing orders (F15)', () => 
   });
 });
 
-describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)', () => {
+describe('B2cOrderPage — same-day rule: add to the order at the same time, new order otherwise (F16, F21)', () => {
   // Fecha fija (mismo patrón que F12/F13): así "hoy" es directamente el día
   // del pedido existente, sin depender de a qué día del selector hay que
   // hacer click.
@@ -983,6 +995,8 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
         },
       ],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
       ...overrides,
     };
   }
@@ -1010,7 +1024,8 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
     vi.useRealTimers();
   });
 
-  it('switches the review sheet to add mode and calls addOrderItemsV2 with the order id and cart items', async () => {
+  it('adds the cart to the modifiable order when the chosen time equals its pickup time (addOrderItemsV2 with the order id)', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`, `${TODAY_ISO}T18:00:00Z`]);
     vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
     vi.mocked(addOrderItemsV2).mockResolvedValueOnce({
       ...orderFor(),
@@ -1029,9 +1044,9 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
     expect(
       await screen.findByText(/se agrega a tu pedido de las \d{2}:\d{2}/i),
     ).toBeInTheDocument();
-    expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument();
+    expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument();
 
-    fireEvent.click(await screen.findByRole('button', { name: /^agregar a mi pedido$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^sumar a mi pedido de las \d{2}:\d{2}$/i }));
 
     await waitFor(() =>
       expect(addOrderItemsV2).toHaveBeenCalledWith(900, [{ dishId: 10, sideId: null, notas: null }]),
@@ -1055,6 +1070,8 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
       notas: null,
       items: [],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
     });
     renderPage();
 
@@ -1070,7 +1087,7 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
 
   it('keeps the normal new-order flow for a CONFIRMADO (locked) order of the day', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([
-      orderFor({ estado: 'CONFIRMADO', cancellable: false }),
+      orderFor({ estado: 'CONFIRMADO', cancellable: false, modifiable: false, pickupTimeChangeable: false }),
     ]);
     vi.mocked(placeOrderV2).mockResolvedValueOnce({
       id: 951,
@@ -1081,6 +1098,8 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
       notas: null,
       items: [],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
     });
     renderPage();
 
@@ -1101,13 +1120,14 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
    * se ofrece "Pagá este pedido con Mercado Pago".
    */
   it('surfaces insufficient balance from addOrderItemsV2 with the same UX as placing a new order (never the pay-direct sheet)', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`]);
     vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
     vi.mocked(addOrderItemsV2).mockRejectedValueOnce(new InsufficientCreditsError());
     renderPage();
 
     await addDishToCart();
     await openReview();
-    fireEvent.click(await screen.findByRole('button', { name: /^agregar a mi pedido$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^sumar a mi pedido de las \d{2}:\d{2}$/i }));
 
     expect(
       await screen.findByText(/no te alcanzan los almuerzos disponibles/i),
@@ -1121,6 +1141,7 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
     // tras el error) se controla a mano para poder afirmar el estado
     // intermedio (mensaje visible, todavía en modo "agregar") antes de que
     // llegue, y el estado final (mensaje obsoleto limpio) después.
+    vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`]);
     let call = 0;
     let resolveRefetch: (orders: OrderV2[]) => void = () => {};
     vi.mocked(getOrdersV2).mockImplementation(() => {
@@ -1135,25 +1156,114 @@ describe('B2cOrderPage — adding to the day\'s existing modifiable order (F16)'
 
     await addDishToCart();
     await openReview();
-    fireEvent.click(await screen.findByRole('button', { name: /^agregar a mi pedido$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^sumar a mi pedido de las \d{2}:\d{2}$/i }));
 
     expect(
       await screen.findByText(/tu pedido ya no se puede modificar; armá uno nuevo\./i),
     ).toBeInTheDocument();
-    // Todavía en modo "agregar a mi pedido": el refetch no llegó.
-    expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument();
+    // Todavía en modo "sumar a mi pedido": el refetch no llegó.
+    expect(screen.getByText(/se agrega a tu pedido de las/i)).toBeInTheDocument();
 
     // El refetch de `ordersV2` ya no trae el pedido modificable: la hoja
     // vuelve a modo "pedido nuevo" (picker de horario, sin la línea de "se
     // agrega a tu pedido").
     resolveRefetch([]);
-    await waitFor(() => expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText(/se agrega a tu pedido de las/i)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument();
     // Corrección de revisión: una vez en modo "pedido nuevo", el mensaje de
     // error del modo anterior ("armá uno nuevo") queda obsoleto y no debe
     // seguir mostrándose.
     expect(
       screen.queryByText(/tu pedido ya no se puede modificar; armá uno nuevo\./i),
     ).not.toBeInTheDocument();
+  });
+
+  it('keeps the picker visible and creates a NEW order at a different time, leaving the existing one untouched', async () => {
+    // El pedido existente es a las 15:00Z; el único horario ofrecido es 18:00Z.
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({ ...orderFor(), id: 952, pickupAt: `${TODAY_ISO}T18:00:00Z` });
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+
+    expect(screen.getByText('¿A qué hora lo retirás?')).toBeInTheDocument();
+    expect(await screen.findByText(/^nuevo pedido a las \d{2}:\d{2}$/i)).toBeInTheDocument();
+    expect(screen.getByText(/tu pedido de las \d{2}:\d{2} queda como está/i)).toBeInTheDocument();
+    expect(screen.queryByText(/se agrega a tu pedido de las/i)).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro hoy \d{2}:\d{2} hs$/i }));
+
+    await waitFor(() =>
+      expect(placeOrderV2).toHaveBeenCalledWith(
+        expect.objectContaining({ pickupAt: `${TODAY_ISO}T18:00:00Z` }),
+      ),
+    );
+    expect(addOrderItemsV2).not.toHaveBeenCalled();
+  });
+
+  it('creates a new order (never add-items) at the same time as a PENDIENTE_PAGO order of the day', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`]);
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      orderFor({ estado: 'PENDIENTE_PAGO', modifiable: false, pickupTimeChangeable: false }),
+    ]);
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({ ...orderFor(), id: 953 });
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+
+    expect(await screen.findByText(/espera el pago, así que este va aparte/i)).toBeInTheDocument();
+    expect(screen.queryByText(/se agrega a tu pedido de las/i)).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro hoy \d{2}:\d{2} hs$/i }));
+
+    await waitFor(() => expect(placeOrderV2).toHaveBeenCalled());
+    expect(addOrderItemsV2).not.toHaveBeenCalled();
+  });
+
+  // B10: el pedido es cancelable pero el backend dice que no admite agregar
+  // platos (p. ej. pagado aparte por Mercado Pago) — se decide por `modifiable`.
+  it('decides by modifiable, not cancellable: a cancellable but non-modifiable order at the same time gets a new order', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`]);
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      orderFor({ cancellable: true, modifiable: false, pickupTimeChangeable: false }),
+    ]);
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({ ...orderFor(), id: 954 });
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro hoy \d{2}:\d{2} hs$/i }));
+
+    await waitFor(() => expect(placeOrderV2).toHaveBeenCalled());
+    expect(addOrderItemsV2).not.toHaveBeenCalled();
+  });
+
+  it('lets the customer jump to the existing order time with "Sumarlo al pedido de las HH:MM"', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`, `${TODAY_ISO}T18:00:00Z`]);
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
+    vi.mocked(addOrderItemsV2).mockResolvedValueOnce(orderFor());
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+    // Arranca en el horario del pedido existente (última utilizada): se suma.
+    expect(await screen.findByText(/se agrega a tu pedido de las/i)).toBeInTheDocument();
+
+    // Elige a mano el otro horario: pasa a pedido nuevo.
+    const later = new Date(`${TODAY_ISO}T18:00:00Z`);
+    fireEvent.click(screen.getByRole('radio', { name: /elegir horario/i }));
+    fireEvent.change(screen.getByLabelText('Hora de retiro'), { target: { value: String(later.getHours()) } });
+    fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: String(later.getMinutes()) } });
+    expect(await screen.findByText(/^nuevo pedido a las \d{2}:\d{2}$/i)).toBeInTheDocument();
+
+    // El atajo vuelve al horario del pedido existente: se suma de nuevo.
+    fireEvent.click(screen.getByRole('button', { name: /sumarlo al pedido de las \d{2}:\d{2}/i }));
+    expect(await screen.findByText(/se agrega a tu pedido de las/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /^sumar a mi pedido de las \d{2}:\d{2}$/i }));
+    await waitFor(() => expect(addOrderItemsV2).toHaveBeenCalledWith(900, expect.any(Array)));
   });
 });
 
@@ -1192,6 +1302,8 @@ describe('B2cOrderPage — removing a dish with confirmation (F16)', () => {
         },
       ],
       cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
       ...overrides,
     };
   }
