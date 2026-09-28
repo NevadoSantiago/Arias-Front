@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatOrderDayLabel, formatOrderTimeLabel } from './orderDateLabels';
+import { formatOrderDayLabel, formatOrderTimeLabel, isSameRestaurantDay } from './orderDateLabels';
 
 describe('formatOrderDayLabel', () => {
   const now = new Date('2026-09-26T10:00:00-03:00'); // sábado 26 de septiembre de 2026
@@ -29,5 +29,25 @@ describe('formatOrderDayLabel', () => {
 describe('formatOrderTimeLabel', () => {
   it('formats the pickup time as 24h "HH:MM"', () => {
     expect(formatOrderTimeLabel('2026-09-26T21:05:00-03:00')).toBe('21:05');
+  });
+});
+
+// F17: "Mis pedidos" usa esto para decidir si un CONFIRMADO cuenta como "de
+// hoy" — misma zona horaria del restaurante que el resto de este módulo.
+describe('isSameRestaurantDay', () => {
+  const now = new Date('2026-09-26T10:00:00-03:00');
+
+  it('is true when pickupAt falls on the same calendar day as now, even earlier in the day', () => {
+    expect(isSameRestaurantDay('2026-09-26T08:00:00-03:00', now)).toBe(true);
+  });
+
+  it('is true right up to 21:00 local, when the UTC date has already rolled over', () => {
+    const lateNow = new Date('2026-09-26T22:00:00-03:00');
+    expect(isSameRestaurantDay('2026-09-26T22:30:00-03:00', lateNow)).toBe(true);
+  });
+
+  it('is false for a different calendar day, past or future', () => {
+    expect(isSameRestaurantDay('2026-09-25T22:00:00-03:00', now)).toBe(false);
+    expect(isSameRestaurantDay('2026-09-27T00:30:00-03:00', now)).toBe(false);
   });
 });

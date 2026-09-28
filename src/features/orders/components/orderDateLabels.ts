@@ -38,3 +38,12 @@ export function formatOrderTimeLabel(pickupAt: string): string {
     timeZone: RESTAURANT_TIME_ZONE,
   });
 }
+
+/**
+ * True si `pickupAt` cae el mismo día calendario que `now`, en la zona del
+ * restaurante (F17: "Mis pedidos" la usa para decidir si un CONFIRMADO
+ * cuenta como "de hoy").
+ */
+export function isSameRestaurantDay(pickupAt: string, now: Date): boolean {
+  return restaurantDateKey(new Date(pickupAt)) === restaurantDateKey(now);
+}

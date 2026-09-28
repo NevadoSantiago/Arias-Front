@@ -112,6 +112,10 @@ const pastOrder: OrderV2 = {
 describe('MyOrdersPage', () => {
   afterEach(() => {
     vi.clearAllMocks();
+    // F17: por si un test que fija el reloj (`vi.useFakeTimers`) falla antes
+    // de restaurarlo — sin esto, el reloj falso quedaría pisando el resto
+    // de la suite. Es un no-op inofensivo cuando no había timers falsos.
+    vi.useRealTimers();
     vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
   });
 
@@ -128,7 +132,18 @@ describe('MyOrdersPage', () => {
   });
 
   it('offers the cancel action only when the backend reports cancellable: true', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder, nonCancellableOrder]);
+    // F17: nonCancellableOrder es CONFIRMADO, que por defecto solo se
+    // muestra si su retiro es hoy — se fija el reloj para que esta
+    // aserción no dependa de la hora real de la corrida (cerca de
+    // medianoche en Buenos Aires, "+2 horas" podría caer al día siguiente).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const now = new Date('2026-09-27T10:00:00-03:00');
+    vi.setSystemTime(now);
+    const samedayPickup = new Date(now.getTime() + 2 * HOUR_MS).toISOString();
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([
+      { ...cancellableOrder, pickupAt: samedayPickup },
+      { ...nonCancellableOrder, pickupAt: samedayPickup },
+    ]);
 
     renderPage();
 
@@ -136,6 +151,8 @@ describe('MyOrdersPage', () => {
     expect(cards).toHaveLength(2);
     expect(within(cards[0]).getByRole('button', { name: /cancelar pedido/i })).toBeInTheDocument();
     expect(within(cards[1]).queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   // F10: "Cancelar pedido" ahora abre una hoja de confirmación (D1 aprobado)
@@ -162,6 +179,10 @@ describe('MyOrdersPage', () => {
     // afirmamos sobre el primer argumento y no sobre la lista completa.
     await waitFor(() => expect(vi.mocked(cancelOrderV2).mock.calls[0]?.[0]).toBe(123));
     await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
+    // F17: un pedido CANCELADO queda oculto por defecto (incluso este, que
+    // era el único "próximo" antes de cancelarlo), así que hay que revelar
+    // "Anteriores" para verlo con su nuevo estado.
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
     expect(await screen.findByText('Cancelado')).toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringMatching(/pedido cancelado.*4 almuerzos volvieron a tu saldo/i),
@@ -231,6 +252,8 @@ describe('MyOrdersPage', () => {
 
     renderPage();
 
+    // F17: cancelados quedan ocultos por defecto, incluso si son futuros.
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
     expect(await screen.findByText('Cancelado')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
   });
@@ -252,6 +275,10 @@ describe('MyOrdersPage', () => {
 
     renderPage();
 
+    // F17: "Anteriores" queda oculta por defecto (pastOrder es ENTREGADO,
+    // fuera de la vista por defecto), hay que revelarla primero.
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
+
     const proximosHeader = (await screen.findByText('Próximos')).closest('header');
     const anterioresHeader = screen.getByText('Anteriores').closest('header');
     expect(proximosHeader).not.toBeNull();
@@ -268,6 +295,8 @@ describe('MyOrdersPage', () => {
     renderPage();
 
     expect(await screen.findByText('Programado')).toBeInTheDocument();
+    // F17: ENTREGADO (pasado) queda oculto por defecto, hay que revelarlo.
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
     expect(await screen.findByText('Retirado')).toBeInTheDocument();
   });
 
@@ -277,5 +306,118 @@ describe('MyOrdersPage', () => {
     renderPage();
 
     expect(await screen.findByText('Mostramos tus últimos 30 pedidos.')).toBeInTheDocument();
+  });
+});
+
+// F17: por defecto "Mis pedidos" solo muestra próximos programados
+// (PENDIENTE con pickupAt >= ahora) y confirmados de HOY (CONFIRMADO cuyo
+// día de retiro es hoy en la zona del restaurante) — todo lo demás
+// (cancelados, pasados, confirmados de otro día) queda oculto detrás de
+// "Ver pedidos anteriores". Reloj fijo para que la agrupación no dependa de
+// la hora real de la corrida.
+describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
+  const NOW = new Date('2026-09-27T10:00:00-03:00');
+
+  const futurePendiente: OrderV2 = {
+    ...cancellableOrder,
+    id: 301,
+    pickupAt: '2026-09-28T13:00:00-03:00',
+    estado: 'PENDIENTE',
+    cancellable: true,
+    notas: 'Pedido futuro programado',
+  };
+  const todayConfirmado: OrderV2 = {
+    ...cancellableOrder,
+    id: 302,
+    pickupAt: '2026-09-27T08:00:00-03:00',
+    estado: 'CONFIRMADO',
+    cancellable: false,
+    notas: 'Pedido confirmado de hoy',
+  };
+  const pastConfirmado: OrderV2 = {
+    ...cancellableOrder,
+    id: 303,
+    pickupAt: '2026-09-26T13:00:00-03:00',
+    estado: 'CONFIRMADO',
+    cancellable: false,
+    notas: 'Pedido confirmado pasado',
+  };
+  const pastPendiente: OrderV2 = {
+    ...cancellableOrder,
+    id: 304,
+    pickupAt: '2026-09-26T13:00:00-03:00',
+    estado: 'PENDIENTE',
+    cancellable: false,
+    notas: 'Pedido pendiente pasado',
+  };
+  const futureCancelado: OrderV2 = {
+    ...cancellableOrder,
+    id: 305,
+    pickupAt: '2026-09-28T13:00:00-03:00',
+    estado: 'CANCELADO',
+    cancellable: false,
+    notas: 'Pedido cancelado futuro',
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows only the future PENDIENTE and today\'s CONFIRMADO by default, hiding the rest', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([
+      futurePendiente,
+      todayConfirmado,
+      pastConfirmado,
+      pastPendiente,
+      futureCancelado,
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText('Pedido futuro programado')).toBeInTheDocument();
+    expect(screen.getByText('Pedido confirmado de hoy')).toBeInTheDocument();
+    expect(screen.queryByText('Pedido confirmado pasado')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pedido pendiente pasado')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pedido cancelado futuro')).not.toBeInTheDocument();
+  });
+
+  it('reveals the hidden orders when "Ver pedidos anteriores" is clicked', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([
+      futurePendiente,
+      todayConfirmado,
+      pastConfirmado,
+      pastPendiente,
+      futureCancelado,
+    ]);
+
+    renderPage();
+    await screen.findByText('Pedido futuro programado');
+
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
+
+    expect(await screen.findByText('Pedido confirmado pasado')).toBeInTheDocument();
+    expect(screen.getByText('Pedido pendiente pasado')).toBeInTheDocument();
+    expect(screen.getByText('Pedido cancelado futuro')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /ocultar pedidos anteriores/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the "no upcoming orders" empty state, with the toggle still available, when only past orders exist', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([pastConfirmado, futureCancelado]);
+
+    renderPage();
+
+    expect(await screen.findByText('No tenés pedidos próximos')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /hacer.*pedido/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /ver pedidos anteriores/i }),
+    ).toBeInTheDocument();
   });
 });
