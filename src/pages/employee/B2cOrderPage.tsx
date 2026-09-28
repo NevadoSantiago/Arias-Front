@@ -343,6 +343,7 @@ export function B2cOrderPage() {
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
     setReviewOpen(false);
+    setPickupJumpTo(null);
   };
 
   /**
@@ -384,6 +385,7 @@ export function B2cOrderPage() {
       });
       cart.clear();
       setPickupSelection(null);
+      setPickupJumpTo(null);
       setReviewOpen(false);
       queryClient.invalidateQueries({ queryKey: ['availableDishes'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
@@ -471,6 +473,7 @@ export function B2cOrderPage() {
         })),
       );
       cart.clear();
+      setPickupJumpTo(null);
       setReviewOpen(false);
       toast.success(`Agregamos ${count} ${count === 1 ? 'plato' : 'platos'} a tu pedido`);
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
@@ -665,7 +668,11 @@ export function B2cOrderPage() {
 
       <OrderReviewSheet
         open={reviewOpen && cart.lines.length > 0}
-        onClose={() => setReviewOpen(false)}
+        onClose={() => {
+          setReviewOpen(false);
+          // El salto del atajo es de una sola vez: no sobrevive al cierre.
+          setPickupJumpTo(null);
+        }}
         isToday={isToday}
         dayShortLabel={dayShortLabel}
         fecha={selectedDate}

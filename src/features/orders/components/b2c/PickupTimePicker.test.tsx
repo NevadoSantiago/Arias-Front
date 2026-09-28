@@ -231,4 +231,15 @@ describe('PickupTimePicker', () => {
     expect(hourSelect.value).toBe(String(new Date(SLOT_A1).getHours()));
     expect(minuteSelect.value).toBe(String(new Date(SLOT_A1).getMinutes()));
   });
+
+  // F21.1: si el horario del atajo ya no está entre los slots cargados, el
+  // selector avisa en vez de ignorar el pedido en silencio.
+  it('tells the customer when the jump target time is not among the loaded slots', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2]);
+
+    renderPicker({ jumpTo: { pickupAt: SLOT_B1 } });
+
+    expect(await screen.findByText(/ese horario ya no está disponible/i)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /lo antes posible/i })).toHaveAttribute('aria-checked', 'true');
+  });
 });

@@ -103,6 +103,8 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
   // Atajo de la hoja de revisión: ajuste de estado durante el render (mismo
   // patrón que el reseteo por `fecha`) al recibir un pedido de salto nuevo.
   const [handledJump, setHandledJump] = useState<Props['jumpTo']>(null);
+  // F21.1: el horario del salto ya no está entre los slots cargados.
+  const [jumpMissed, setJumpMissed] = useState(false);
   if (jumpTo && jumpTo !== handledJump && slotsInfo.length > 0) {
     setHandledJump(jumpTo);
     const target = timeOfDay(jumpTo.pickupAt);
@@ -111,6 +113,9 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
       setCustomH(match.h);
       setCustomM(match.m);
       setMode('custom');
+      setJumpMissed(false);
+    } else {
+      setJumpMissed(true);
     }
   }
 
@@ -303,6 +308,11 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
       <p role="status" aria-live="polite" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
         {readoutText}
       </p>
+      {jumpMissed && (
+        <p role="alert" className="text-sm text-muted-foreground">
+          Ese horario ya no está disponible. Elegí otro.
+        </p>
+      )}
     </div>
   );
 }

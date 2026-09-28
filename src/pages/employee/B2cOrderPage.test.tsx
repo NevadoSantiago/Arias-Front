@@ -120,13 +120,6 @@ async function openReview() {
 }
 
 describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
-  // Fix de review: un test más abajo reemplaza `window.location` con
-  // `Object.defineProperty` para poder leer `.href` tras la redirección a
-  // Mercado Pago. Guardamos el descriptor real de jsdom acá y lo
-  // restauramos en el `afterEach` de abajo para no filtrar el stub a los
-  // tests que corren después.
-  const originalLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
-
   beforeEach(() => {
     useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
     vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
@@ -144,9 +137,6 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   });
 
   afterEach(() => {
-    if (originalLocationDescriptor) {
-      Object.defineProperty(window, 'location', originalLocationDescriptor);
-    }
     useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
     vi.clearAllMocks();
   });
@@ -249,48 +239,44 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   });
 
   it('shows the pay-direct sheet total and pays via startDirectCheckoutV2 with the cart payload, then redirects and clears the cart', async () => {
+    // Autocontenido: el stub se restaura en el `finally` de este mismo test.
+    const originalLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'location')!;
     Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
-    vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
-    vi.mocked(getPacks).mockResolvedValue([
-      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
-    ]);
-    vi.mocked(startDirectCheckoutV2).mockResolvedValueOnce({
-      orderId: 42,
-      purchaseId: 'p-1',
-      initPoint: 'https://mp.example/checkout/p-1',
-    });
-    renderPage();
+    try {
+      vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
+      vi.mocked(getPacks).mockResolvedValue([
+        { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+      ]);
+      vi.mocked(startDirectCheckoutV2).mockResolvedValueOnce({
+        orderId: 42,
+        purchaseId: 'p-1',
+        initPoint: 'https://mp.example/checkout/p-1',
+      });
+      renderPage();
 
-    await addDishToCart();
-    await openReview();
-    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+      await addDishToCart();
+      await openReview();
+      fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
-    await screen.findByText('Pagá este pedido con Mercado Pago');
-    // 2 almuerzos (categoría "Básico", creditCost 2) × $1.500,00 = $3.000,00.
-    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i }));
+      await screen.findByText('Pagá este pedido con Mercado Pago');
+      // 2 almuerzos (categoría "Básico", creditCost 2) × $1.500,00 = $3.000,00.
+      fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i }));
 
-    await waitFor(() =>
-      expect(startDirectCheckoutV2).toHaveBeenCalledWith({
-        items: [{ dishId: 10, sideId: null, notas: null }],
-        pickupAt: '2026-05-21T15:00:00Z',
-        notas: null,
-      }),
-    );
-    await vi.waitFor(() => expect(window.location.href).toBe('https://mp.example/checkout/p-1'));
+      await waitFor(() =>
+        expect(startDirectCheckoutV2).toHaveBeenCalledWith({
+          items: [{ dishId: 10, sideId: null, notas: null }],
+          pickupAt: '2026-05-21T15:00:00Z',
+          notas: null,
+        }),
+      );
+      await vi.waitFor(() => expect(window.location.href).toBe('https://mp.example/checkout/p-1'));
 
-    // El carrito del día se vació antes de redirigir — la barra inferior
-    // vuelve al estado vacío.
-    expect(await screen.findByText('Tocá un plato para armar tu pedido.')).toBeInTheDocument();
-  });
-
-  // Fix de review: el test anterior reemplaza `window.location` con
-  // `Object.defineProperty` y nunca lo restauraba, filtrando el stub
-  // (`{ href: '' }`, sin `assign`/`reload`/`origin`) a los tests que corren
-  // después de él, en este archivo y en otros. Verifica que el `afterEach`
-  // deje `window.location` como el objeto `Location` real de jsdom otra vez.
-  it('restores the real window.location after a test overrides it for the redirect assertion', () => {
-    expect(typeof window.location.assign).toBe('function');
-    expect(typeof window.location.reload).toBe('function');
+      // El carrito del día se vació antes de redirigir — la barra inferior
+      // vuelve al estado vacío.
+      expect(await screen.findByText('Tocá un plato para armar tu pedido.')).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, 'location', originalLocationDescriptor);
+    }
   });
 
   /**
@@ -1264,6 +1250,30 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
     expect(await screen.findByText(/se agrega a tu pedido de las/i)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: /^sumar a mi pedido de las \d{2}:\d{2}$/i }));
     await waitFor(() => expect(addOrderItemsV2).toHaveBeenCalledWith(900, expect.any(Array)));
+  });
+
+  // F21.1: el salto del atajo es de una sola vez; cerrar la hoja lo descarta y
+  // al reabrirla el selector vuelve a la opción automática.
+  it('does not re-apply a stale "Sumarlo" jump after the review sheet is closed and reopened', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`, `${TODAY_ISO}T18:00:00Z`]);
+    vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+    await screen.findByText(/se agrega a tu pedido de las/i);
+    const later = new Date(`${TODAY_ISO}T18:00:00Z`);
+    fireEvent.click(screen.getByRole('radio', { name: /elegir horario/i }));
+    fireEvent.change(screen.getByLabelText('Hora de retiro'), { target: { value: String(later.getHours()) } });
+    fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: String(later.getMinutes()) } });
+    fireEvent.click(await screen.findByRole('button', { name: /sumarlo al pedido de las \d{2}:\d{2}/i }));
+    expect(screen.getByRole('radio', { name: /elegir horario/i })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument());
+    await openReview();
+
+    expect(await screen.findByRole('radio', { name: /última utilizada/i })).toHaveAttribute('aria-checked', 'true');
   });
 });
 
