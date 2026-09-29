@@ -93,10 +93,20 @@ describe('OrderCard — partial balance payment (F23)', () => {
     expect(screen.getByText('1 de tu saldo · 1 a pagar')).toBeInTheDocument();
   });
 
-  it('shows how many reserved lunches came back once the order is cancelled', () => {
+  it('says the reserved lunches came back, without a number, once the order is cancelled', () => {
     renderCard({ order: { ...partial, estado: 'CANCELADO', cancellable: false } });
 
-    expect(screen.getByText('1 almuerzo devuelto')).toBeInTheDocument();
+    expect(screen.getByText('Almuerzos reservados devueltos')).toBeInTheDocument();
+  });
+
+  it('does not use the partial labels unless Mercado Pago is involved', () => {
+    renderCard({ order: { ...partial, paidWithMercadoPago: false, estado: 'PENDIENTE' } });
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
+  });
+
+  it('does not use the partial labels when the balance covers the whole order', () => {
+    renderCard({ order: { ...partial, creditsFromBalance: 2, estado: 'PENDIENTE' } });
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
   });
 
   it('keeps showing the total lunches when nothing came from the balance', () => {

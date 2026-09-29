@@ -1,4 +1,11 @@
-import { balancePartOf, formatLunches, mercadoPagoPartOf, reservedWord } from '../../lunches';
+import {
+  balancePartOf,
+  formatLunches,
+  isPartialPayment,
+  mercadoPagoPartOf,
+  PARTIAL_RETURNED_TO_BALANCE,
+  reservedWord,
+} from '../../lunches';
 import {
   formatOrderDateLabel,
   formatOrderPayDeadlineLabel,
@@ -72,13 +79,9 @@ export function comandaFooter(
 ): ComandaFooter {
   const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
-    if (fromBalance > 0) {
-      // Pago parcial (F23): al cancelar, el backend devuelve al saldo exactamente los reservados.
-      return {
-        label: 'Pedido cancelado',
-        value: `${formatLunches(fromBalance)} ${fromBalance === 1 ? 'devuelto' : 'devueltos'} a tu saldo`,
-        icon: 'lunches',
-      };
+    if (isPartialPayment(order)) {
+      // Pago parcial (F23): el DTO no dice si el pago se aprobó antes de cancelar, así que no se da un número.
+      return { label: 'Pedido cancelado', value: PARTIAL_RETURNED_TO_BALANCE, icon: 'lunches' };
     }
     if (order.paidWithMercadoPago) {
       // No se afirma nada sobre el saldo: el DTO no dice si el pago llegó a acreditarse.
@@ -169,12 +172,13 @@ export function comandaCopy(
 
   const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
-    // Pago parcial (F23): vuelven exactamente los reservados; sin ellos, un pago por Mercado Pago no toca el saldo.
-    const count = fromBalance > 0 ? fromBalance : order.creditTotal;
+    // Pago parcial (F23): sin número, el DTO no dice cuánto volvió; un pago por Mercado Pago solo no toca el saldo.
+    const count = order.creditTotal;
     return {
       title: 'Pedido cancelado',
-      headline:
-        order.paidWithMercadoPago && fromBalance === 0
+      headline: isPartialPayment(order)
+        ? `${PARTIAL_RETURNED_TO_BALANCE}.`
+        : order.paidWithMercadoPago
           ? 'Este pedido ya no se va a preparar.'
           : `${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo.`,
     };

@@ -1,6 +1,6 @@
 import { Clock3, CreditCard, Pencil, UtensilsCrossed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { balancePartOf, formatLunches, mercadoPagoPartOf } from '../lunches';
+import { balancePartOf, formatLunches, isPartialPayment, mercadoPagoPartOf } from '../lunches';
 import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from './orderDateLabels';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { orderStatusLabel } from './orderStatus';
@@ -78,12 +78,11 @@ export function OrderCard({
   const canChangePickupTime = !!onRequestChangePickupTime && order.pickupTimeChangeable;
   // Pago parcial (F23): los almuerzos del saldo y los que cobra Mercado Pago, por separado.
   const fromBalance = balancePartOf(order);
-  const lunchesLabel =
-    fromBalance === 0
-      ? formatLunches(order.creditTotal)
-      : isCancelled
-        ? `${formatLunches(fromBalance)} ${fromBalance === 1 ? 'devuelto' : 'devueltos'}`
-        : `${fromBalance} de tu saldo · ${mercadoPagoPartOf(order)} ${isAwaitingPayment ? 'a pagar' : 'con Mercado Pago'}`;
+  const lunchesLabel = !isPartialPayment(order)
+    ? formatLunches(order.creditTotal)
+    : isCancelled
+      ? 'Almuerzos reservados devueltos'
+      : `${fromBalance} de tu saldo · ${mercadoPagoPartOf(order)} ${isAwaitingPayment ? 'a pagar' : 'con Mercado Pago'}`;
   const deadlineLabel = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
   const payDeadlineText = deadlineLabel
     ? `Estamos esperando la confirmación de Mercado Pago. Si no se confirma antes de las ${deadlineLabel}, se cancela.`

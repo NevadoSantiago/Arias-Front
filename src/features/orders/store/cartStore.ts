@@ -49,11 +49,17 @@ const CART_STORAGE_VERSION = 1;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Una línea sirve si trae lo que el carrito lee: id local y costo del plato. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const isStringOrNull = (value: unknown) => value === null || typeof value === 'string';
+
+/** Una línea sirve si trae lo que el carrito lee: id local, plato con nombre y costo, y los datos del acompañamiento. */
 function isValidLine(value: unknown): value is CartLine {
   if (!isRecord(value) || typeof value.localId !== 'string') return false;
+  if (!(value.sideId === null || typeof value.sideId === 'number')) return false;
+  if (!isStringOrNull(value.sideNombre) || !isStringOrNull(value.notas)) return false;
   const dish = value.dish;
-  if (!isRecord(dish) || !isRecord(dish.category)) return false;
+  if (!isRecord(dish) || !isRecord(dish.category) || typeof dish.nombre !== 'string') return false;
   const cost = dish.category.creditCost;
   return typeof dish.id === 'number' && typeof cost === 'number' && Number.isFinite(cost);
 }
@@ -70,7 +76,7 @@ function sanitizePersisted(persisted: unknown): Pick<CartState, 'ownerId' | 'byD
   if (ownerId !== null && typeof ownerId !== 'number') return empty;
   const byDate: Record<string, CartLine[]> = {};
   for (const [fecha, lines] of Object.entries(persisted.byDate)) {
-    if (!Array.isArray(lines)) continue;
+    if (!ISO_DATE.test(fecha) || !Array.isArray(lines)) continue;
     const valid = lines.filter(isValidLine);
     if (valid.length > 0) byDate[fecha] = valid;
   }
@@ -93,8 +99,9 @@ export const useCartStore = create<CartState>()(
       addLine: (fecha, line) =>
         set((state) => {
           const owner = currentUserId();
-          // Si el carrito era de otro usuario, no se mezcla: se arranca de cero.
-          const base = owner !== null && state.ownerId !== owner && state.ownerId !== null ? {} : state.byDate;
+          // Con usuario, solo se sigue un carrito que ya es suyo: uno de otro usuario
+          // o sin dueño se descarta, nunca se adopta.
+          const base = owner !== null && state.ownerId !== owner ? {} : state.byDate;
           return { ownerId: owner ?? state.ownerId, byDate: { ...base, [fecha]: [...(base[fecha] ?? []), line] } };
         }),
       removeLine: (fecha, localId) =>

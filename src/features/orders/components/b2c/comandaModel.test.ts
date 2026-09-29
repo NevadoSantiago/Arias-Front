@@ -170,10 +170,12 @@ describe('comandaFooter', () => {
       ).toBe('3 de tu saldo (reservados)');
     });
 
-    it('cancelled while partly reserved: the reserved lunches went back to the balance', () => {
+    // El DTO no dice si el pago llegó a aprobarse antes de cancelar (el backend devuelve
+    // `creditTotal` si se aprobó y solo `creditsFromBalance` si no): sin número.
+    it('cancelled while partly reserved: neutral copy, no number that could be wrong', () => {
       expect(comandaFooter(order({ ...partial, estado: 'CANCELADO' }), { now: NOW, walletAvailable: 10 })).toEqual({
         label: 'Pedido cancelado',
-        value: '1 almuerzo devuelto a tu saldo',
+        value: 'Los almuerzos reservados volvieron a tu saldo',
         icon: 'lunches',
       });
     });
@@ -194,9 +196,9 @@ describe('comandaFooter', () => {
       expect(copy.headline).toMatch(/se cancela y tu almuerzo reservado vuelve a tu saldo\.$/);
     });
 
-    it('comandaCopy says how many lunches came back when a partly reserved order is cancelled', () => {
+    it('comandaCopy uses neutral copy when a partly reserved order is cancelled', () => {
       expect(comandaCopy(order({ ...partial, estado: 'CANCELADO' }), { now: NOW }).headline).toBe(
-        '1 almuerzo volvió a tu saldo.',
+        'Los almuerzos reservados volvieron a tu saldo.',
       );
     });
   });

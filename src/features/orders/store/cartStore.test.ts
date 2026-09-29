@@ -75,3 +75,61 @@ describe('cartStore — rehydration is validated', () => {
     expect(store.getState().byDate).toEqual({});
   });
 });
+
+describe('cartStore — an ownerless cart is never adopted', () => {
+  beforeEach(() => window.sessionStorage.clear());
+  afterEach(() => window.sessionStorage.clear());
+
+  it('discards a stored cart with no owner when a signed-in user adds a line', async () => {
+    vi.resetModules();
+    window.sessionStorage.setItem(
+      KEY,
+      JSON.stringify({ state: { ownerId: null, byDate: { '2026-06-01': [validLine] } }, version: 1 }),
+    );
+    // Sesión ya iniciada al cargar: el suscriptor de auth no dispara ningún reseteo.
+    const { useAuthStore } = await import('@/features/auth/store/authStore');
+    useAuthStore.setState({ user: { id: 9 } as never });
+    const { useCartStore } = await import('./cartStore');
+    expect(useCartStore.getState().byDate['2026-06-01']).toHaveLength(1);
+
+    useCartStore.getState().addLine('2026-06-02', { ...validLine, localId: 'new' } as never);
+
+    const { ownerId, byDate } = useCartStore.getState();
+    expect(ownerId).toBe(9);
+    expect(byDate['2026-06-01']).toBeUndefined();
+    expect(byDate['2026-06-02']).toHaveLength(1);
+    useAuthStore.setState({ user: null });
+  });
+});
+
+describe('cartStore — deeper line validation', () => {
+  beforeEach(() => window.sessionStorage.clear());
+  afterEach(() => window.sessionStorage.clear());
+
+  it.each([
+    ['dish.nombre is not a string', { ...validLine, dish: { ...validLine.dish, nombre: 5 } }],
+    ['sideId is a string', { ...validLine, sideId: 'x' }],
+    ['sideNombre is a number', { ...validLine, sideNombre: 3 }],
+    ['notas is a number', { ...validLine, notas: 3 }],
+  ])('drops a line when %s', async (_name, line) => {
+    const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [validLine, line] } });
+
+    expect(store.getState().byDate['2026-06-01']).toEqual([validLine]);
+  });
+
+  it('keeps a line with a numeric sideId and string side and notes', async () => {
+    const full = { ...validLine, sideId: 4, sideNombre: 'Papas', notas: 'sin sal' };
+    const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [full] } });
+
+    expect(store.getState().byDate['2026-06-01']).toEqual([full]);
+  });
+
+  it('drops days whose key is not an ISO date', async () => {
+    const store = await loadStore({
+      ownerId: 7,
+      byDate: { mañana: [validLine], '2026-6-1': [validLine], '2026-06-01': [validLine] },
+    });
+
+    expect(Object.keys(store.getState().byDate)).toEqual(['2026-06-01']);
+  });
+});

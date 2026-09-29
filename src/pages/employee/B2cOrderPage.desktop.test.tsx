@@ -14,8 +14,10 @@ import {
   getOrdersV2,
   getPickupSlots,
   getRestaurantConfig,
+  BalanceCoversOrderError,
   InsufficientCreditsError,
   placeOrderV2,
+  startDirectCheckoutV2,
   type OrderV2,
 } from '@/features/orders/services/ordersApi';
 import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
@@ -216,6 +218,25 @@ describe('B2cOrderPage — desktop layout (F22a)', () => {
 
     const pay = await screen.findByRole('dialog', { name: /pagá este pedido con mercado pago/i });
     expect(pay).toHaveAttribute('data-presentation', 'dialog');
+  });
+
+  it('shows the balance-covers-order message in the "Tu pedido" panel without opening the mobile review sheet (409)', async () => {
+    vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
+    vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
+    vi.mocked(getPacks).mockResolvedValue([
+      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+    ]);
+    vi.mocked(startDirectCheckoutV2).mockRejectedValueOnce(new BalanceCoversOrderError());
+    renderPage();
+
+    await addDishToCart();
+    const panel = await screen.findByRole('complementary', { name: 'Tu pedido' });
+    fireEvent.click(await within(panel).findByRole('button', { name: /^retiro /i }));
+    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?1\.500,00 con mercado pago/i }));
+
+    expect(await within(panel).findByText(/tus almuerzos disponibles ahora alcanzan para este pedido/i)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(placeOrderV2).toHaveBeenCalledTimes(1);
   });
 });
 
