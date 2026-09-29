@@ -1,9 +1,6 @@
 import type { AuthUser } from '../store/authStore';
 
-type CallNameSource = Pick<AuthUser, 'email' | 'firstName' | 'lastName' | 'nickname'> & {
-  /** El backend lo manda siempre, pero un despliegue en otro orden (o un rollback) puede omitirlo. */
-  displayName?: string | null;
-};
+type CallNameSource = Pick<AuthUser, 'email' | 'firstName' | 'lastName' | 'nickname' | 'displayName'>;
 
 /**
  * Nombre con el que la cocina llama al cliente. Usa el `displayName` del

@@ -15,7 +15,8 @@ import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfir
 import { comandaFooter, comandaItems, isPaidWithMercadoPago } from '@/features/orders/components/b2c/comandaModel';
 import { OrderPayDirectSheet } from '@/features/orders/components/b2c/OrderPayDirectSheet';
 import { OrderReviewPanel } from '@/features/orders/components/b2c/OrderReviewPanel';
-import { OrderReviewSheet, type OrderReviewProps } from '@/features/orders/components/b2c/OrderReviewSheet';
+import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
+import type { OrderReviewProps } from '@/features/orders/components/b2c/orderReviewProps';
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
 import { formatOrderTimeLabel } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';

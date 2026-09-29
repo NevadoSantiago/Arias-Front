@@ -1,7 +1,12 @@
 import { Link } from 'react-router-dom';
 import { formatLunches } from '../../lunches';
 import { formatOrderTimeLabel } from '../orderDateLabels';
-import type { OrderReviewProps } from './OrderReviewSheet';
+import type { OrderReviewProps } from './orderReviewProps';
+
+/** Etiqueta del día de la revisión: la misma en la hoja móvil y en el panel de escritorio. */
+export function pickupDayLabel(isToday: boolean, dayShortLabel: string): string {
+  return isToday ? `Para retirar hoy, ${dayShortLabel}` : `Pedido programado para el ${dayShortLabel}`;
+}
 
 /**
  * Avisos de horario de la revisión del pedido (F16, F21): "Se agrega a tu

@@ -1,7 +1,7 @@
 import { CartSummary } from '../CartSummary';
 import { PickupTimePicker } from './PickupTimePicker';
-import { BalanceBox, PickupNotices } from './OrderReviewParts';
-import type { OrderReviewProps } from './OrderReviewSheet';
+import { BalanceBox, PickupNotices, pickupDayLabel } from './OrderReviewParts';
+import type { OrderReviewProps } from './orderReviewProps';
 
 /**
  * Panel fijo "Tu pedido" del escritorio (F22a, prototipo `DesktopOrder.dc.html`,
@@ -33,7 +33,7 @@ export function OrderReviewPanel({
   insufficientBalance,
   onConfirm,
 }: OrderReviewProps) {
-  const dayLabel = isToday ? `Para retirar hoy, ${dayShortLabel}` : `Pedido programado para el ${dayShortLabel}`;
+  const dayLabel = pickupDayLabel(isToday, dayShortLabel);
   const empty = lines.length === 0;
 
   return (
@@ -96,7 +96,7 @@ export function OrderReviewPanel({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={!canConfirm}
+          disabled={!canConfirm || empty}
           className="h-[54px] w-full rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground disabled:cursor-not-allowed disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
         >
           {submitting ? 'Confirmando…' : confirmLabel}

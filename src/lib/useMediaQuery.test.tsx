@@ -16,6 +16,7 @@ describe('useMediaQuery', () => {
   afterEach(() => {
     media?.restore();
     media = null;
+    vi.restoreAllMocks();
   });
 
   it('reads the current match synchronously and follows changes', () => {
@@ -29,9 +30,26 @@ describe('useMediaQuery', () => {
   });
 
   it('useIsDesktop is the lg breakpoint (>= 1024px)', () => {
-    const spy = vi.fn(window.matchMedia);
-    window.matchMedia = spy as unknown as typeof window.matchMedia;
+    media = mockMatchMedia(false);
+    const spy = vi.spyOn(window, 'matchMedia');
     render(<DesktopProbe />);
     expect(spy).toHaveBeenCalledWith('(min-width: 1024px)');
+  });
+
+  it('subscribes once per query, not on every render', () => {
+    media = mockMatchMedia(false);
+    const add = vi.fn();
+    const base = window.matchMedia;
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+      const mql = base(query);
+      mql.addEventListener = add;
+      return mql;
+    });
+
+    const { rerender } = render(<Probe query="(min-width: 1024px)" />);
+    rerender(<Probe query="(min-width: 1024px)" />);
+    rerender(<Probe query="(min-width: 1024px)" />);
+
+    expect(add).toHaveBeenCalledTimes(1);
   });
 });

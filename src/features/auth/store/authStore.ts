@@ -11,9 +11,11 @@ export interface AuthUser {
   nickname: string | null;
   /**
    * Nombre con el que la cocina llama al cliente: apodo → nombre + apellido →
-   * email. Nunca es null; lo resuelve el backend (una sola regla).
+   * email. El backend lo manda siempre, pero un despliegue en otro orden (o un
+   * rollback) puede omitirlo: por eso es opcional y `resolveCallName` aplica la
+   * misma regla en el cliente.
    */
-  displayName: string;
+  displayName?: string | null;
   role: Role;
   companyId: number | null;
   companyName: string | null;

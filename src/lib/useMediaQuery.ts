@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 /**
  * ¿Coincide la media query? Se lee de forma síncrona en el primer render (sin
@@ -7,12 +7,18 @@ import { useSyncExternalStore } from 'react';
  * resuelve con clases responsivas de Tailwind.
  */
 export function useMediaQuery(query: string): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
+  // `subscribe` estable por query: si cambiara en cada render, React se
+  // resuscribiría en cada uno.
+  const subscribe = useCallback(
+    (onChange: () => void) => {
       const mql = window.matchMedia(query);
       mql.addEventListener('change', onChange);
       return () => mql.removeEventListener('change', onChange);
     },
+    [query],
+  );
+  return useSyncExternalStore(
+    subscribe,
     () => window.matchMedia(query).matches,
     () => false,
   );
