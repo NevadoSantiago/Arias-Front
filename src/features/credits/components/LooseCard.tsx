@@ -10,6 +10,11 @@ interface Props {
   /** true solo cuando Sueltos está elegido y qty >= 4 (empuje opcional hacia Semana). */
   showNudge: boolean;
   onPickRecommended: () => void;
+  /**
+   * `row` (default, móvil): stepper a la izquierda y precio a la derecha.
+   * `stacked` (escritorio, F22c): stepper centrado y el precio debajo, para la tarjeta angosta de la grilla.
+   */
+  layout?: 'row' | 'stacked';
 }
 
 /**
@@ -17,7 +22,17 @@ interface Props {
  * `Packs.dc.html`). El precio SIEMPRE viene de `priceCents` del pack, nunca
  * hardcodeado acá: el label ya formateado se recibe por props.
  */
-export function LooseCard({ checked, onSelect, qty, onQtyChange, unitPriceLabel, showNudge, onPickRecommended }: Props) {
+export function LooseCard({
+  checked,
+  onSelect,
+  qty,
+  onQtyChange,
+  unitPriceLabel,
+  showNudge,
+  onPickRecommended,
+  layout = 'row',
+}: Props) {
+  const stacked = layout === 'stacked';
   return (
     <div
       className={cn(
@@ -59,7 +74,7 @@ export function LooseCard({ checked, onSelect, qty, onQtyChange, unitPriceLabel,
         </span>
       </button>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className={cn('flex items-center gap-3', stacked ? 'flex-col' : 'justify-between')}>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -86,7 +101,12 @@ export function LooseCard({ checked, onSelect, qty, onQtyChange, unitPriceLabel,
             <Plus className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
-        <div className="flex flex-col items-end gap-0.5 text-right">
+        <div
+          className={cn(
+            'flex flex-col gap-0.5',
+            stacked ? 'w-full items-start border-t border-dashed border-border pt-3 text-left' : 'items-end text-right',
+          )}
+        >
           <span className="text-lg font-bold leading-tight">{unitPriceLabel}</span>
           <span className="text-[13px] text-muted-foreground">cada uno</span>
         </div>

@@ -6,8 +6,13 @@ import { useWallet } from '@/features/credits/hooks/useWallet';
 import { usePackCatalog, usePackPurchase } from '@/features/credits/hooks/usePackPurchase';
 import { planPurchase, resolveSelection, type PurchaseSelection } from '@/features/credits/purchaseModel';
 import { formatPrice, perLunchPriceCents } from '@/features/credits/packPricing';
+import { PacksDesktopLayout } from '@/features/credits/components/PacksDesktopLayout';
+import { useIsDesktop } from '@/lib/useMediaQuery';
 
-/** Ruta `/credits/packs` — catálogo de Sueltos + paquetes (F6, prototipo `Packs.dc.html`). */
+/**
+ * Ruta `/credits/packs` — catálogo de Sueltos + paquetes (F6, prototipo `Packs.dc.html`).
+ * En escritorio (F22c, `DesktopPacks.dc.html`) son tres tarjetas y un panel "Tu compra".
+ */
 export function CreditsPacksPage() {
   const { catalog, isLoading, isError, isEmpty: catalogEmpty } = usePackCatalog();
   const { data: wallet } = useWallet();
@@ -18,6 +23,7 @@ export function CreditsPacksPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const purchaseMutation = usePackPurchase();
+  const isDesktop = useIsDesktop();
 
   if (isLoading) {
     return (
@@ -49,7 +55,7 @@ export function CreditsPacksPage() {
    * Cuando se llega hasta acá, `catalogEmpty` ya garantiza que hay `dayPack` o
    * al menos un pack con nombre.
    */
-  const effectiveSelection = resolveSelection(selection, catalog, 'loose');
+  const effectiveSelection = resolveSelection(selection, catalog, isDesktop ? 'week' : 'loose');
   const plan = planPurchase(effectiveSelection, qty, catalog, wallet ? wallet.available : null);
   const summary = plan?.summary ?? { label: '', totalLabel: '' };
   const checkoutSelection = plan?.checkout ?? {
@@ -68,6 +74,21 @@ export function CreditsPacksPage() {
   const handlePay = () => {
     if (plan) purchaseMutation.mutate(plan.payload);
   };
+
+  if (isDesktop) {
+    return (
+      <PacksDesktopLayout
+        catalog={catalog}
+        selection={effectiveSelection}
+        onSelect={setSelection}
+        qty={qty}
+        onQtyChange={setQty}
+        plan={plan}
+        onPay={handlePay}
+        isPending={purchaseMutation.isPending}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col">
