@@ -259,6 +259,45 @@ describe('CreditsCheckoutStatus', () => {
       ).toBeInTheDocument();
     });
 
+    // F23: con pago parcial, la compra DIRECT es solo por lo que cobra Mercado
+    // Pago (`creditAmount` y `amountCents` ya son el resto): el comprobante
+    // describe esa parte, no el pedido entero.
+    it('describes only the Mercado Pago part of a partly paid order (lunches and amount)', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({
+        ...directPurchase,
+        status: 'APPROVED',
+        creditAmount: 1,
+        amountCents: 150000,
+        creditedAt: '2026-01-01T00:05:00Z',
+      });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByText('Almuerzos con Mercado Pago')).toBeInTheDocument();
+      expect(screen.queryByText('Almuerzos')).not.toBeInTheDocument();
+      expect(screen.getByText('1')).toBeInTheDocument();
+      expect(screen.getByText(/\$\s?1\.500,00/)).toBeInTheDocument();
+    });
+
+    it('keeps the plain "Almuerzos" row for a pack purchase', async () => {
+      vi.mocked(getPurchase).mockResolvedValue({
+        ...pendingPurchase,
+        status: 'APPROVED',
+        creditedAt: '2026-01-01T00:05:00Z',
+      });
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.getByText('Almuerzos')).toBeInTheDocument();
+      expect(screen.queryByText('Almuerzos con Mercado Pago')).not.toBeInTheDocument();
+    });
+
     it('shows "Tu pedido queda programado" as the last step while PENDING', async () => {
       vi.mocked(getPurchase).mockResolvedValue(directPurchase);
 

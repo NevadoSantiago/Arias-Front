@@ -187,6 +187,9 @@ function buildView(purchase: CreditPurchase, isDirect: boolean, gaveUp: boolean)
   const label = purchaseLabel(purchase);
   const eyebrow = isDirect ? 'Pago de tu pedido' : 'Compra de almuerzos';
   const gap4 = 'flex flex-col items-center gap-4 py-6 text-center';
+  // Pago parcial (F23): una compra DIRECT cubre solo lo que cobra Mercado Pago
+  // (`creditAmount` y `amountCents` ya son el resto), así que se rotula como tal.
+  const lunchesRowLabel = isDirect ? 'Almuerzos con Mercado Pago' : 'Almuerzos';
 
   if (purchase.status === 'PENDING') {
     return {
@@ -199,7 +202,7 @@ function buildView(purchase: CreditPurchase, isDirect: boolean, gaveUp: boolean)
       pending: true,
       rows: [
         { k: 'Compra', v: label },
-        { k: 'Almuerzos', v: String(purchase.creditAmount) },
+        { k: lunchesRowLabel, v: String(purchase.creditAmount) },
         { k: 'Total', v: formatAmount(purchase) },
       ],
       showRowsOnMobile: false,
@@ -232,7 +235,7 @@ function buildView(purchase: CreditPurchase, isDirect: boolean, gaveUp: boolean)
       pending: false,
       rows: [
         { k: 'Compra', v: label },
-        { k: 'Almuerzos', v: String(purchase.creditAmount) },
+        { k: lunchesRowLabel, v: String(purchase.creditAmount) },
         { k: 'Total pagado', v: formatAmount(purchase) },
       ],
       showRowsOnMobile: true,
