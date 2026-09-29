@@ -361,7 +361,8 @@ describe('changeOrderPickupTimeV2', () => {
 
   // F19.1: el mapeo `pickup-*` → PickupTimeChangeError es solo del cambio de horario.
   it('keeps the previous behaviour when placing or adding items with a pickup-* error (no pickup-change mapping)', async () => {
-    vi.mocked(api.post).mockRejectedValue({ response: { data: { title: 'pickup-too-soon' } } });
+    const pickupError = { response: { data: { title: 'pickup-too-soon' } } };
+    vi.mocked(api.post).mockRejectedValueOnce(pickupError).mockRejectedValueOnce(pickupError);
 
     const placed = await placeOrderV2({ items: [], pickupAt: '2026-05-21T15:00:00Z', notas: null }).catch((e) => e);
     const added = await addOrderItemsV2(5, []).catch((e) => e);
@@ -370,6 +371,5 @@ describe('changeOrderPickupTimeV2', () => {
       expect(error).not.toBeInstanceOf(PickupTimeChangeError);
       expect(error.message).toBe('Error de red');
     }
-    vi.mocked(api.post).mockReset();
   });
 });

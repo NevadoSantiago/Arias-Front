@@ -37,6 +37,7 @@ import {
 import type { OrderV2 } from '@/features/orders/services/ordersApi';
 import type { Dish, RestaurantConfig } from '@/features/orders/types';
 import { useWallet } from '@/features/credits/hooks/useWallet';
+import { resolveCallName } from '@/features/auth/lib/callName';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { cn } from '@/lib/utils';
 
@@ -151,7 +152,6 @@ export function B2cOrderPage() {
   const [payDirectOpen, setPayDirectOpen] = useState(false);
   const [payingDirect, setPayingDirect] = useState(false);
   const [payDirectError, setPayDirectError] = useState<string | null>(null);
-  /** Atajo "Sumarlo al pedido de las HH:MM" de la hoja de revisión (F21): cada objeto nuevo mueve el selector de horario. */
   const [searchParams] = useSearchParams();
 
   const todayStr = useMemo(() => {
@@ -168,6 +168,7 @@ export function B2cOrderPage() {
   const requestedDayIsValid =
     requestedDate !== null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && requestedDate >= todayStr;
   const requestedTime = requestedDayIsValid ? searchParams.get('hora') : null;
+  /** Atajo "Sumarlo al pedido de las HH:MM" de la hoja de revisión (F21): cada objeto nuevo mueve el selector de horario. */
   const [pickupJumpTo, setPickupJumpTo] = useState<{ pickupAt: string } | null>(
     requestedTime && !Number.isNaN(new Date(requestedTime).getTime()) ? { pickupAt: requestedTime } : null,
   );
@@ -552,7 +553,7 @@ export function B2cOrderPage() {
           dayLongLabel={done.dayLongLabel}
           pickupTimeLabel={done.pickupTimeLabel}
           orderId={done.order.id}
-          callName={user.displayName}
+          callName={resolveCallName(user)}
           items={comandaItems(done.order, { newItemIds: done.newItemIds })}
           footer={comandaFooter(done.order, {
             now,

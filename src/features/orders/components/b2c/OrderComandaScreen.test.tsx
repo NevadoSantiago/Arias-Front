@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { OrderComandaScreen } from './OrderComandaScreen';
 import type { OrderV2 } from '../../services/ordersApi';
@@ -68,6 +69,55 @@ describe('OrderComandaScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /mis pedidos/i }));
 
     expect(onBack).toHaveBeenCalled();
+  });
+
+  describe('modal behaviour', () => {
+    it('closes with Escape', () => {
+      const { onBack } = renderScreen(scheduled);
+
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+
+      expect(onBack).toHaveBeenCalled();
+    });
+
+    it('keeps the focus inside while it is open', async () => {
+      render(
+        <MemoryRouter>
+          <button type="button">Afuera</button>
+          <OrderComandaScreen order={scheduled} now={NOW} callName="Sofi" walletAvailable={10} onBack={vi.fn()} />
+        </MemoryRouter>,
+      );
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+
+      screen.getByRole('button', { name: 'Afuera', hidden: true }).focus();
+
+      await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    });
+
+    it('gives the focus back to the element that opened it', async () => {
+      function Host() {
+        const [open, setOpen] = useState(false);
+        return (
+          <MemoryRouter>
+            <button type="button" onClick={() => setOpen(true)}>
+              Abrir
+            </button>
+            {open && (
+              <OrderComandaScreen order={scheduled} now={NOW} callName="Sofi" walletAvailable={10} onBack={() => setOpen(false)} />
+            )}
+          </MemoryRouter>
+        );
+      }
+      render(<Host />);
+      const opener = screen.getByRole('button', { name: 'Abrir' });
+      opener.focus();
+      fireEvent.click(opener);
+
+      fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+
+      await waitFor(() => expect(opener).toHaveFocus());
+    });
   });
 
   describe('Programado', () => {
@@ -142,7 +192,7 @@ describe('OrderComandaScreen', () => {
       expect(screen.queryByRole('link', { name: /agregar platos/i })).not.toBeInTheDocument();
     });
 
-    it('pays now with the order and disables the button while it is in flight', () => {
+    it('pays now with the order from "Pagar ahora"', () => {
       const { onRequestPayNow } = renderScreen(awaiting);
       fireEvent.click(screen.getByRole('button', { name: /pagar ahora/i }));
       expect(onRequestPayNow).toHaveBeenCalledWith(awaiting);

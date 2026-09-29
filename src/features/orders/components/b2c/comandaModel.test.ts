@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { comandaFooter, comandaItems, isPaidWithMercadoPago } from './comandaModel';
+import { comandaFooter, comandaItems, formatComandaWhen, isPaidWithMercadoPago, lowerFirst } from './comandaModel';
 import type { OrderV2 } from '../../services/ordersApi';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
@@ -128,5 +128,21 @@ describe('comandaFooter', () => {
     });
 
     expect(texts.join(' ')).not.toMatch(/crédito/i);
+  });
+});
+
+describe('formatComandaWhen / lowerFirst', () => {
+  it('lowers only the first letter', () => {
+    expect(lowerFirst('Jueves 24 de Septiembre')).toBe('jueves 24 de Septiembre');
+    expect(lowerFirst('')).toBe('');
+  });
+
+  it('prefixes "Hoy, " (with the day in lower case) only for today', () => {
+    expect(formatComandaWhen({ dateLabel: 'Jueves 24 de septiembre', isToday: true, timeLabel: '13:00' })).toBe(
+      'Hoy, jueves 24 de septiembre · 13:00 hs',
+    );
+    expect(formatComandaWhen({ dateLabel: 'Viernes 25 de septiembre', isToday: false, timeLabel: '13:00' })).toBe(
+      'Viernes 25 de septiembre · 13:00 hs',
+    );
   });
 });

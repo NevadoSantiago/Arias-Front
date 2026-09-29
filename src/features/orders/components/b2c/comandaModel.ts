@@ -101,15 +101,32 @@ export function comandaFooter(
   return { label: 'Pagado con almuerzos', value: formatLunches(order.creditTotal), icon: 'lunches' };
 }
 
-function lowerFirst(text: string): string {
+export function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
-/** "Hoy, jueves 24 de septiembre · 13:00 hs" / "Viernes 25 de septiembre · 13:00 hs". */
+/**
+ * "Hoy, jueves 24 de septiembre · 13:00 hs" / "Viernes 25 de septiembre · 13:00 hs".
+ * Una sola forma de armarla para la comanda de "Mis pedidos" y la confirmación.
+ */
+export function formatComandaWhen({
+  dateLabel,
+  isToday,
+  timeLabel,
+}: {
+  dateLabel: string;
+  isToday: boolean;
+  timeLabel: string;
+}): string {
+  return `${isToday ? `Hoy, ${lowerFirst(dateLabel)}` : dateLabel} · ${timeLabel} hs`;
+}
+
 export function comandaWhenLabel(order: OrderV2, now: Date): string {
-  const date = formatOrderDateLabel(order.pickupAt);
-  const day = isSameRestaurantDay(order.pickupAt, now) ? `Hoy, ${lowerFirst(date)}` : date;
-  return `${day} · ${formatOrderTimeLabel(order.pickupAt)} hs`;
+  return formatComandaWhen({
+    dateLabel: formatOrderDateLabel(order.pickupAt),
+    isToday: isSameRestaurantDay(order.pickupAt, now),
+    timeLabel: formatOrderTimeLabel(order.pickupAt),
+  });
 }
 
 /**

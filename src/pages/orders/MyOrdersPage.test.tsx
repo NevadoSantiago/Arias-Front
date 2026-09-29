@@ -758,6 +758,17 @@ describe('MyOrdersPage — comanda del pedido (F20)', () => {
     expect(screen.queryByRole('dialog', { name: /pedido programado/i })).not.toBeInTheDocument();
   });
 
+  it('falls back to the nickname when the backend does not send displayName', async () => {
+    const user = useAuthStore.getState().user!;
+    useAuthStore.setState({ user: { ...user, displayName: undefined as unknown as string } });
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
+    renderPage();
+
+    const dialog = await openComanda();
+
+    expect(within(dialog).getByText('Sofi')).toBeInTheDocument();
+  });
+
   it('does not open the comanda from the buttons on the card', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
     renderPage();
@@ -819,7 +830,7 @@ describe('MyOrdersPage — comanda del pedido (F20)', () => {
     expect(within(cancelled).queryByRole('button', { name: /cancelar pedido|cambiar horario/i })).not.toBeInTheDocument();
   });
 
-  it('Pago pendiente: pays now from the comanda and cancelling says the balance does not change', async () => {
+  it('Pago pendiente: shows the Mercado Pago comanda without change actions and pays now from it', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([awaiting]);
     vi.mocked(resumeDirectCheckoutV2).mockResolvedValue({ orderId: 301, purchaseId: 'p', initPoint: 'https://mp.test/pay' });
     renderPage();

@@ -12,6 +12,7 @@ import { useOrders } from '@/features/orders/hooks/useOrders';
 import { usePayNow } from '@/features/orders/hooks/usePayNow';
 import { getRestaurantConfig, type OrderV2 } from '@/features/orders/services/ordersApi';
 import { useWallet } from '@/features/credits/hooks/useWallet';
+import { resolveCallName } from '@/features/auth/lib/callName';
 import { useAuthStore } from '@/features/auth/store/authStore';
 
 /**
@@ -63,7 +64,8 @@ export function MyOrdersPage() {
   const [comandaOrderId, setComandaOrderId] = useState<number | null>(null);
   // El saldo ("Te quedan N") solo se pide mientras hay una comanda abierta.
   const { data: wallet } = useWallet({ enabled: comandaOrderId !== null });
-  const callName = useAuthStore((s) => s.user?.displayName ?? '');
+  const user = useAuthStore((s) => s.user);
+  const callName = user ? resolveCallName(user) : '';
   /**
    * `pickupLeadMinutes` para el aviso de corte de "Pago pendiente" (F18) —
    * la misma config pública que ya usa `B2cOrderPage`. Tolerante a que no

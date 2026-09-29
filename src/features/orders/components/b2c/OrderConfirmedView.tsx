@@ -1,6 +1,7 @@
 import { Bell, Check, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ChefBackdrop, OrderComanda } from './OrderComanda';
+import { formatComandaWhen, lowerFirst } from './comandaModel';
 import type { ComandaFooter, ComandaItem } from './comandaModel';
 
 interface Props {
@@ -18,10 +19,6 @@ interface Props {
   /** Cantidad de platos SUMADOS a un pedido existente; null/ausente = pedido nuevo. */
   addedPlates?: number | null;
   onBackToMenu: () => void;
-}
-
-function lowerFirst(text: string): string {
-  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 /**
@@ -50,7 +47,7 @@ export function OrderConfirmedView({
   const headline = isAddition
     ? `Sumaste ${addedPlates === 1 ? '1 plato' : `${addedPlates} platos`} a tu pedido ${isToday ? 'de hoy' : `del ${lowerFirst(dayLongLabel)}`} a las ${pickupTimeLabel}.`
     : `${paidWithMercadoPago ? 'Mercado Pago aprobó el pago. ' : ''}Te esperamos ${dayWhen} a las ${pickupTimeLabel}.`;
-  const whenLabel = `${isToday ? `Hoy, ${lowerFirst(dayLongLabel)}` : dayLongLabel} · ${pickupTimeLabel} hs`;
+  const whenLabel = formatComandaWhen({ dateLabel: dayLongLabel, isToday, timeLabel: pickupTimeLabel });
 
   return (
     <ChefBackdrop>
