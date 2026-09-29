@@ -76,6 +76,7 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
           {namedPacks.map((pack, i) => (
             <PackOptionCard
               key={pack.id}
+              layout="stacked"
               pack={pack}
               checked={selection?.kind === 'pack' && selection.packId === pack.id}
               onSelect={() => onSelect({ kind: 'pack', packId: pack.id })}

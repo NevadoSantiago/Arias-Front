@@ -46,7 +46,11 @@ export function LooseCard({
         aria-checked={checked}
         aria-label={`Almuerzos sueltos, ${unitPriceLabel} cada uno`}
         onClick={onSelect}
-        className="flex min-h-11 w-full items-center gap-3 border-0 bg-transparent p-0 text-left font-sans text-foreground"
+        className={cn(
+          'flex min-h-11 w-full items-center gap-3 border-0 bg-transparent p-0 text-left font-sans text-foreground',
+          // Escritorio (F25): ícono y tilde arriba, el nombre en su propia línea debajo.
+          stacked && 'flex-wrap',
+        )}
       >
         <span
           aria-hidden="true"
@@ -57,7 +61,7 @@ export function LooseCard({
         >
           <UtensilsCrossed className="h-[26px] w-[26px]" aria-hidden="true" />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className={cn('flex min-w-0 flex-1 flex-col gap-1', stacked && 'order-last basis-full')}>
           <span className="font-display text-lg font-bold leading-tight">Sueltos</span>
           <span className="text-[13px] text-muted-foreground">De a uno, cuando quieras</span>
         </span>
@@ -65,6 +69,7 @@ export function LooseCard({
           aria-hidden="true"
           className={cn(
             'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2',
+            stacked && 'ml-auto',
             checked ? 'border-0 bg-primary-deep text-primary-foreground' : 'border-muted-foreground text-transparent',
           )}
         >

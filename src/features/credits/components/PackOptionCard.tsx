@@ -33,6 +33,39 @@ interface Props {
   stackLayers: 2 | 5;
   priceLabel: string;
   perLunchLabel: string;
+  /**
+   * `row` (default, móvil y "Comprar almuerzos"): ícono, nombre y tilde en una fila; cantidad y precio lado a lado.
+   * `stacked` (escritorio, F25): para la tarjeta angosta de la grilla — ícono y tilde arriba, el nombre con
+   * "Recomendado" debajo, la cantidad centrada y el precio abajo, como en `DesktopPacks.dc.html`.
+   */
+  layout?: 'row' | 'stacked';
+}
+
+function CheckCircle({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2',
+        checked ? 'border-0 bg-primary-deep text-primary-foreground' : 'border-muted-foreground text-transparent',
+      )}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+    </span>
+  );
+}
+
+function RecommendedBadge() {
+  return (
+    <span
+      data-part="recommended-badge"
+      className="inline-flex h-[22px] items-center rounded-full bg-foreground px-2.5 text-[10px] font-bold uppercase tracking-brand text-primary-foreground"
+    >
+      Recomendado
+    </span>
+  );
 }
 
 /**
@@ -40,10 +73,32 @@ interface Props {
  * `Packs.dc.html`. El precio y el descuento SIEMPRE vienen de `priceCents` /
  * `discountPercent` del pack, nunca hardcodeados.
  */
-export function PackOptionCard({ pack, checked, onSelect, recommended, stackLayers, priceLabel, perLunchLabel }: Props) {
+export function PackOptionCard({
+  pack,
+  checked,
+  onSelect,
+  recommended,
+  stackLayers,
+  priceLabel,
+  perLunchLabel,
+  layout = 'row',
+}: Props) {
+  const stacked = layout === 'stacked';
   const ariaLabel = `${pack.nombre}, ${formatLunches(pack.creditAmount)}, ${priceLabel}${
     pack.discountPercent > 0 ? `, ahorrás ${pack.discountPercent}%` : ''
   }`;
+
+  const icon = (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+        checked ? 'bg-primary-deep text-primary-foreground' : 'bg-muted text-primary-deep',
+      )}
+    >
+      <StackIcon layers={stackLayers} />
+    </span>
+  );
 
   return (
     <button
@@ -57,51 +112,52 @@ export function PackOptionCard({ pack, checked, onSelect, recommended, stackLaye
         checked ? 'border-primary-deep bg-background shadow-sm' : 'border-border bg-card',
       )}
     >
-      <span className="flex w-full items-center gap-3">
-        <span
-          aria-hidden="true"
-          className={cn(
-            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
-            checked ? 'bg-primary-deep text-primary-foreground' : 'bg-muted text-primary-deep',
-          )}
-        >
-          <StackIcon layers={stackLayers} />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col items-start gap-1.5 text-left">
-          <span className="font-display text-lg font-bold leading-tight">{pack.nombre}</span>
-          {recommended && (
-            <span className="inline-flex h-[22px] items-center rounded-full bg-foreground px-2.5 text-[10px] font-bold uppercase tracking-brand text-primary-foreground">
-              Recomendado
-            </span>
-          )}
-        </span>
-        <span
-          aria-hidden="true"
-          className={cn(
-            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2',
-            checked ? 'border-0 bg-primary-deep text-primary-foreground' : 'border-muted-foreground text-transparent',
-          )}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12.5l4.5 4.5L19 7.5" />
-          </svg>
-        </span>
+      <span data-testid="pack-card-header" className={cn('flex w-full items-center gap-3', stacked && 'justify-between')}>
+        {icon}
+        {!stacked && (
+          <span className="flex min-w-0 flex-1 flex-col items-start gap-1.5 text-left">
+            <span className="min-w-0 font-display text-lg font-bold leading-tight">{pack.nombre}</span>
+            {recommended && <RecommendedBadge />}
+          </span>
+        )}
+        <CheckCircle checked={checked} />
       </span>
 
-      <span className="flex w-full items-end justify-between gap-3">
-        <span className="flex flex-col items-start gap-1">
-          <span className="font-display text-[35px] font-black leading-none">{pack.creditAmount}</span>
-          <span className="text-[10px] font-semibold uppercase tracking-brand text-muted-foreground">almuerzos</span>
+      {stacked && (
+        <span className="flex min-h-[52px] w-full flex-col items-start gap-1.5 text-left">
+          <span className="font-display text-xl font-bold leading-tight">{pack.nombre}</span>
+          {recommended && <RecommendedBadge />}
         </span>
-        <span className="flex flex-col items-end gap-1 text-right">
-          <span className="text-lg font-bold leading-tight">{priceLabel}</span>
-          <span className="text-[13px] text-muted-foreground">{perLunchLabel}</span>
+      )}
+
+      {stacked ? (
+        <>
+          <span className="flex min-h-16 w-full flex-col items-center justify-center gap-1">
+            <span className="font-display text-[44px] font-black leading-none">{pack.creditAmount}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-brand text-muted-foreground">almuerzos</span>
+          </span>
+          <span aria-hidden="true" className="w-full border-t border-dashed border-border" />
+          <span data-part="price-block" className="flex w-full flex-col items-start gap-1">
+            <span className="text-xl font-bold leading-tight">{priceLabel}</span>
+            <span className="text-[13px] text-muted-foreground">{perLunchLabel}</span>
+          </span>
+        </>
+      ) : (
+        <span className="flex w-full items-end justify-between gap-3">
+          <span className="flex flex-col items-start gap-1">
+            <span className="font-display text-[35px] font-black leading-none">{pack.creditAmount}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-brand text-muted-foreground">almuerzos</span>
+          </span>
+          <span data-part="price-block" className="flex flex-col items-end gap-1 text-right">
+            <span className="text-lg font-bold leading-tight">{priceLabel}</span>
+            <span className="text-[13px] text-muted-foreground">{perLunchLabel}</span>
+          </span>
         </span>
-      </span>
+      )}
 
       {pack.discountPercent > 0 && (
         <>
-          <span aria-hidden="true" className="w-full border-t border-dashed border-border" />
+          {!stacked && <span aria-hidden="true" className="w-full border-t border-dashed border-border" />}
           <span className="flex items-center gap-2 text-[13.5px] font-bold text-success">Ahorrás {pack.discountPercent}%</span>
         </>
       )}

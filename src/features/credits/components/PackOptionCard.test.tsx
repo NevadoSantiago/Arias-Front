@@ -69,4 +69,41 @@ describe('PackOptionCard', () => {
     fireEvent.click(radio);
     expect(onSelect).toHaveBeenCalled();
   });
+  /**
+   * F25: en la tarjeta angosta de escritorio () el ícono y el
+   * tilde comparten la fila de arriba; "Recomendado" va debajo, fuera de esa
+   * fila, para que nunca quede pegado al tilde.
+   */
+  describe('stacked layout (narrow desktop cards)', () => {
+    it('renders the "Recomendado" badge outside the header row that holds the check', () => {
+      renderCard({ recommended: true, layout: 'stacked' });
+
+      const badge = screen.getByText('Recomendado');
+      const header = screen.getByTestId('pack-card-header');
+      expect(header).not.toContainElement(badge);
+      expect(badge).toHaveAttribute('data-part', 'recommended-badge');
+    });
+
+    it('keeps the name and the badge together under the icon row', () => {
+      renderCard({ recommended: true, layout: 'stacked' });
+
+      const header = screen.getByTestId('pack-card-header');
+      expect(header).not.toContainElement(screen.getByText('Paquete Semana'));
+    });
+
+    it('stacks the price under the amount instead of side by side', () => {
+      renderCard({ layout: 'stacked' });
+
+      const price = screen.getByText('$ 7.000');
+      const amount = screen.getByText('5');
+      expect(price.closest('[data-part="price-block"]')).not.toBeNull();
+      expect(amount.closest('[data-part="price-block"]')).toBeNull();
+    });
+  });
+
+  it('keeps the row layout by default: the badge stays in the name column next to the check row (mobile)', () => {
+    renderCard({ recommended: true });
+
+    expect(screen.getByTestId('pack-card-header')).toContainElement(screen.getByText('Recomendado'));
+  });
 });

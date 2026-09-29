@@ -34,7 +34,7 @@ export function PackPurchasePanel({ selection, expiryLabel, onPay, isPending }: 
             <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-deep text-primary-foreground">
               <Icon className="h-6 w-6" aria-hidden="true" />
             </span>
-            <span className="flex flex-col gap-0.5">
+            <span className="flex min-w-0 flex-col gap-0.5">
               <span className="font-display text-[17px] font-bold leading-tight">{selection.productName}</span>
               <span className="text-[13px] text-muted-foreground">{selection.amountLabel}</span>
             </span>
