@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
@@ -38,11 +38,11 @@ const b2bUser: AuthUser = {
   companyName: 'ACME',
 };
 
-function renderLayout() {
+function renderLayout(path = '/') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <AppLayout />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -88,5 +88,50 @@ describe('AppLayout — balance chip (B2C only)', () => {
     renderLayout();
 
     expect(await screen.findByText('Cargar')).toBeInTheDocument();
+  });
+});
+
+describe('AppLayout — desktop navigation (B2C only)', () => {
+  beforeEach(() => {
+    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false });
+    vi.mocked(getWallet).mockResolvedValue({ available: 3, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  it('B2B header unchanged: no navigation links, only the brand, the name, the company and log out', async () => {
+    useAuthStore.setState({ accessToken: 't', user: b2bUser, bootstrapping: false });
+
+    renderLayout('/orders/today');
+
+    await screen.findByText('ACME');
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Pedir' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Mis pedidos' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument();
+  });
+
+  it('B2C: offers "Pedir" and "Mis pedidos" and marks the current one', async () => {
+    useAuthStore.setState({ accessToken: 't', user: b2cUser, bootstrapping: false });
+
+    renderLayout('/orders/mine');
+
+    const nav = await screen.findByRole('navigation');
+    expect(within(nav).getByRole('link', { name: 'Pedir' })).toHaveAttribute('href', '/orders/today');
+    expect(within(nav).getByRole('link', { name: 'Pedir' })).not.toHaveAttribute('aria-current');
+    expect(within(nav).getByRole('link', { name: 'Mis pedidos' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('B2C: "Pedir" is the current one on the ordering page', async () => {
+    useAuthStore.setState({ accessToken: 't', user: b2cUser, bootstrapping: false });
+
+    renderLayout('/orders/today');
+
+    const nav = await screen.findByRole('navigation');
+    expect(within(nav).getByRole('link', { name: 'Pedir' })).toHaveAttribute('aria-current', 'page');
+    expect(within(nav).getByRole('link', { name: 'Mis pedidos' })).not.toHaveAttribute('aria-current');
   });
 });
