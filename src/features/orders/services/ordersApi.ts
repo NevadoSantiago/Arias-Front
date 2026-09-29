@@ -197,6 +197,13 @@ export interface OrderV2 {
    * estado !== 'PENDIENTE_PAGO'`; a pagar = `estado === 'PENDIENTE_PAGO'`.
    */
   paidWithMercadoPago: boolean;
+  /**
+   * Almuerzos del saldo que este pedido ya tiene reservados (pago parcial,
+   * B13/F23): en un pedido `PENDIENTE_PAGO`, lo que Mercado Pago NO cobra;
+   * `creditTotal - creditsFromBalance` es la parte de Mercado Pago. `0` = todo
+   * el pedido se paga (o pagó) por Mercado Pago, o se pagó solo con saldo.
+   */
+  creditsFromBalance: number;
 }
 
 /** Saldo de almuerzos insuficiente para confirmar el pedido — nunca se calcula en el cliente, viene del backend. */
@@ -242,6 +249,18 @@ const PICKUP_TIME_ERROR_TITLES = new Set([
   'pickup-time-not-aligned',
   'pickup-too-soon',
 ]);
+
+/**
+ * El saldo ya alcanza para el pedido entero (409 `balance-covers-order`, B13):
+ * el pago directo no cobra nada, así que hay que confirmarlo con el saldo
+ * (F23). Pasa cuando el saldo que vio el cliente estaba desactualizado.
+ */
+export class BalanceCoversOrderError extends Error {
+  constructor() {
+    super('Tus almuerzos disponibles ahora alcanzan para este pedido. Confirmalo con tu saldo.');
+    this.name = 'BalanceCoversOrderError';
+  }
+}
 
 /**
  * La compra directa no está disponible (503 `direct-purchase-unavailable`)
@@ -413,6 +432,9 @@ function mapOrderV2Error(err: unknown, { pickupTimeChange = false }: { pickupTim
     }
     if (data?.title === 'insufficient-credits') {
       return new InsufficientCreditsError();
+    }
+    if (data?.title === 'balance-covers-order') {
+      return new BalanceCoversOrderError();
     }
     if (data?.title === 'order-not-modifiable') {
       return new OrderNotModifiableError();

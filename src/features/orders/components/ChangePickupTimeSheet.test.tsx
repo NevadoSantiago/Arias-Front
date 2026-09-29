@@ -33,6 +33,7 @@ const order: OrderV2 = {
   modifiable: true,
   pickupTimeChangeable: true,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 
 function renderSheet(props: Partial<React.ComponentProps<typeof ChangePickupTimeSheet>> = {}) {

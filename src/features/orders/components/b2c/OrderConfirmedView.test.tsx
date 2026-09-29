@@ -106,6 +106,7 @@ describe('OrderConfirmedView', () => {
     const directProps = {
       footer: { label: 'Pagado con Mercado Pago', value: '$ [PRECIO]', icon: 'card' as const },
       paidWithMercadoPago: true,
+      creditsFromBalance: 0,
       items: items.map((i) => ({ ...i, costLabel: '$ [PRECIO]' })),
     };
 

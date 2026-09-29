@@ -24,6 +24,7 @@ const scheduled: OrderV2 = {
   modifiable: true,
   pickupTimeChangeable: true,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 
 function renderScreen(order: OrderV2, props: Partial<React.ComponentProps<typeof OrderComandaScreen>> = {}) {
@@ -172,6 +173,7 @@ describe('OrderComandaScreen', () => {
       ...scheduled,
       estado: 'PENDIENTE_PAGO',
       paidWithMercadoPago: true,
+      creditsFromBalance: 0,
       modifiable: false,
       pickupTimeChangeable: false,
     };
@@ -227,6 +229,7 @@ describe('OrderComandaScreen', () => {
         ...scheduled,
         estado: 'CONFIRMADO',
         paidWithMercadoPago: true,
+        creditsFromBalance: 0,
         cancellable: false,
         modifiable: false,
         pickupTimeChangeable: false,

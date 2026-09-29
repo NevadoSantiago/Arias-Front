@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
 import {
   addOrderItemsV2,
+  BalanceCoversOrderError,
   changeOrderPickupTimeV2,
   DirectCheckoutNotResumableError,
   DirectCheckoutUnavailableError,
@@ -210,6 +211,14 @@ describe('startDirectCheckoutV2', () => {
       startDirectCheckoutV2({ items: [], pickupAt: '2026-05-21T15:00:00Z', notas: null }),
     ).rejects.toBeInstanceOf(DirectCheckoutUnavailableError);
   });
+
+  it('maps a 409 balance-covers-order response to BalanceCoversOrderError (F23, B13)', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce({ response: { data: { title: 'balance-covers-order' } } });
+
+    await expect(
+      startDirectCheckoutV2({ items: [], pickupAt: '2026-05-21T15:00:00Z', notas: null }),
+    ).rejects.toBeInstanceOf(BalanceCoversOrderError);
+  });
 });
 
 describe('resumeDirectCheckoutV2', () => {
@@ -259,6 +268,7 @@ describe('addOrderItemsV2', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     };
     vi.mocked(api.post).mockResolvedValueOnce({ data: order });
 
@@ -305,6 +315,7 @@ describe('removeOrderItemV2', () => {
       modifiable: false,
       pickupTimeChangeable: false,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     };
     vi.mocked(api.delete).mockResolvedValueOnce({ data: order });
 
@@ -339,6 +350,7 @@ describe('changeOrderPickupTimeV2', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     };
     vi.mocked(api.patch).mockResolvedValueOnce({ data: order });
 

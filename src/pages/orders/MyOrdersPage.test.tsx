@@ -111,6 +111,7 @@ const cancellableOrder: OrderV2 = {
   modifiable: true,
   pickupTimeChangeable: true,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 
 const nonCancellableOrder: OrderV2 = {
@@ -121,6 +122,7 @@ const nonCancellableOrder: OrderV2 = {
   modifiable: false,
   pickupTimeChangeable: false,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 
 const cancelledOrder: OrderV2 = {
@@ -131,6 +133,7 @@ const cancelledOrder: OrderV2 = {
   modifiable: false,
   pickupTimeChangeable: false,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 
 const pastOrder: OrderV2 = {
@@ -142,6 +145,7 @@ const pastOrder: OrderV2 = {
   modifiable: false,
   pickupTimeChangeable: false,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 
 describe('MyOrdersPage', () => {
@@ -357,6 +361,7 @@ describe('MyOrdersPage — PENDIENTE_PAGO ("Pago pendiente")', () => {
     modifiable: true,
     pickupTimeChangeable: true,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
   };
 
   // Reloj fijo el mismo día del pedido (antes del retiro) para que
@@ -480,6 +485,7 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     modifiable: true,
     pickupTimeChangeable: true,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
     notas: 'Pedido futuro programado',
   };
   const todayConfirmado: OrderV2 = {
@@ -491,6 +497,7 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     modifiable: false,
     pickupTimeChangeable: false,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
     notas: 'Pedido confirmado de hoy',
   };
   const pastConfirmado: OrderV2 = {
@@ -502,6 +509,7 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     modifiable: false,
     pickupTimeChangeable: false,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
     notas: 'Pedido confirmado pasado',
   };
   const pastPendiente: OrderV2 = {
@@ -513,6 +521,7 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     modifiable: false,
     pickupTimeChangeable: false,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
     notas: 'Pedido pendiente pasado',
   };
   const futureCancelado: OrderV2 = {
@@ -524,6 +533,7 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     modifiable: false,
     pickupTimeChangeable: false,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
     notas: 'Pedido cancelado futuro',
   };
   // Fix de revisión: un CONFIRMADO con retiro en un día FUTURO (no hoy)
@@ -538,6 +548,7 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     modifiable: false,
     pickupTimeChangeable: false,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
     notas: 'Pedido confirmado futuro',
   };
 
@@ -701,6 +712,7 @@ describe('MyOrdersPage — comanda del pedido (F20)', () => {
     id: 301,
     estado: 'PENDIENTE_PAGO',
     paidWithMercadoPago: true,
+    creditsFromBalance: 0,
     modifiable: false,
     pickupTimeChangeable: false,
   };

@@ -28,6 +28,7 @@ function order(overrides: Partial<OrderV2> = {}): OrderV2 {
     modifiable: true,
     pickupTimeChangeable: true,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
     ...overrides,
   };
 }

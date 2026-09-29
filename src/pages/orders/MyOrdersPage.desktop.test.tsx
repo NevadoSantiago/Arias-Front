@@ -51,6 +51,7 @@ const scheduled: OrderV2 = {
   modifiable: true,
   pickupTimeChangeable: true,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 const second: OrderV2 = { ...scheduled, id: 301, pickupAt: new Date(NOW.getTime() + 5 * HOUR_MS).toISOString() };
 const past: OrderV2 = {

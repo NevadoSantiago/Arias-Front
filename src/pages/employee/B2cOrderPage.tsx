@@ -25,6 +25,7 @@ import { usePayNow } from '@/features/orders/hooks/usePayNow';
 import { useRemoveOrderItem } from '@/features/orders/hooks/useRemoveOrderItem';
 import {
   addOrderItemsV2,
+  BalanceCoversOrderError,
   DirectCheckoutUnavailableError,
   getAvailableDishes,
   getDisabledDates,
@@ -462,6 +463,18 @@ export function B2cOrderPage() {
       cart.clear();
       window.location.href = checkout.initPoint;
     } catch (err) {
+      if (err instanceof BalanceCoversOrderError) {
+        // F23: el saldo que vio el cliente estaba desactualizado y ya alcanza
+        // para todo el pedido — no hay nada que cobrar. Se vuelve a la revisión
+        // con el motivo y el saldo real, y el cliente lo confirma con su saldo
+        // (nunca se gasta el saldo sin que lo vea).
+        queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
+        setPayDirectOpen(false);
+        setPayDirectError(null);
+        setSubmitError(err.message);
+        setReviewOpen(true);
+        return;
+      }
       setPayDirectError(
         err instanceof DirectCheckoutUnavailableError
           ? err.message

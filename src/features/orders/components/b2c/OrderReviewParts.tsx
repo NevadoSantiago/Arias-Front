@@ -55,8 +55,9 @@ export function PickupNotices({
 
 /**
  * Cálculo de saldo — solo informativo; el servidor decide siempre si alcanza.
- * En el panel de escritorio (`missingNotice`), si el pedido usa más de lo
- * disponible, dice "Te faltan N" y ofrece pagar solo este pedido o comprar un
+ * Con `missingNotice` (hoja móvil y panel de escritorio), si el pedido usa más
+ * de lo disponible, dice "Te faltan N" y ofrece usar lo disponible y pagar el
+ * resto con Mercado Pago (o pagar solo este pedido, sin saldo) o comprar un
  * paquete, en vez de un "Te quedan" negativo.
  */
 export function BalanceBox({
@@ -72,11 +73,18 @@ export function BalanceBox({
   const left = walletAvailable - totalLunches;
 
   if (missingNotice && left < 0) {
+    const missing = -left;
+    // Con saldo parcial el servidor reserva lo disponible y cobra solo el resto (F23).
+    const usable = Math.max(0, walletAvailable);
     return (
       <div className="flex flex-col gap-2 rounded-md border-[1.5px] border-warning bg-warning/20 p-3.5">
-        <strong className="text-[15px] font-bold text-foreground">Te faltan {formatLunches(-left)}</strong>
+        <strong className="text-[15px] font-bold text-foreground">
+          {missing === 1 ? 'Te falta 1 almuerzo' : `Te faltan ${missing} almuerzos`}
+        </strong>
         <span className="text-[13.5px] leading-snug text-foreground">
-          Podés pagar solo este pedido con Mercado Pago, o comprar un paquete y ahorrar.
+          {usable > 0
+            ? `Podés usar ${usable === 1 ? 'tu almuerzo' : `tus ${usable} almuerzos`} y pagar ${missing} con Mercado Pago, o comprar un paquete y ahorrar.`
+            : 'Podés pagar solo este pedido con Mercado Pago, o comprar un paquete y ahorrar.'}
         </span>
         <Link to="/credits/packs" className="flex h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep">
           Comprar almuerzos

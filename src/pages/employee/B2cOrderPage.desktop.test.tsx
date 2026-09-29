@@ -90,6 +90,7 @@ const placed: OrderV2 = {
   modifiable: true,
   pickupTimeChangeable: true,
   paidWithMercadoPago: false,
+  creditsFromBalance: 0,
 };
 
 function renderPage() {
@@ -200,7 +201,7 @@ describe('B2cOrderPage — desktop layout (F22a)', () => {
     await addDishToCart();
 
     const panel = await screen.findByRole('complementary', { name: 'Tu pedido' });
-    expect(await within(panel).findByText('Te faltan 1 almuerzo')).toBeInTheDocument();
+    expect(await within(panel).findByText('Te falta 1 almuerzo')).toBeInTheDocument();
     expect(within(panel).queryByText('Te quedan')).not.toBeInTheDocument();
   });
 

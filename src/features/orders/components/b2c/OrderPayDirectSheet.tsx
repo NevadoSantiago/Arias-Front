@@ -1,4 +1,4 @@
-import { Clock3, CreditCard, Package2 } from 'lucide-react';
+import { Clock3, CreditCard, Package2, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
@@ -26,13 +26,19 @@ interface Props {
 }
 
 /**
- * "Pagá este pedido con Mercado Pago" (F18, prototipo `OrderPayDirect.dc.html`,
+ * "Pagá este pedido con Mercado Pago" / "Pagá lo que falta con Mercado Pago"
+ * (F18, F23, prototipo `OrderPayDirect.dc.html`,
  * D3 aprobado) — se abre cuando `placeOrderV2` rechaza un pedido NUEVO con
  * `InsufficientCreditsError` (el servidor sigue decidiendo el saldo; acá solo
  * se reacciona a su respuesta). El precio por almuerzo y el total son SOLO
  * informativos, calculados del lado del cliente a partir del pack `DAY`
  * (`priceCents / creditAmount`, redondeo hacia arriba, igual que el backend);
  * el cobro real lo determina siempre `startDirectCheckoutV2`.
+ *
+ * Pago parcial (F23, D5, backend B13): con 0 < N < total almuerzos
+ * disponibles, el servidor reserva esos N del saldo y Mercado Pago cobra solo
+ * el resto (M = total − N). El precio mostrado es el de M almuerzos; N sale de
+ * la billetera que la página ya tiene y, como todo acá, es solo informativo.
  */
 export function OrderPayDirectSheet({
   open,
@@ -56,10 +62,17 @@ export function OrderPayDirectSheet({
   const namedPacks = (packs ?? []).filter((p) => p.code !== DAY_CODE && p.enabled);
   const recommended = pickRecommended(namedPacks);
 
+  // Pago parcial: solo si el saldo cubre una parte (0 < N < total). Con 0 se
+  // paga el pedido entero; si el saldo ya alcanzara, el servidor lo rechaza
+  // (`balance-covers-order`) y la página lo resuelve.
+  const fromBalance = walletAvailable > 0 && walletAvailable < totalLunches ? walletAvailable : 0;
+  const partial = fromBalance > 0;
+  const payLunches = totalLunches - fromBalance;
+
   // Redondeo hacia arriba: mismo criterio que `unitPriceCentsFor` en el
   // backend (`CreditPurchaseService`) — nunca mostrar de menos.
   const perLunchCents = dayPack ? Math.ceil(dayPack.priceCents / dayPack.creditAmount) : null;
-  const totalCents = perLunchCents !== null ? perLunchCents * totalLunches : null;
+  const totalCents = perLunchCents !== null ? perLunchCents * payLunches : null;
 
   // Fix de review: si `getPacks` falla o no hay un pack DAY habilitado, el
   // precio es desconocido — antes el botón quedaba habilitado con un total
@@ -75,21 +88,23 @@ export function OrderPayDirectSheet({
     perLunchCents !== null &&
     recommendedPerLunchCents < perLunchCents;
 
-  const zero = walletAvailable === 0;
-  const subtitle = zero
-    ? 'No tenés almuerzos disponibles. Pagás solo este pedido y listo.'
-    : `Tenés ${formatLunches(walletAvailable)} y este pedido usa ${formatLunches(totalLunches)}.`;
-  const partialNote = zero
-    ? null
-    : `Pagás el pedido completo con Mercado Pago. ${
-        walletAvailable === 1
-          ? 'Tu almuerzo disponible queda intacto'
-          : `Tus ${walletAvailable} almuerzos disponibles quedan intactos`
-      } para otro día.`;
+  const title = partial ? 'Pagá lo que falta con Mercado Pago' : 'Pagá este pedido con Mercado Pago';
+  const subtitle = partial
+    ? `Usás ${formatLunches(fromBalance)} de tu saldo y pagás ${payLunches} con Mercado Pago${
+        totalCents !== null ? ` · ${formatPrice(totalCents)}` : ''
+      }`
+    : walletAvailable === 0
+      ? 'No tenés almuerzos disponibles. Pagás solo este pedido y listo.'
+      : `Tenés ${formatLunches(walletAvailable)} y este pedido usa ${formatLunches(totalLunches)}.`;
+  const note = partial
+    ? `Al pagar reservamos tu pedido y ${fromBalance === 1 ? 'tu almuerzo' : `tus ${fromBalance} almuerzos`}. Si el pago no se aprueba, se cancela y ${
+        fromBalance === 1 ? 'el almuerzo vuelve' : 'vuelven'
+      } a tu saldo.`
+    : 'Reservamos tu pedido mientras pagás. Si el pago no se aprueba, se cancela solo.';
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent aria-label="Pagá este pedido con Mercado Pago" variant={presentation} className={presentation === 'dialog' ? 'max-w-[600px] p-0' : 'p-0'}>
+      <SheetContent aria-label={title} variant={presentation} className={presentation === 'dialog' ? 'max-w-[600px] p-0' : 'p-0'}>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
           <div className="flex items-start gap-3">
             <span
@@ -99,16 +114,10 @@ export function OrderPayDirectSheet({
               <CreditCard className="h-[22px] w-[22px]" aria-hidden="true" />
             </span>
             <div className="flex flex-col gap-1">
-              <SheetTitle>Pagá este pedido con Mercado Pago</SheetTitle>
+              <SheetTitle>{title}</SheetTitle>
               <SheetDescription className="text-sm text-muted-foreground">{subtitle}</SheetDescription>
             </div>
           </div>
-
-          {partialNote && (
-            <p className="m-0 rounded-md border border-warning bg-warning/20 p-3 text-[13.5px] leading-relaxed text-foreground">
-              {partialNote}
-            </p>
-          )}
 
           <div className="rounded-md border border-border bg-background">
             <ul className="m-0 flex list-none flex-col gap-1.5 p-3.5">
@@ -132,18 +141,63 @@ export function OrderPayDirectSheet({
               {pickupLabel}
             </p>
             <div aria-hidden="true" className="border-t border-dashed border-border" />
-            <div className="flex items-baseline justify-between gap-3 p-3.5">
-              <span className="flex flex-col gap-0.5">
-                <span className="text-sm font-bold text-foreground">Total</span>
-                {perLunchCents !== null && (
-                  <span className="text-xs text-muted-foreground">{`${totalLunches} × ${formatPrice(perLunchCents)}`}</span>
-                )}
-              </span>
-              <span className="text-lg font-bold text-foreground">
-                {totalCents !== null ? formatPrice(totalCents) : '—'}{' '}
-                <span className="text-sm font-semibold text-muted-foreground">· {formatLunches(totalLunches)}</span>
-              </span>
-            </div>
+            {partial ? (
+              <div className="flex flex-col gap-2.5 p-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-2.5 text-sm">
+                    <span
+                      aria-hidden="true"
+                      className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-muted text-primary-deep"
+                    >
+                      <UtensilsCrossed className="h-[17px] w-[17px]" aria-hidden="true" />
+                    </span>
+                    De tu saldo
+                  </span>
+                  <span className="whitespace-nowrap text-[15px] font-bold text-foreground">
+                    {formatLunches(fromBalance)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-2.5 text-sm">
+                    <span
+                      aria-hidden="true"
+                      className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-muted text-primary-deep"
+                    >
+                      <CreditCard className="h-[17px] w-[17px]" aria-hidden="true" />
+                    </span>
+                    <span className="flex flex-col gap-px">
+                      <span>Pagás con Mercado Pago</span>
+                      {perLunchCents !== null && (
+                        <span className="text-xs text-muted-foreground">{`${payLunches} × ${formatPrice(perLunchCents)}`}</span>
+                      )}
+                    </span>
+                  </span>
+                  <span className="whitespace-nowrap text-[15px] font-bold text-foreground">
+                    {formatLunches(payLunches)}
+                  </span>
+                </div>
+                <div aria-hidden="true" className="border-t border-border" />
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[15px] font-bold text-foreground">Total a pagar</span>
+                  <span className="text-lg font-bold text-foreground">
+                    {totalCents !== null ? formatPrice(totalCents) : '—'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-baseline justify-between gap-3 p-3.5">
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-bold text-foreground">Total</span>
+                  {perLunchCents !== null && (
+                    <span className="text-xs text-muted-foreground">{`${totalLunches} × ${formatPrice(perLunchCents)}`}</span>
+                  )}
+                </span>
+                <span className="text-lg font-bold text-foreground">
+                  {totalCents !== null ? formatPrice(totalCents) : '—'}{' '}
+                  <span className="text-sm font-semibold text-muted-foreground">· {formatLunches(totalLunches)}</span>
+                </span>
+              </div>
+            )}
           </div>
 
           {showCallout && recommended && (
@@ -202,7 +256,7 @@ export function OrderPayDirectSheet({
                   : 'Pagar con Mercado Pago'}
           </button>
           <span className="text-center text-xs leading-relaxed text-muted-foreground">
-            Reservamos tu pedido mientras pagás. Si el pago no se aprueba, se cancela solo.
+            {note}
           </span>
           <button
             type="button"

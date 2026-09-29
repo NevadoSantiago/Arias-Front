@@ -15,6 +15,7 @@ import {
   getOrdersV2,
   getPickupSlots,
   getRestaurantConfig,
+  BalanceCoversOrderError,
   InsufficientCreditsError,
   OrderNotModifiableError,
   placeOrderV2,
@@ -211,6 +212,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     });
     renderPage();
 
@@ -295,6 +297,50 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   });
 
   /**
+   * F23 (D5, backend B13): con saldo parcial, el pago directo usa los
+   * almuerzos disponibles y Mercado Pago cobra SOLO el resto. Lo que se
+   * muestra es informativo; el servidor decide y cobra.
+   */
+  it('offers to pay only what is missing when the balance covers part of the order', async () => {
+    vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
+    vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
+    vi.mocked(getPacks).mockResolvedValue([
+      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+    ]);
+    renderPage();
+
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+
+    expect(await screen.findByText('Pagá lo que falta con Mercado Pago')).toBeInTheDocument();
+    // El pedido usa 2 almuerzos y hay 1 disponible: Mercado Pago cobra 1 × $1.500,00.
+    expect(await screen.findByRole('button', { name: /pagar \$\s?1\.500,00 con mercado pago/i })).toBeInTheDocument();
+  });
+
+  it('goes back to the review with a clear message when the server says the balance now covers the order (409)', async () => {
+    vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
+    vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
+    vi.mocked(getPacks).mockResolvedValue([
+      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+    ]);
+    vi.mocked(startDirectCheckoutV2).mockRejectedValueOnce(new BalanceCoversOrderError());
+    const { queryClient } = renderPage();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?1\.500,00 con mercado pago/i }));
+
+    // Nunca se cobra ni se redirige: vuelve la revisión con el motivo y el saldo se vuelve a pedir.
+    expect(await screen.findByText(/tus almuerzos disponibles ahora alcanzan para este pedido/i)).toBeInTheDocument();
+    expect(screen.queryByText('Pagá lo que falta con Mercado Pago')).not.toBeInTheDocument();
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+    expect(placeOrderV2).toHaveBeenCalledTimes(1);
+  });
+
+  /**
    * Corrección F7.1: `B2cOrderPage` usaba la clave `['creditWallet']`,
    * distinta de `['creditsWallet']` (el `useWallet` que respaldan el chip
    * del header y `WalletBalance`, y `CreditsPacksPage`) — invalidar tras un
@@ -313,6 +359,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     });
     const { queryClient } = renderPage();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -388,6 +435,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
       ...overrides,
     });
     vi.mocked(getOrdersV2).mockResolvedValue([
@@ -429,6 +477,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
         modifiable: true,
         pickupTimeChangeable: true,
         paidWithMercadoPago: false,
+        creditsFromBalance: 0,
       },
     ]);
 
@@ -797,6 +846,7 @@ describe('B2cOrderPage — the cart is independent per day (F12)', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     });
     renderPage();
 
@@ -920,6 +970,7 @@ describe('B2cOrderPage — shows the selected day existing orders (F15)', () => 
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
       ...overrides,
     };
   }
@@ -1060,6 +1111,7 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
       ...overrides,
     };
   }
@@ -1140,6 +1192,7 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     });
     renderPage();
 
@@ -1169,6 +1222,7 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     });
     renderPage();
 
@@ -1398,6 +1452,7 @@ describe('B2cOrderPage — removing a dish with confirmation (F16)', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
       ...overrides,
     };
   }
@@ -1564,6 +1619,7 @@ describe('B2cOrderPage — the cart survives navigation (F24)', () => {
       modifiable: true,
       pickupTimeChangeable: true,
       paidWithMercadoPago: false,
+      creditsFromBalance: 0,
     });
     const first = renderPage();
     await addDishToCart();

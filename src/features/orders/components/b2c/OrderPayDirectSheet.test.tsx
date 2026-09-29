@@ -100,12 +100,73 @@ describe('OrderPayDirectSheet', () => {
     expect(screen.queryByText(/queda intacto|quedan intactos/i)).not.toBeInTheDocument();
   });
 
-  it('shows the partial-balance subtitle and the mustard note that lunches stay untouched', async () => {
-    vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
-    renderSheet({ walletAvailable: 1, totalLunches: 2 });
+  describe('partial balance (F23, D5)', () => {
+    it('titles the dialog "Pagá lo que falta" and says how many lunches come from the balance', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ walletAvailable: 1, totalLunches: 2 });
 
-    expect(await screen.findByText(/tenés 1 almuerzo y este pedido usa 2 almuerzos/i)).toBeInTheDocument();
-    expect(screen.getByText(/tu almuerzo disponible queda intacto/i)).toBeInTheDocument();
+      expect(await screen.findByText('Pagá lo que falta con Mercado Pago')).toBeInTheDocument();
+      expect(screen.queryByText('Pagá este pedido con Mercado Pago')).not.toBeInTheDocument();
+      // Usás 1 almuerzo de tu saldo y pagás 1 con Mercado Pago · $1.500 (M × precio DÍA)
+      expect(
+        await screen.findByText(/usás 1 almuerzo de tu saldo y pagás 1 con mercado pago · \$\s?1\.500,00/i),
+      ).toBeInTheDocument();
+    });
+
+    it('splits the order into the balance part and the Mercado Pago part with the price of M lunches only', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ walletAvailable: 1, totalLunches: 3, lines: [...lines, { ...lines[0], localId: 'l3' }] });
+
+      expect(await screen.findByText('De tu saldo')).toBeInTheDocument();
+      expect(screen.getByText('Pagás con Mercado Pago')).toBeInTheDocument();
+      // M = 3 - 1 = 2 → 2 × $1.500,00 = $3.000,00
+      expect(await screen.findByText(/2 × \$\s?1\.500,00/)).toBeInTheDocument();
+      expect(screen.getByText('Total a pagar')).toBeInTheDocument();
+      expect(screen.getAllByText(/\$\s?3\.000,00/).length).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i })).toBeEnabled();
+    });
+
+    it('pluralizes the balance part and the note (2 lunches from the balance)', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ walletAvailable: 2, totalLunches: 3, lines: [...lines, { ...lines[0], localId: 'l3' }] });
+
+      expect(await screen.findByText(/usás 2 almuerzos de tu saldo y pagás 1 con mercado pago/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /al pagar reservamos tu pedido y tus 2 almuerzos\. si el pago no se aprueba, se cancela y vuelven a tu saldo\./i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('explains that the single reserved lunch goes back to the balance if the payment fails', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ walletAvailable: 1, totalLunches: 2 });
+
+      expect(
+        await screen.findByText(
+          'Al pagar reservamos tu pedido y tu almuerzo. Si el pago no se aprueba, se cancela y el almuerzo vuelve a tu saldo.',
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/queda intacto|quedan intactos|pedido completo/i)).not.toBeInTheDocument();
+    });
+
+    it('keeps the pack reminder and its link in the partial variant', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ walletAvailable: 1, totalLunches: 2 });
+
+      expect(await screen.findByText(/paquete semana/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Ver paquetes' })).toHaveAttribute('href', '/credits/packs');
+    });
+
+    it('keeps the full-order copy and amount with an empty balance', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ walletAvailable: 0, totalLunches: 2 });
+
+      expect(await screen.findByText('Pagá este pedido con Mercado Pago')).toBeInTheDocument();
+      expect(screen.queryByText('De tu saldo')).not.toBeInTheDocument();
+      expect(screen.getByText('Reservamos tu pedido mientras pagás. Si el pago no se aprueba, se cancela solo.')).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i })).toBeInTheDocument();
+    });
   });
 
   it('shows the ticket with dishes, the pickup line and the total from the DAY pack price, rounded up', async () => {

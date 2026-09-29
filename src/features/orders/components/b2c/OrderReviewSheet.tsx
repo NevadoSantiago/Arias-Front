@@ -90,7 +90,7 @@ export function OrderReviewSheet({
             onJoinOrder={onJoinOrder}
           />
 
-          <BalanceBox walletAvailable={walletAvailable} totalLunches={totalLunches} />
+          <BalanceBox walletAvailable={walletAvailable} totalLunches={totalLunches} missingNotice />
 
           {submitError && (
             <p role="alert" className="text-xs text-destructive">

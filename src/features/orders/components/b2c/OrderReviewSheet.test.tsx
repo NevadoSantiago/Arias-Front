@@ -114,6 +114,39 @@ describe('OrderReviewSheet', () => {
     expect(screen.getByText('10 almuerzos')).toBeInTheDocument();
   });
 
+  describe('"Te faltan N" box (F23)', () => {
+    it('offers to use the available lunch and pay the rest with Mercado Pago when the balance covers part', () => {
+      vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+      renderSheet({ walletAvailable: 1, totalLunches: 3 });
+
+      expect(screen.getByText('Te faltan 2 almuerzos')).toBeInTheDocument();
+      expect(
+        screen.getByText('Podés usar tu almuerzo y pagar 2 con Mercado Pago, o comprar un paquete y ahorrar.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Te quedan')).not.toBeInTheDocument();
+    });
+
+    it('pluralizes the available lunches', () => {
+      vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+      renderSheet({ walletAvailable: 2, totalLunches: 3 });
+
+      expect(screen.getByText('Te falta 1 almuerzo')).toBeInTheDocument();
+      expect(
+        screen.getByText('Podés usar tus 2 almuerzos y pagar 1 con Mercado Pago, o comprar un paquete y ahorrar.'),
+      ).toBeInTheDocument();
+    });
+
+    it('keeps the "pay only this order" text with an empty balance', () => {
+      vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+      renderSheet({ walletAvailable: 0, totalLunches: 2 });
+
+      expect(screen.getByText('Te faltan 2 almuerzos')).toBeInTheDocument();
+      expect(
+        screen.getByText('Podés pagar solo este pedido con Mercado Pago, o comprar un paquete y ahorrar.'),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('hides the balance box when the wallet balance is not known yet', () => {
     vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
     renderSheet({ walletAvailable: null });

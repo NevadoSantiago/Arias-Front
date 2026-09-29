@@ -38,6 +38,7 @@ function order(items: OrderItemV2[]): OrderV2 {
     modifiable: true,
     pickupTimeChangeable: true,
     paidWithMercadoPago: false,
+    creditsFromBalance: 0,
   };
 }
 
