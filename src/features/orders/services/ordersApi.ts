@@ -186,6 +186,13 @@ export interface OrderV2 {
   modifiable: boolean;
   /** `true` si el backend admite cambiar el horario de retiro (F19, `PATCH /orders/{id}/pickup-time`). */
   pickupTimeChangeable: boolean;
+  /**
+   * `true` si el pedido tiene CUALQUIER compra DIRECT de Mercado Pago —
+   * también una PENDING en un pedido `PENDIENTE_PAGO` (B12). Se lee siempre
+   * junto con `estado`: pagado con Mercado Pago = `paidWithMercadoPago &&
+   * estado !== 'PENDIENTE_PAGO'`; a pagar = `estado === 'PENDIENTE_PAGO'`.
+   */
+  paidWithMercadoPago: boolean;
 }
 
 /** Saldo de almuerzos insuficiente para confirmar el pedido — nunca se calcula en el cliente, viene del backend. */

@@ -46,6 +46,7 @@ function makeOrder(overrides: Partial<OrderV2> = {}): OrderV2 {
     cancellable: true,
     modifiable: true,
     pickupTimeChangeable: true,
+    paidWithMercadoPago: false,
     ...overrides,
   };
 }

@@ -33,6 +33,7 @@ const order: OrderV2 = {
   cancellable: true,
   modifiable: true,
   pickupTimeChangeable: true,
+  paidWithMercadoPago: false,
 };
 
 function renderSheet(props: Partial<React.ComponentProps<typeof CancelOrderSheet>> = {}) {

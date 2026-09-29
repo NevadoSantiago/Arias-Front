@@ -76,7 +76,7 @@ const baseUser: AuthUser = {
   firstName: 'Lucía',
   lastName: null,
   nickname: null,
-  displayName: 'Test',
+  displayName: 'Sofi',
   role: 'EMPLOYEE',
   companyId: null,
   companyName: null,
@@ -200,10 +200,13 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       estado: 'PENDIENTE',
       creditTotal: 2,
       notas: null,
-      items: [],
+      items: [
+        { id: 1, dishId: 10, dishNombre: 'Milanesa napolitana', dishCategoria: 'Básico', sideId: null, sideNombre: null, creditCost: 2, notas: null },
+      ],
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
     });
     renderPage();
 
@@ -212,6 +215,12 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
     expect(await screen.findByText('¡Pedido confirmado!')).toBeInTheDocument();
+    // F20: la confirmación es la comanda del pedido, con el nombre con el que lo llaman.
+    expect(screen.getByText('Comanda Nº 0099')).toBeInTheDocument();
+    expect(screen.getByText('Te vamos a llamar como')).toBeInTheDocument();
+    expect(screen.getByText('Sofi')).toBeInTheDocument();
+    expect(screen.getByText('Reservaste 2 almuerzos para este pedido')).toBeInTheDocument();
+    expect(screen.getByText('Te quedan 10 almuerzos')).toBeInTheDocument();
     expect(placeOrderV2).toHaveBeenCalledWith({
       items: [{ dishId: 10, sideId: null, notas: null }],
       pickupAt: '2026-05-21T15:00:00Z',
@@ -299,6 +308,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
     });
     const { queryClient } = renderPage();
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -373,6 +383,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
       ...overrides,
     });
     vi.mocked(getOrdersV2).mockResolvedValue([
@@ -413,6 +424,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
         cancellable: true,
         modifiable: true,
         pickupTimeChangeable: true,
+        paidWithMercadoPago: false,
       },
     ]);
 
@@ -724,6 +736,7 @@ describe('B2cOrderPage — the cart is independent per day (F12)', () => {
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
     });
     renderPage();
 
@@ -846,6 +859,7 @@ describe('B2cOrderPage — shows the selected day existing orders (F15)', () => 
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
       ...overrides,
     };
   }
@@ -985,6 +999,7 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
       ...overrides,
     };
   }
@@ -1045,6 +1060,10 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument(),
     );
+    // F20: sumar platos también termina en la comanda de ese pedido, con lo nuevo marcado.
+    expect(await screen.findByText('¡Sumado a tu pedido!')).toBeInTheDocument();
+    expect(screen.getByText('Comanda Nº 0900')).toBeInTheDocument();
+    expect(screen.getAllByText('Nuevo')).toHaveLength(1);
   });
 
   it('keeps the normal new-order flow (PickupTimePicker + placeOrderV2) when there is no modifiable order for the day', async () => {
@@ -1060,6 +1079,7 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
     });
     renderPage();
 
@@ -1088,6 +1108,7 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
     });
     renderPage();
 
@@ -1316,6 +1337,7 @@ describe('B2cOrderPage — removing a dish with confirmation (F16)', () => {
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
       ...overrides,
     };
   }

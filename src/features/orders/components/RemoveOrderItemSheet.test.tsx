@@ -37,6 +37,7 @@ function order(items: OrderItemV2[]): OrderV2 {
     cancellable: true,
     modifiable: true,
     pickupTimeChangeable: true,
+    paidWithMercadoPago: false,
   };
 }
 

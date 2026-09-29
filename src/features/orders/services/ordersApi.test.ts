@@ -246,6 +246,7 @@ describe('addOrderItemsV2', () => {
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
     };
     vi.mocked(api.post).mockResolvedValueOnce({ data: order });
 
@@ -291,6 +292,7 @@ describe('removeOrderItemV2', () => {
       cancellable: false,
       modifiable: false,
       pickupTimeChangeable: false,
+      paidWithMercadoPago: false,
     };
     vi.mocked(api.delete).mockResolvedValueOnce({ data: order });
 
@@ -324,6 +326,7 @@ describe('changeOrderPickupTimeV2', () => {
       cancellable: true,
       modifiable: true,
       pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
     };
     vi.mocked(api.patch).mockResolvedValueOnce({ data: order });
 

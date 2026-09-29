@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
 import { DishCard } from '@/features/orders/components/DishCard';
 import { FilterPills } from '@/features/orders/components/FilterPills';
@@ -12,7 +11,7 @@ import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
-import type { ConfirmedItem } from '@/features/orders/components/b2c/OrderConfirmedView';
+import { comandaFooter, comandaItems, isPaidWithMercadoPago } from '@/features/orders/components/b2c/comandaModel';
 import { OrderPayDirectSheet } from '@/features/orders/components/b2c/OrderPayDirectSheet';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
@@ -34,6 +33,7 @@ import {
   placeOrderV2,
   startDirectCheckoutV2,
 } from '@/features/orders/services/ordersApi';
+import type { OrderV2 } from '@/features/orders/services/ordersApi';
 import type { Dish, RestaurantConfig } from '@/features/orders/types';
 import { useWallet } from '@/features/credits/hooks/useWallet';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -97,8 +97,14 @@ interface DoneData {
   isToday: boolean;
   dayLongLabel: string;
   pickupTimeLabel: string;
-  items: ConfirmedItem[];
-  totalLunches: number;
+  /** El pedido tal como lo devolvió el backend (nuevo, o el existente con los platos sumados). */
+  order: OrderV2;
+  /** Platos sumados a un pedido existente; null = pedido nuevo. */
+  addedPlates: number | null;
+  /** Ids de los ítems que este envío agregó (marca "Nuevo"). */
+  newItemIds: ReadonlySet<number>;
+  /** Almuerzos que este envío reservó (el pedido entero, o solo lo sumado). */
+  reservedLunches: number;
   walletAvailableAfter: number | null;
 }
 
@@ -115,7 +121,7 @@ interface DoneData {
  * F4 (prototipo aprobado): el detalle de plato y la revisión del pedido son
  * hojas inferiores (`DishSheet`, `OrderReviewSheet`) en vez de estar siempre
  * visibles; la confirmación es una vista tipo ticket (`OrderConfirmedView`)
- * en vez de un toast efímero.
+ * en vez de un toast efímero (F20: la comanda del pedido).
  */
 export function B2cOrderPage() {
   const user = useAuthStore((s) => s.user);
@@ -365,16 +371,11 @@ export function B2cOrderPage() {
     setSubmitError(null);
     setInsufficientBalance(false);
     setSubmitting(true);
-    // Snapshot ANTES de limpiar el carrito — el ticket de confirmación sigue
-    // mostrando los ítems y el total del pedido que se acaba de confirmar.
-    const itemsSnapshot: ConfirmedItem[] = cart.lines.map((line) => ({
-      name: line.dish.nombre,
-      side: line.sideNombre ? `con ${line.sideNombre.toLowerCase()}` : null,
-      costLabel: `${line.dish.category.creditCost} ${line.dish.category.creditCost === 1 ? 'almuerzo' : 'almuerzos'}`,
-    }));
+    // Snapshot ANTES de limpiar el carrito — la comanda de confirmación muestra
+    // el total que se acaba de reservar.
     const totalSnapshot = cart.totalCredits;
     try {
-      await placeOrderV2({
+      const placed = await placeOrderV2({
         items: cart.lines.map((line) => ({
           dishId: line.dish.id,
           sideId: line.sideId,
@@ -394,8 +395,10 @@ export function B2cOrderPage() {
         isToday,
         dayLongLabel: formatDayLongLabel(selectedDate),
         pickupTimeLabel: pickupTimeLabel!,
-        items: itemsSnapshot,
-        totalLunches: totalSnapshot,
+        order: placed,
+        addedPlates: null,
+        newItemIds: new Set(),
+        reservedLunches: totalSnapshot,
         walletAvailableAfter: wallet ? wallet.available - totalSnapshot : null,
       });
     } catch (err) {
@@ -454,8 +457,8 @@ export function B2cOrderPage() {
   /**
    * Agrega el carrito del día al pedido modificable existente en vez de
    * armar uno nuevo (F16, backend B6 — `POST /api/v2/orders/{id}/items`).
-   * Sin ticket de confirmación (a diferencia de `handleConfirm`): un aviso
-   * (`toast`) alcanza, ya el pedido existía y solo cambió su contenido.
+   * Termina en la comanda de ese pedido (F20, como el prototipo), con los
+   * platos sumados marcados "Nuevo".
    */
   const handleAddToOrder = async () => {
     if (!modifiableOrderForSelectedDay) return;
@@ -463,8 +466,10 @@ export function B2cOrderPage() {
     setInsufficientBalance(false);
     setSubmitting(true);
     const count = cart.lines.length;
+    const totalSnapshot = cart.totalCredits;
+    const previousItemIds = new Set(modifiableOrderForSelectedDay.items.map((item) => item.id));
     try {
-      await addOrderItemsV2(
+      const updated = await addOrderItemsV2(
         modifiableOrderForSelectedDay.id,
         cart.lines.map((line) => ({
           dishId: line.dish.id,
@@ -475,9 +480,18 @@ export function B2cOrderPage() {
       cart.clear();
       setPickupJumpTo(null);
       setReviewOpen(false);
-      toast.success(`Agregamos ${count} ${count === 1 ? 'plato' : 'platos'} a tu pedido`);
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
+      setDone({
+        isToday,
+        dayLongLabel: formatDayLongLabel(selectedDate),
+        pickupTimeLabel: formatOrderTimeLabel(updated.pickupAt),
+        order: updated,
+        addedPlates: count,
+        newItemIds: new Set(updated.items.filter((item) => !previousItemIds.has(item.id)).map((item) => item.id)),
+        reservedLunches: totalSnapshot,
+        walletAvailableAfter: wallet ? wallet.available - totalSnapshot : null,
+      });
     } catch (err) {
       if (err instanceof InsufficientCreditsError) {
         setInsufficientBalance(true);
@@ -523,9 +537,17 @@ export function B2cOrderPage() {
           isToday={done.isToday}
           dayLongLabel={done.dayLongLabel}
           pickupTimeLabel={done.pickupTimeLabel}
-          items={done.items}
-          totalLunches={done.totalLunches}
-          walletAvailableAfter={done.walletAvailableAfter}
+          orderId={done.order.id}
+          callName={user.displayName}
+          items={comandaItems(done.order, { newItemIds: done.newItemIds })}
+          footer={comandaFooter(done.order, {
+            now,
+            walletAvailable: done.walletAvailableAfter,
+            addedLunches: done.addedPlates === null ? undefined : done.reservedLunches,
+            justPlaced: true,
+          })}
+          paidWithMercadoPago={isPaidWithMercadoPago(done.order)}
+          addedPlates={done.addedPlates}
           onBackToMenu={() => setDone(null)}
         />
       </div>
