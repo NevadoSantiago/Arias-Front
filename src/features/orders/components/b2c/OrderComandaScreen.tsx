@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { ChevronLeft, CreditCard, Pencil, Plus } from 'lucide-react';
+import { ChevronLeft, CreditCard, Pencil, Plus, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ChefBackdrop, OrderComanda } from './OrderComanda';
 import { addPlatesPath, comandaCopy, comandaFooter, comandaItems, comandaWhenLabel } from './comandaModel';
@@ -23,6 +23,12 @@ interface Props {
   onRequestChangePickupTime?: (order: OrderV2) => void;
   onRequestCancel?: (order: OrderV2) => void;
   onRequestPayNow?: (order: OrderV2) => void;
+  /**
+   * `screen` (default): pantalla completa con "‹ Mis pedidos", la móvil.
+   * `modal`: diálogo centrado de ~580px con una "×", para escritorio (F22b).
+   * Mismo contenido y mismas acciones; solo cambia la presentación.
+   */
+  variant?: 'screen' | 'modal';
 }
 
 /**
@@ -49,6 +55,7 @@ export function OrderComandaScreen({
   onRequestChangePickupTime,
   onRequestCancel,
   onRequestPayNow,
+  variant = 'screen',
 }: Props) {
   // Quién tenía el foco al abrirla (la tarjeta del pedido): Radix solo lo devuelve
   // a un `Trigger`, y esta vista la monta la página sin uno.
@@ -60,34 +67,52 @@ export function OrderComandaScreen({
   const canChange = scheduled && order.pickupTimeChangeable && !!onRequestChangePickupTime;
   const canAdd = scheduled && order.modifiable;
   const canCancel = !cancelled && order.cancellable && !!onRequestCancel;
+  const modal = variant === 'modal';
 
   return (
     <DialogPrimitive.Root open onOpenChange={(open) => !open && onBack()}>
       <DialogPrimitive.Portal>
         {/* El foco entra al primer control ("‹ Mis pedidos") al abrirla. */}
+        {modal && <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/55" />}
         <DialogPrimitive.Content
           aria-describedby={undefined}
+          data-presentation={variant}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             opener?.focus();
           }}
-          className="fixed inset-0 z-50 flex flex-col bg-background focus:outline-none"
+          className={
+            modal
+              ? 'fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] max-w-[580px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[14px] bg-background shadow-lg focus:outline-none'
+              : 'fixed inset-0 z-50 flex flex-col bg-background focus:outline-none'
+          }
         >
-          <div className="flex h-14 shrink-0 items-center border-b border-border bg-card px-2">
+          {modal ? (
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex h-11 items-center gap-1 rounded-md px-2 text-sm font-semibold text-primary-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Cerrar la comanda"
+              className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
-              Mis pedidos
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
-          </div>
+          ) : (
+            <div className="flex h-14 shrink-0 items-center border-b border-border bg-card px-2">
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex h-11 items-center gap-1 rounded-md px-2 text-sm font-semibold text-primary-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ChevronLeft className="h-[18px] w-[18px]" aria-hidden="true" />
+                Mis pedidos
+              </button>
+            </div>
+          )}
 
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
             <ChefBackdrop>
               <div className="mx-auto flex max-w-xl flex-col gap-[18px] px-4 pb-7 pt-[18px]">
-                <div className="flex flex-col gap-1">
+                <div className={`flex flex-col gap-1 ${modal ? 'pr-11' : ''}`}>
                   <DialogPrimitive.Title asChild>
                     <h1 className="m-0 font-display text-[25px] font-bold leading-[1.1] text-foreground">{title}</h1>
                   </DialogPrimitive.Title>

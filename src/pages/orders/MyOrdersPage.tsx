@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { ChangePickupTimeSheet } from '@/features/orders/components/ChangePickupTimeSheet';
 import { OrderCard } from '@/features/orders/components/OrderCard';
+import { MyOrdersSidePanel } from '@/features/orders/components/b2c/MyOrdersSidePanel';
 import { OrderComandaScreen } from '@/features/orders/components/b2c/OrderComandaScreen';
 import { isRestaurantDayOnOrAfter } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
@@ -14,6 +15,7 @@ import { getRestaurantConfig, type OrderV2 } from '@/features/orders/services/or
 import { useWallet } from '@/features/credits/hooks/useWallet';
 import { resolveCallName } from '@/features/auth/lib/callName';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useIsDesktop } from '@/lib/useMediaQuery';
 
 /**
  * Ruta `/orders/mine` — "Mis pedidos" del cliente B2C (`GET /api/v2/orders`,
@@ -51,6 +53,12 @@ import { useAuthStore } from '@/features/auth/store/authStore';
  * horario, cancelar, pagar ahora). Se guarda solo el id abierto y el pedido
  * se lee de la lista, así la comanda se actualiza en el lugar tras cada
  * acción (la lista se refresca por las invalidaciones de `['ordersV2']`).
+ *
+ * F22b (prototipo `DesktopMyOrders.dc.html`, tablero v20), desde `lg`: las
+ * tarjetas van en una grilla de dos columnas junto a un panel lateral con el
+ * saldo, "Hacer un pedido" y el corte de cancelación; la comanda se abre como
+ * modal centrado y "Cambiar horario" / "Cancelar pedido" como diálogos. Mismos
+ * componentes y hooks que en móvil; solo cambia la presentación.
  */
 export function MyOrdersPage() {
   const { data: orders, isLoading, isError } = useOrders();
@@ -62,8 +70,11 @@ export function MyOrdersPage() {
     useChangePickupTime();
   const { payingOrderId, payNow } = usePayNow();
   const [comandaOrderId, setComandaOrderId] = useState<number | null>(null);
-  // El saldo ("Te quedan N") solo se pide mientras hay una comanda abierta.
-  const { data: wallet } = useWallet({ enabled: comandaOrderId !== null });
+  const isDesktop = useIsDesktop();
+  // El saldo ("Te quedan N") solo se pide mientras hay una comanda abierta; en
+  // escritorio el panel lateral lo muestra siempre.
+  const { data: wallet } = useWallet({ enabled: comandaOrderId !== null || isDesktop });
+  const sheetPresentation = isDesktop ? 'dialog' : 'sheet';
   const user = useAuthStore((s) => s.user);
   const callName = user ? resolveCallName(user) : '';
   /**
@@ -117,100 +128,114 @@ export function MyOrdersPage() {
         .filter((order) => !isDefaultUpcoming(order))
         .sort((a, b) => new Date(b.pickupAt).getTime() - new Date(a.pickupAt).getTime())
     : [];
+  // Escritorio: grilla de dos columnas; el atributo marca el layout para los tests.
+  const listProps = isDesktop
+    ? { className: 'grid grid-cols-2 items-start gap-4', 'data-layout': 'grid' }
+    : { className: 'space-y-3' };
   const hasUpcoming = upcoming.length > 0;
   const hasPast = past.length > 0;
 
   return (
-    <div className="container max-w-2xl space-y-6 py-8">
-      <h1 className="font-display text-2xl font-bold text-foreground">Mis pedidos</h1>
+    <div className="container max-w-2xl py-8 lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-10 lg:py-12">
+      <div className="min-w-0 space-y-6">
+        <h1 className="font-display text-2xl font-bold text-foreground">Mis pedidos</h1>
 
-      {!hasOrders ? (
-        <div className="space-y-3 rounded-lg border border-dashed border-border py-16 text-center">
-          <p className="text-sm text-muted-foreground">Todavía no hiciste ningún pedido</p>
-          <Link
-            to="/orders/today"
-            className="mx-auto flex h-11 w-fit items-center rounded-md bg-primary-deep px-5 text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
-          >
-            Hacer mi primer pedido
-          </Link>
-        </div>
-      ) : (
-        <>
-          {hasUpcoming ? (
-            <section className="space-y-3">
-              <header className="flex items-baseline justify-between">
-                <h2 className="text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
-                  Próximos
-                </h2>
-                <span className="text-xs font-bold text-muted-foreground">{upcoming.length}</span>
-              </header>
-              <ul className="space-y-3">
-                {upcoming.map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    now={now}
-                    onRequestCancel={() => requestCancel(order)}
-                    pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
-                    onRequestPayNow={(o) => payNow(o.id)}
-                    payingNow={payingOrderId === order.id}
-                    onRequestChangePickupTime={requestChange}
-                    onOpen={(o) => setComandaOrderId(o.id)}
-                  />
-                ))}
-              </ul>
-            </section>
-          ) : (
-            <div className="space-y-3 rounded-lg border border-dashed border-border py-16 text-center">
-              <p className="text-sm text-muted-foreground">No tenés pedidos próximos</p>
-              <Link
-                to="/orders/today"
-                className="mx-auto flex h-11 w-fit items-center rounded-md bg-primary-deep px-5 text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
-              >
-                Hacer un pedido
-              </Link>
-            </div>
-          )}
+        {!hasOrders ? (
+          <div className="space-y-3 rounded-lg border border-dashed border-border py-16 text-center">
+            <p className="text-sm text-muted-foreground">Todavía no hiciste ningún pedido</p>
+            <Link
+              to="/orders/today"
+              className="mx-auto flex h-11 w-fit items-center rounded-md bg-primary-deep px-5 text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+            >
+              Hacer mi primer pedido
+            </Link>
+          </div>
+        ) : (
+          <>
+            {hasUpcoming ? (
+              <section className="space-y-3">
+                <header className="flex items-baseline justify-between">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
+                    Próximos
+                  </h2>
+                  <span className="text-xs font-bold text-muted-foreground">{upcoming.length}</span>
+                </header>
+                <ul {...listProps}>
+                  {upcoming.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      now={now}
+                      onRequestCancel={() => requestCancel(order)}
+                      pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+                      onRequestPayNow={(o) => payNow(o.id)}
+                      payingNow={payingOrderId === order.id}
+                      onRequestChangePickupTime={requestChange}
+                      onOpen={(o) => setComandaOrderId(o.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ) : (
+              <div className="space-y-3 rounded-lg border border-dashed border-border py-16 text-center">
+                <p className="text-sm text-muted-foreground">No tenés pedidos próximos</p>
+                <Link
+                  to="/orders/today"
+                  className="mx-auto flex h-11 w-fit items-center rounded-md bg-primary-deep px-5 text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+                >
+                  Hacer un pedido
+                </Link>
+              </div>
+            )}
 
-          {hasPast && (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => setShowPast((current) => !current)}
-                className="h-11 px-2 text-xs font-bold uppercase tracking-brand text-primary-deep"
-              >
-                {showPast ? 'Ocultar pedidos anteriores' : 'Ver pedidos anteriores'}
-              </button>
-            </div>
-          )}
+            {hasPast && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setShowPast((current) => !current)}
+                  className="h-11 px-2 text-xs font-bold uppercase tracking-brand text-primary-deep"
+                >
+                  {showPast ? 'Ocultar pedidos anteriores' : 'Ver pedidos anteriores'}
+                </button>
+              </div>
+            )}
 
-          {showPast && (
-            <section className="space-y-3">
-              <header className="flex items-baseline justify-between">
-                <h2 className="text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
-                  Anteriores
-                </h2>
-                <span className="text-xs font-bold text-muted-foreground">{past.length}</span>
-              </header>
-              <ul className="space-y-3">
-                {past.map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    now={now}
-                    onRequestCancel={() => requestCancel(order)}
-                    pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
-                    onRequestPayNow={(o) => payNow(o.id)}
-                    payingNow={payingOrderId === order.id}
-                    onOpen={(o) => setComandaOrderId(o.id)}
-                  />
-                ))}
-              </ul>
-            </section>
-          )}
+            {showPast && (
+              <section className="space-y-3">
+                <header className="flex items-baseline justify-between">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
+                    Anteriores
+                  </h2>
+                  <span className="text-xs font-bold text-muted-foreground">{past.length}</span>
+                </header>
+                <ul {...listProps}>
+                  {past.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      now={now}
+                      onRequestCancel={() => requestCancel(order)}
+                      pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+                      onRequestPayNow={(o) => payNow(o.id)}
+                      payingNow={payingOrderId === order.id}
+                      onOpen={(o) => setComandaOrderId(o.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
 
-          <p className="text-center text-xs text-muted-foreground">Mostramos tus últimos 30 pedidos.</p>
-        </>
+            <p className="text-center text-xs text-muted-foreground">Mostramos tus últimos 30 pedidos.</p>
+          </>
+        )}
+      </div>
+
+      {isDesktop && (
+        <MyOrdersSidePanel
+          available={wallet?.available ?? null}
+          committed={wallet?.committed ?? null}
+          pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+        />
       )}
 
       {comandaOrder && (
@@ -225,6 +250,7 @@ export function MyOrdersPage() {
           onRequestChangePickupTime={requestChange}
           onRequestCancel={requestCancel}
           onRequestPayNow={(o) => payNow(o.id)}
+          variant={isDesktop ? 'modal' : 'screen'}
         />
       )}
 
@@ -235,6 +261,7 @@ export function MyOrdersPage() {
         errorMessage={cancelError}
         onConfirm={confirmCancel}
         onClose={closeSheet}
+        presentation={sheetPresentation}
       />
 
       <ChangePickupTimeSheet
@@ -243,6 +270,7 @@ export function MyOrdersPage() {
         errorMessage={changeError}
         onConfirm={confirmChange}
         onClose={closeChangeSheet}
+        presentation={sheetPresentation}
       />
     </div>
   );

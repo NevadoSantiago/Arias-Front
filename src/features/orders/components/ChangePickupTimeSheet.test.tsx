@@ -174,3 +174,15 @@ describe('ChangePickupTimeSheet', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe('ChangePickupTimeSheet — presentation (F22b)', () => {
+  it('is a bottom sheet by default', async () => {
+    renderSheet();
+    expect(await screen.findByRole('dialog', { name: 'Cambiar horario de retiro' })).toHaveAttribute('data-presentation', 'sheet');
+  });
+
+  it('is a centered dialog when asked', async () => {
+    renderSheet({ presentation: 'dialog' });
+    expect(await screen.findByRole('dialog', { name: 'Cambiar horario de retiro' })).toHaveAttribute('data-presentation', 'dialog');
+  });
+});

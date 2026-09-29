@@ -14,6 +14,8 @@ interface Props {
   errorMessage: string | null;
   onConfirm: () => void;
   onClose: () => void;
+  /** `sheet` (default): hoja anclada abajo, la móvil. `dialog`: centrada, para escritorio (F22b). */
+  presentation?: 'sheet' | 'dialog';
 }
 
 /**
@@ -25,7 +27,7 @@ interface Props {
  * La consulta de la billetera solo se activa mientras la hoja está
  * abierta, para no pedirla en cada carga de "Mis pedidos".
  */
-export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfirm, onClose }: Props) {
+export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfirm, onClose, presentation = 'sheet' }: Props) {
   const open = order !== null;
 
   const { data: wallet } = useQuery({
@@ -54,7 +56,7 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && !cancelling && onClose()}>
-      <SheetContent aria-label="Cancelar pedido" className="p-0">
+      <SheetContent aria-label="Cancelar pedido" className="p-0" variant={presentation}>
         <div className="flex flex-col gap-4 p-4">
           <SheetTitle>¿Cancelar este pedido?</SheetTitle>
           <SheetDescription className="sr-only">

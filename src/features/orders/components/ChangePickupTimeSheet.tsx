@@ -12,6 +12,8 @@ interface Props {
   /** `pickupAt` exacto del slot elegido, tal como lo devolvió `getPickupSlots`. */
   onConfirm: (pickupAt: string) => void;
   onClose: () => void;
+  /** `sheet` (default): hoja anclada abajo, la móvil. `dialog`: centrada, para escritorio (F22b). */
+  presentation?: 'sheet' | 'dialog';
 }
 
 function pad(n: number): string {
@@ -39,10 +41,10 @@ function sameInstant(a: string, b: string): boolean {
  * (`pickupTimeChangeable` para ofrecer la acción, el `PATCH` al confirmar).
  * No se cierra sola (Escape ni overlay) mientras el cambio está en curso.
  */
-export function ChangePickupTimeSheet({ order, changing, errorMessage, onConfirm, onClose }: Props) {
+export function ChangePickupTimeSheet({ order, changing, errorMessage, onConfirm, onClose, presentation = 'sheet' }: Props) {
   return (
     <Sheet open={order !== null} onOpenChange={(next) => !next && !changing && onClose()}>
-      <SheetContent aria-label="Cambiar horario de retiro" className="p-0">
+      <SheetContent aria-label="Cambiar horario de retiro" className="p-0" variant={presentation}>
         {order && (
           <ChangePickupTimeContent
             key={order.id}

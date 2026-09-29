@@ -104,3 +104,15 @@ describe('CancelOrderSheet', () => {
     expect(screen.queryByText(/pasás de/i)).not.toBeInTheDocument();
   });
 });
+
+describe('CancelOrderSheet — presentation (F22b)', () => {
+  it('is a bottom sheet by default', async () => {
+    renderSheet();
+    expect(await screen.findByRole('dialog', { name: '¿Cancelar este pedido?' })).toHaveAttribute('data-presentation', 'sheet');
+  });
+
+  it('is a centered dialog when asked', async () => {
+    renderSheet({ presentation: 'dialog' });
+    expect(await screen.findByRole('dialog', { name: '¿Cancelar este pedido?' })).toHaveAttribute('data-presentation', 'dialog');
+  });
+});
