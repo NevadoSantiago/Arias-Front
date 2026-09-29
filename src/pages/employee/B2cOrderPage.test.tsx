@@ -1489,3 +1489,88 @@ describe('B2cOrderPage — removing a dish with confirmation (F16)', () => {
     );
   });
 });
+
+/**
+ * F24: el carrito sobrevive a salir de la pantalla y volver (el store no
+ * depende del montaje de la página).
+ */
+describe('B2cOrderPage — the cart survives navigation (F24)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  it('shows the same items after leaving the page and coming back', async () => {
+    const first = renderPage();
+    await addDishToCart();
+    await openReview();
+    expect(await screen.findAllByText('Milanesa napolitana')).not.toHaveLength(0);
+    first.unmount();
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /ver pedido/i })).toBeInTheDocument();
+    await openReview();
+    expect(await screen.findAllByText('2 almuerzos')).not.toHaveLength(0);
+    expect(screen.getAllByText('Milanesa napolitana').length).toBeGreaterThan(0);
+  });
+
+  it('does not crash when a stored line points to a dish that is no longer in the day menu', async () => {
+    const first = renderPage();
+    await addDishToCart();
+    first.unmount();
+    // El menú del día cambió: el plato guardado ya no está.
+    vi.mocked(getAvailableDishes).mockResolvedValue([]);
+
+    renderPage();
+
+    await openReview();
+    // La línea se sigue mostrando desde su copia; el servidor decide al confirmar.
+    expect((await screen.findAllByText('Milanesa napolitana')).length).toBeGreaterThan(0);
+  });
+
+  it('empties the day after a successful placement, also for the next visit', async () => {
+    vi.mocked(placeOrderV2).mockResolvedValueOnce({
+      id: 99,
+      fecha: '2026-05-21',
+      pickupAt: '2026-05-21T15:00:00Z',
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [
+        { id: 1, dishId: 10, dishNombre: 'Milanesa napolitana', dishCategoria: 'Básico', sideId: null, sideNombre: null, creditCost: 2, notas: null },
+      ],
+      cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
+      paidWithMercadoPago: false,
+    });
+    const first = renderPage();
+    await addDishToCart();
+    await openReview();
+    fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
+    expect(await screen.findByText('¡Pedido confirmado!')).toBeInTheDocument();
+    first.unmount();
+
+    renderPage();
+
+    await screen.findByRole('button', { name: /milanesa napolitana/i });
+    expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
+  });
+});

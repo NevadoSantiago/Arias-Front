@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
 import { useCart } from './useCart';
 import type { Dish } from '../types';
 
@@ -194,5 +195,135 @@ describe('useCart', () => {
       rerender({ fecha: DAY_A });
       expect(result.current.totalCredits).toBe(5);
     });
+  });
+});
+
+const userA: AuthUser = {
+  id: 1,
+  email: 'a@example.com',
+  firstName: 'A',
+  lastName: null,
+  nickname: null,
+  role: 'EMPLOYEE',
+  companyId: null,
+  companyName: null,
+  categoryId: null,
+  emailVerified: true,
+  profileComplete: true,
+};
+const userB: AuthUser = { ...userA, id: 2, email: 'b@example.com' };
+
+const input = (id: number, cost = 2) => ({
+  dish: makeDish(id, cost),
+  sideId: null,
+  sideNombre: null,
+  notas: null,
+});
+
+/**
+ * F24: el carrito vive en un store (sessionStorage, por usuario) y no en el
+ * `useState` de la página, para sobrevivir a la navegación entre pantallas.
+ */
+describe('useCart — persistence across navigation (F24)', () => {
+  it('keeps the lines after the consumer unmounts and mounts again', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const first = renderHook(() => useCart(DAY_A));
+    act(() => first.result.current.addItem(input(1)));
+    first.unmount();
+
+    const second = renderHook(() => useCart(DAY_A));
+
+    expect(second.result.current.lines).toHaveLength(1);
+    expect(second.result.current.lines[0].dish.id).toBe(1);
+    expect(second.result.current.totalCredits).toBe(2);
+  });
+
+  it('persists to sessionStorage so a reload in the same tab keeps it', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const { result } = renderHook(() => useCart(DAY_A));
+    act(() => result.current.addItem(input(1)));
+
+    const raw = window.sessionStorage.getItem('arias-b2c-cart');
+    expect(raw).not.toBeNull();
+    expect(raw).toContain('Plato 1');
+    expect(window.localStorage.getItem('arias-b2c-cart')).toBeNull();
+  });
+
+  it('keeps each day separate after remounting', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const a = renderHook(() => useCart(DAY_A));
+    act(() => a.result.current.addItem(input(1)));
+    const b = renderHook(() => useCart(DAY_B));
+    act(() => b.result.current.addItem(input(2)));
+    a.unmount();
+    b.unmount();
+
+    expect(renderHook(() => useCart(DAY_A)).result.current.lines.map((l) => l.dish.id)).toEqual([1]);
+    expect(renderHook(() => useCart(DAY_B)).result.current.lines.map((l) => l.dish.id)).toEqual([2]);
+  });
+
+  it('empties the cart on logout', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const { result } = renderHook(() => useCart(DAY_A));
+    act(() => result.current.addItem(input(1)));
+
+    act(() => useAuthStore.getState().clear());
+
+    expect(result.current.lines).toHaveLength(0);
+    expect(window.sessionStorage.getItem('arias-b2c-cart') ?? '').not.toContain('Plato 1');
+  });
+
+  it('never shows a previous user cart to a different user', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const { result } = renderHook(() => useCart(DAY_A));
+    act(() => result.current.addItem(input(1)));
+
+    act(() => useAuthStore.getState().setAuth('t2', userB));
+
+    expect(result.current.lines).toHaveLength(0);
+    expect(renderHook(() => useCart(DAY_A)).result.current.lines).toHaveLength(0);
+  });
+
+  it('keeps the cart when the same user is refreshed (setUser with the same id)', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const { result } = renderHook(() => useCart(DAY_A));
+    act(() => result.current.addItem(input(1)));
+
+    act(() => useAuthStore.getState().setUser({ ...userA, nickname: 'Ale' }));
+
+    expect(result.current.lines).toHaveLength(1);
+  });
+
+  it('clear() empties only the current day', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const a = renderHook(() => useCart(DAY_A));
+    act(() => a.result.current.addItem(input(1)));
+    const b = renderHook(() => useCart(DAY_B));
+    act(() => b.result.current.addItem(input(2)));
+
+    act(() => a.result.current.clear());
+    a.unmount();
+    b.unmount();
+
+    expect(renderHook(() => useCart(DAY_A)).result.current.lines).toHaveLength(0);
+    expect(renderHook(() => useCart(DAY_B)).result.current.lines).toHaveLength(1);
+  });
+
+  it('falls back to memory without crashing when sessionStorage throws', () => {
+    useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    try {
+      const { result } = renderHook(() => useCart(DAY_A));
+      expect(() => act(() => result.current.addItem(input(1)))).not.toThrow();
+      expect(result.current.lines).toHaveLength(1);
+    } finally {
+      setItem.mockRestore();
+      getItem.mockRestore();
+    }
   });
 });
