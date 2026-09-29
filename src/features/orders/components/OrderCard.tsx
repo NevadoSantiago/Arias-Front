@@ -1,6 +1,6 @@
 import { Clock3, CreditCard, Pencil, UtensilsCrossed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatLunches } from '../lunches';
+import { balancePartOf, formatLunches, mercadoPagoPartOf } from '../lunches';
 import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from './orderDateLabels';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { orderStatusLabel } from './orderStatus';
@@ -76,6 +76,14 @@ export function OrderCard({
   // backend nunca la deja modificable aunque cancellable sea true.
   const canRemoveItems = !!onRequestRemoveItem && order.cancellable && !isAwaitingPayment;
   const canChangePickupTime = !!onRequestChangePickupTime && order.pickupTimeChangeable;
+  // Pago parcial (F23): los almuerzos del saldo y los que cobra Mercado Pago, por separado.
+  const fromBalance = balancePartOf(order);
+  const lunchesLabel =
+    fromBalance === 0
+      ? formatLunches(order.creditTotal)
+      : isCancelled
+        ? `${formatLunches(fromBalance)} ${fromBalance === 1 ? 'devuelto' : 'devueltos'}`
+        : `${fromBalance} de tu saldo · ${mercadoPagoPartOf(order)} ${isAwaitingPayment ? 'a pagar' : 'con Mercado Pago'}`;
   const deadlineLabel = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
   const payDeadlineText = deadlineLabel
     ? `Estamos esperando la confirmación de Mercado Pago. Si no se confirma antes de las ${deadlineLabel}, se cancela.`
@@ -166,7 +174,7 @@ export function OrderCard({
             )}
           >
             <UtensilsCrossed className="h-[17px] w-[17px]" aria-hidden="true" />
-            <span>{formatLunches(order.creditTotal)}</span>
+            <span>{lunchesLabel}</span>
           </span>
 
           <span className="flex items-center gap-1">

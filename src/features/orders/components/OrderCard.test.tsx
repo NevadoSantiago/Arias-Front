@@ -77,3 +77,31 @@ describe('OrderCard — open the comanda (F20)', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 });
+
+describe('OrderCard — partial balance payment (F23)', () => {
+  const partial: OrderV2 = { ...order, creditTotal: 2, creditsFromBalance: 1, paidWithMercadoPago: true };
+
+  it('shows the balance part and the Mercado Pago part once paid', () => {
+    renderCard({ order: { ...partial, estado: 'CONFIRMADO' } });
+
+    expect(screen.getByText('1 de tu saldo · 1 con Mercado Pago')).toBeInTheDocument();
+  });
+
+  it('shows what is still to pay while the payment is pending', () => {
+    renderCard({ order: { ...partial, estado: 'PENDIENTE_PAGO' } });
+
+    expect(screen.getByText('1 de tu saldo · 1 a pagar')).toBeInTheDocument();
+  });
+
+  it('shows how many reserved lunches came back once the order is cancelled', () => {
+    renderCard({ order: { ...partial, estado: 'CANCELADO', cancellable: false } });
+
+    expect(screen.getByText('1 almuerzo devuelto')).toBeInTheDocument();
+  });
+
+  it('keeps showing the total lunches when nothing came from the balance', () => {
+    renderCard({ order: { ...order, creditTotal: 2, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true } });
+
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
+  });
+});

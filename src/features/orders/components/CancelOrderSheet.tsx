@@ -3,7 +3,7 @@ import { RotateCcw } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { getWallet } from '@/features/credits/services/creditsApi';
 import { cn } from '@/lib/utils';
-import { formatLunches } from '../lunches';
+import { balancePartOf, formatLunches } from '../lunches';
 import { formatOrderDayLabel, formatOrderTimeLabel } from './orderDateLabels';
 import type { OrderV2 } from '../services/ordersApi';
 
@@ -43,15 +43,21 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
         .map((item) => item.dishNombre + (item.sideNombre ? ` · ${item.sideNombre.toLowerCase()}` : ''))
         .join(' + ')
     : '';
-  const lunchCount = order?.creditTotal ?? 0;
-  // Un pedido esperando el pago con Mercado Pago no usó almuerzos del saldo:
-  // cancelarlo no devuelve nada (prototipo v20, "Tu saldo no cambia").
-  const unpaid = order?.estado === 'PENDIENTE_PAGO';
+  // Un pedido esperando el pago con Mercado Pago no usó almuerzos del saldo,
+  // salvo los que ya reservó por un pago parcial (F23): esos vuelven al cancelar.
+  const awaitingPayment = order?.estado === 'PENDIENTE_PAGO';
+  const reserved = order ? balancePartOf(order) : 0;
+  const lunchCount = awaitingPayment ? reserved : (order?.creditTotal ?? 0);
+  const unpaid = awaitingPayment && reserved === 0;
   const returnTitle = unpaid
     ? 'Tu saldo no cambia'
-    : lunchCount === 1
-      ? 'Tu almuerzo vuelve a tu saldo'
-      : `Tus ${formatLunches(lunchCount)} vuelven a tu saldo`;
+    : awaitingPayment
+      ? lunchCount === 1
+        ? 'Tu almuerzo reservado vuelve a tu saldo'
+        : `Tus ${lunchCount} almuerzos reservados vuelven a tu saldo`
+      : lunchCount === 1
+        ? 'Tu almuerzo vuelve a tu saldo'
+        : `Tus ${formatLunches(lunchCount)} vuelven a tu saldo`;
   const available = wallet?.available ?? null;
 
   return (
@@ -85,6 +91,7 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
               {!unpaid && available !== null && (
                 <span className="text-foreground">
                   Pasás de {available} a {available + lunchCount} almuerzos disponibles.
+                  {awaitingPayment && ' No se cobra nada con Mercado Pago.'}
                 </span>
               )}
             </div>

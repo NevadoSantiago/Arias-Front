@@ -1,4 +1,4 @@
-import { formatLunches } from '../../lunches';
+import { balancePartOf, formatLunches, mercadoPagoPartOf, reservedWord } from '../../lunches';
 import {
   formatOrderDateLabel,
   formatOrderPayDeadlineLabel,
@@ -70,7 +70,16 @@ export function comandaFooter(
     justPlaced = false,
   }: { now: Date; walletAvailable: number | null; addedLunches?: number; justPlaced?: boolean },
 ): ComandaFooter {
+  const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
+    if (fromBalance > 0) {
+      // Pago parcial (F23): al cancelar, el backend devuelve al saldo exactamente los reservados.
+      return {
+        label: 'Pedido cancelado',
+        value: `${formatLunches(fromBalance)} ${fromBalance === 1 ? 'devuelto' : 'devueltos'} a tu saldo`,
+        icon: 'lunches',
+      };
+    }
     if (order.paidWithMercadoPago) {
       // No se afirma nada sobre el saldo: el DTO no dice si el pago llegó a acreditarse.
       return { label: 'Pedido cancelado', value: null, icon: 'card' };
@@ -83,9 +92,24 @@ export function comandaFooter(
     };
   }
   if (order.estado === 'PENDIENTE_PAGO') {
+    if (fromBalance > 0) {
+      return {
+        label: `${fromBalance} de tu saldo (${reservedWord(fromBalance)})`,
+        value: `A pagar con Mercado Pago: ${mercadoPagoPartOf(order)} · ${PRICE_PLACEHOLDER}`,
+        icon: 'card',
+      };
+    }
     return { label: 'A pagar con Mercado Pago', value: PRICE_PLACEHOLDER, icon: 'card' };
   }
   if (isPaidWithMercadoPago(order)) {
+    if (fromBalance > 0) {
+      const upcoming = justPlaced || new Date(order.pickupAt).getTime() >= now.getTime();
+      return {
+        label: `${upcoming ? 'Reservaste' : 'Usaste'} ${formatLunches(fromBalance)} de tu saldo`,
+        value: `Pagado con Mercado Pago: ${mercadoPagoPartOf(order)} · ${PRICE_PLACEHOLDER}`,
+        icon: 'card',
+      };
+    }
     return { label: 'Pagado con Mercado Pago', value: PRICE_PLACEHOLDER, icon: 'card' };
   }
   if (justPlaced || new Date(order.pickupAt).getTime() >= now.getTime()) {
@@ -143,20 +167,27 @@ export function comandaCopy(
   const date = formatOrderDateLabel(order.pickupAt);
   const dayWhen = isSameRestaurantDay(order.pickupAt, now) ? 'hoy' : `el ${lowerFirst(date)}`;
 
+  const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
-    const count = order.creditTotal;
+    // Pago parcial (F23): vuelven exactamente los reservados; sin ellos, un pago por Mercado Pago no toca el saldo.
+    const count = fromBalance > 0 ? fromBalance : order.creditTotal;
     return {
       title: 'Pedido cancelado',
-      headline: order.paidWithMercadoPago
-        ? 'Este pedido ya no se va a preparar.'
-        : `${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo.`,
+      headline:
+        order.paidWithMercadoPago && fromBalance === 0
+          ? 'Este pedido ya no se va a preparar.'
+          : `${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo.`,
     };
   }
   if (order.estado === 'PENDIENTE_PAGO') {
     const deadline = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
+    const returns =
+      fromBalance > 0
+        ? ` y ${fromBalance === 1 ? 'tu almuerzo reservado vuelve' : 'tus almuerzos reservados vuelven'} a tu saldo`
+        : '';
     return {
       title: 'Falta confirmar el pago',
-      headline: `Estamos esperando la confirmación de Mercado Pago. Si no se confirma ${deadline ? `antes de las ${deadline}` : 'a tiempo'}, se cancela.`,
+      headline: `Estamos esperando la confirmación de Mercado Pago. Si no se confirma ${deadline ? `antes de las ${deadline}` : 'a tiempo'}, se cancela${returns}.`,
     };
   }
   const upcoming = new Date(order.pickupAt).getTime() >= now.getTime();

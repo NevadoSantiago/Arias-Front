@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { cancelOrderV2 } from '../services/ordersApi';
-import { formatLunches } from '../lunches';
+import { balancePartOf, formatLunches } from '../lunches';
 import type { OrderV2 } from '../services/ordersApi';
 
 /**
@@ -27,9 +27,12 @@ export function useCancelOrder() {
     onSuccess: (_data, order) => {
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
-      const count = order.creditTotal;
+      // Un pedido esperando pago solo devuelve los almuerzos que reservó del saldo (F23).
+      const count = order.estado === 'PENDIENTE_PAGO' ? balancePartOf(order) : order.creditTotal;
       toast.success(
-        `Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`,
+        count === 0
+          ? 'Pedido cancelado'
+          : `Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`,
       );
       setCancelTarget(null);
       setCancelError(null);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { comandaFooter, comandaItems, formatComandaWhen, isPaidWithMercadoPago, lowerFirst } from './comandaModel';
+import { comandaCopy, comandaFooter, comandaItems, formatComandaWhen, isPaidWithMercadoPago, lowerFirst } from './comandaModel';
 import type { OrderV2 } from '../../services/ordersApi';
 
 const NOW = new Date('2026-09-24T12:00:00Z');
@@ -120,6 +120,85 @@ describe('comandaFooter', () => {
     expect(
       comandaFooter(order({ estado: 'CANCELADO', paidWithMercadoPago: true }), { now: NOW, walletAvailable: 10 }),
     ).toEqual({ label: 'Pedido cancelado', value: null, icon: 'card' });
+  });
+
+  describe('partial balance payment (F23)', () => {
+    const partial = { creditsFromBalance: 1, paidWithMercadoPago: true };
+
+    it('paid partly, upcoming: "Reservaste N almuerzo de tu saldo" plus what Mercado Pago charged', () => {
+      expect(
+        comandaFooter(order({ ...partial, estado: 'PENDIENTE' }), { now: NOW, walletAvailable: 0 }),
+      ).toEqual({
+        label: 'Reservaste 1 almuerzo de tu saldo',
+        value: 'Pagado con Mercado Pago: 1 · $ [PRECIO]',
+        icon: 'card',
+      });
+    });
+
+    it('pluralizes the balance part', () => {
+      expect(
+        comandaFooter(order({ ...partial, creditTotal: 4, creditsFromBalance: 3, estado: 'PENDIENTE' }), {
+          now: NOW,
+          walletAvailable: 0,
+        }),
+      ).toEqual({
+        label: 'Reservaste 3 almuerzos de tu saldo',
+        value: 'Pagado con Mercado Pago: 1 · $ [PRECIO]',
+        icon: 'card',
+      });
+    });
+
+    it('paid partly, already picked up: says the lunches were used, not reserved', () => {
+      expect(
+        comandaFooter(order({ ...partial, estado: 'ENTREGADO', pickupAt: PAST }), { now: NOW, walletAvailable: 0 }).label,
+      ).toBe('Usaste 1 almuerzo de tu saldo');
+    });
+
+    it('pending payment: the balance part is reserved and the rest is still to pay', () => {
+      expect(
+        comandaFooter(order({ ...partial, estado: 'PENDIENTE_PAGO' }), { now: NOW, walletAvailable: 0 }),
+      ).toEqual({
+        label: '1 de tu saldo (reservado)',
+        value: 'A pagar con Mercado Pago: 1 · $ [PRECIO]',
+        icon: 'card',
+      });
+      expect(
+        comandaFooter(order({ ...partial, creditTotal: 4, creditsFromBalance: 3, estado: 'PENDIENTE_PAGO' }), {
+          now: NOW,
+          walletAvailable: 0,
+        }).label,
+      ).toBe('3 de tu saldo (reservados)');
+    });
+
+    it('cancelled while partly reserved: the reserved lunches went back to the balance', () => {
+      expect(comandaFooter(order({ ...partial, estado: 'CANCELADO' }), { now: NOW, walletAvailable: 10 })).toEqual({
+        label: 'Pedido cancelado',
+        value: '1 almuerzo devuelto a tu saldo',
+        icon: 'lunches',
+      });
+    });
+
+    it('with no balance part the footers stay as before', () => {
+      expect(
+        comandaFooter(order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, creditsFromBalance: 0 }), {
+          now: NOW,
+          walletAvailable: 0,
+        }),
+      ).toEqual({ label: 'A pagar con Mercado Pago', value: '$ [PRECIO]', icon: 'card' });
+    });
+
+    it('comandaCopy tells the reserved lunches return to the balance if the payment is not confirmed', () => {
+      const copy = comandaCopy(order({ ...partial, estado: 'PENDIENTE_PAGO' }), { now: NOW, pickupLeadMinutes: 20 });
+
+      expect(copy.title).toBe('Falta confirmar el pago');
+      expect(copy.headline).toMatch(/se cancela y tu almuerzo reservado vuelve a tu saldo\.$/);
+    });
+
+    it('comandaCopy says how many lunches came back when a partly reserved order is cancelled', () => {
+      expect(comandaCopy(order({ ...partial, estado: 'CANCELADO' }), { now: NOW }).headline).toBe(
+        '1 almuerzo volvió a tu saldo.',
+      );
+    });
   });
 
   it('never says "créditos"', () => {

@@ -106,6 +106,38 @@ describe('CancelOrderSheet', () => {
   });
 });
 
+describe('CancelOrderSheet — partly reserved order awaiting payment (F23)', () => {
+  const partial: OrderV2 = {
+    ...order,
+    estado: 'PENDIENTE_PAGO',
+    paidWithMercadoPago: true,
+    creditTotal: 4,
+    creditsFromBalance: 1,
+  };
+
+  it('says the reserved lunch goes back to the balance and that Mercado Pago charges nothing', async () => {
+    renderSheet({ order: partial });
+
+    expect(await screen.findByText('Tu almuerzo reservado vuelve a tu saldo')).toBeInTheDocument();
+    expect(
+      await screen.findByText(/pasás de 8 a 9 almuerzos disponibles\. no se cobra nada con mercado pago\./i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Tu saldo no cambia')).not.toBeInTheDocument();
+  });
+
+  it('pluralizes the reserved lunches', async () => {
+    renderSheet({ order: { ...partial, creditsFromBalance: 3 } });
+
+    expect(await screen.findByText('Tus 3 almuerzos reservados vuelven a tu saldo')).toBeInTheDocument();
+  });
+
+  it('keeps "Tu saldo no cambia" when nothing was reserved from the balance', async () => {
+    renderSheet({ order: { ...partial, creditsFromBalance: 0 } });
+
+    expect(await screen.findByText('Tu saldo no cambia')).toBeInTheDocument();
+  });
+});
+
 describe('CancelOrderSheet — presentation (F22b)', () => {
   it('is a bottom sheet by default', async () => {
     renderSheet();
