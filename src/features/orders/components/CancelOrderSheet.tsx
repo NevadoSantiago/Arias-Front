@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { RotateCcw } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { getWallet } from '@/features/credits/services/creditsApi';
+import { cn } from '@/lib/utils';
 import { formatLunches } from '../lunches';
 import { formatOrderDayLabel, formatOrderTimeLabel } from './orderDateLabels';
 import type { OrderV2 } from '../services/ordersApi';
@@ -41,8 +42,14 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
         .join(' + ')
     : '';
   const lunchCount = order?.creditTotal ?? 0;
-  const returnTitle =
-    lunchCount === 1 ? 'Tu almuerzo vuelve a tu saldo' : `Tus ${formatLunches(lunchCount)} vuelven a tu saldo`;
+  // Un pedido esperando el pago con Mercado Pago no usó almuerzos del saldo:
+  // cancelarlo no devuelve nada (prototipo v20, "Tu saldo no cambia").
+  const unpaid = order?.estado === 'PENDIENTE_PAGO';
+  const returnTitle = unpaid
+    ? 'Tu saldo no cambia'
+    : lunchCount === 1
+      ? 'Tu almuerzo vuelve a tu saldo'
+      : `Tus ${formatLunches(lunchCount)} vuelven a tu saldo`;
   const available = wallet?.available ?? null;
 
   return (
@@ -51,7 +58,9 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
         <div className="flex flex-col gap-4 p-4">
           <SheetTitle>¿Cancelar este pedido?</SheetTitle>
           <SheetDescription className="sr-only">
-            Confirmá si querés cancelar este pedido. Tu almuerzo vuelve a tu saldo.
+            {unpaid
+              ? 'Confirmá si querés cancelar este pedido. Tu saldo no cambia.'
+              : 'Confirmá si querés cancelar este pedido. Tu almuerzo vuelve a tu saldo.'}
           </SheetDescription>
 
           <div className="rounded-md border border-border bg-muted/40 p-3.5">
@@ -61,11 +70,17 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
             <p className="m-0 text-[13.5px] text-muted-foreground">{itemsLabel}</p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-md bg-success/15 p-3.5">
-            <RotateCcw className="h-6 w-6 shrink-0 text-success" aria-hidden="true" />
+          <div className={cn('flex items-center gap-3 rounded-md p-3.5', unpaid ? 'bg-muted' : 'bg-success/15')}>
+            <RotateCcw className={cn('h-6 w-6 shrink-0', unpaid ? 'text-foreground' : 'text-success')} aria-hidden="true" />
             <div className="flex flex-col gap-0.5 text-sm">
               <span className="font-bold text-foreground">{returnTitle}</span>
-              {available !== null && (
+              {unpaid && (
+                <span className="text-foreground">
+                  Este pedido se iba a pagar con Mercado Pago y no usó almuerzos de tu saldo. Se libera la reserva del
+                  plato.
+                </span>
+              )}
+              {!unpaid && available !== null && (
                 <span className="text-foreground">
                   Pasás de {available} a {available + lunchCount} almuerzos disponibles.
                 </span>

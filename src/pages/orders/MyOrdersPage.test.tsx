@@ -15,6 +15,7 @@ import {
   resumeDirectCheckoutV2,
 } from '@/features/orders/services/ordersApi';
 import { getWallet } from '@/features/credits/services/creditsApi';
+import { useAuthStore } from '@/features/auth/store/authStore';
 import { formatOrderTimeLabel } from '@/features/orders/components/orderDateLabels';
 import type { OrderV2 } from '@/features/orders/services/ordersApi';
 
@@ -687,5 +688,171 @@ describe('MyOrdersPage — "Cambiar horario" (F19)', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('El horario de retiro ya no se puede cambiar.');
     expect(toast.success).not.toHaveBeenCalled();
+  });
+});
+
+describe('MyOrdersPage — comanda del pedido (F20)', () => {
+  const NOW = new Date('2026-09-26T10:00:00-03:00');
+  const CURRENT = new Date(NOW.getTime() + 3 * HOUR_MS).toISOString();
+  const OTHER = new Date(NOW.getTime() + 3 * HOUR_MS + 30 * 60 * 1000).toISOString();
+  const scheduled: OrderV2 = { ...cancellableOrder, id: 300, fecha: '2026-09-26', pickupAt: CURRENT };
+  const awaiting: OrderV2 = {
+    ...scheduled,
+    id: 301,
+    estado: 'PENDIENTE_PAGO',
+    paidWithMercadoPago: true,
+    modifiable: false,
+    pickupTimeChangeable: false,
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    vi.mocked(getPickupSlots).mockResolvedValue([CURRENT, OTHER]);
+    useAuthStore.setState({
+      accessToken: 'token',
+      user: {
+        id: 7,
+        email: 'sofi@example.com',
+        firstName: 'Sofía',
+        lastName: null,
+        nickname: 'Sofi',
+        displayName: 'Sofi',
+        role: 'EMPLOYEE',
+        companyId: null,
+        companyName: null,
+        categoryId: null,
+        emailVerified: true,
+        profileComplete: true,
+      },
+      bootstrapping: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+  });
+
+  async function openComanda(name = /ver la comanda del pedido/i) {
+    fireEvent.click(await screen.findByRole('button', { name }));
+    return screen.findByRole('dialog', { name: /pedido programado|falta confirmar el pago|ya lo estamos preparando|pedido cancelado/i });
+  }
+
+  it('opens a full-screen comanda with the name they call, and closes it with "‹ Mis pedidos"', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
+    renderPage();
+
+    const dialog = await openComanda();
+
+    expect(within(dialog).getByText('Comanda Nº 0300')).toBeInTheDocument();
+    expect(within(dialog).getByText('Sofi')).toBeInTheDocument();
+    expect(within(dialog).getByText('Programado')).toBeInTheDocument();
+    expect(within(dialog).getByText('Milanesa')).toBeInTheDocument();
+    expect(await within(dialog).findByText('Te quedan 8 almuerzos')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /mis pedidos/i }));
+
+    expect(screen.queryByRole('dialog', { name: /pedido programado/i })).not.toBeInTheDocument();
+  });
+
+  it('does not open the comanda from the buttons on the card', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
+    renderPage();
+
+    const card = await screen.findByTestId('order-card');
+    fireEvent.click(within(card).getByRole('button', { name: /^cancelar pedido$/i }));
+
+    expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
+    expect(screen.queryByText('Comanda Nº 0300')).not.toBeInTheDocument();
+  });
+
+  it('Programado: "Agregar platos" goes to the order page with the day and the pickup time', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
+    renderPage();
+
+    const dialog = await openComanda();
+
+    expect(within(dialog).getByRole('link', { name: /agregar platos/i })).toHaveAttribute(
+      'href',
+      `/orders/today?fecha=2026-09-26&hora=${encodeURIComponent(CURRENT)}`,
+    );
+  });
+
+  it('Programado: changing the time from the comanda updates it in place', async () => {
+    vi.mocked(getOrdersV2)
+      .mockResolvedValueOnce([scheduled])
+      .mockResolvedValue([{ ...scheduled, pickupAt: OTHER }]);
+    vi.mocked(changeOrderPickupTimeV2).mockResolvedValueOnce({ ...scheduled, pickupAt: OTHER });
+    renderPage();
+
+    const dialog = await openComanda();
+    fireEvent.click(within(dialog).getByRole('button', { name: /^cambiar horario$/i }));
+    const target = new Date(OTHER);
+    fireEvent.change(await screen.findByLabelText('Hora de retiro'), { target: { value: String(target.getHours()) } });
+    fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: String(target.getMinutes()) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cambiar horario/i }));
+
+    await waitFor(() => expect(changeOrderPickupTimeV2).toHaveBeenCalledWith(300, OTHER));
+    const updated = await screen.findByRole('dialog', { name: /pedido programado/i });
+    expect(await within(updated).findByText(new RegExp(`· ${formatOrderTimeLabel(OTHER)} hs`))).toBeInTheDocument();
+  });
+
+  it('Programado: cancelling from the comanda leaves it open, cancelled and read-only', async () => {
+    vi.mocked(getOrdersV2)
+      .mockResolvedValueOnce([scheduled])
+      .mockResolvedValue([{ ...scheduled, estado: 'CANCELADO', cancellable: false, modifiable: false, pickupTimeChangeable: false }]);
+    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+    renderPage();
+
+    const dialog = await openComanda();
+    fireEvent.click(within(dialog).getByRole('button', { name: /^cancelar pedido$/i }));
+    expect(await screen.findByText('Tus 4 almuerzos vuelven a tu saldo')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /sí, cancelar pedido/i }));
+
+    await waitFor(() => expect(cancelOrderV2).toHaveBeenCalledWith(300));
+    const cancelled = await screen.findByRole('dialog', { name: 'Pedido cancelado' });
+    expect(within(cancelled).getByText('Cancelado')).toBeInTheDocument();
+    expect(within(cancelled).queryByRole('button', { name: /cancelar pedido|cambiar horario/i })).not.toBeInTheDocument();
+  });
+
+  it('Pago pendiente: pays now from the comanda and cancelling says the balance does not change', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([awaiting]);
+    vi.mocked(resumeDirectCheckoutV2).mockResolvedValue({ orderId: 301, purchaseId: 'p', initPoint: 'https://mp.test/pay' });
+    renderPage();
+
+    const dialog = await openComanda();
+    expect(within(dialog).getByText('A pagar con Mercado Pago')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /cambiar horario/i })).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /pagar ahora/i }));
+    await waitFor(() => expect(resumeDirectCheckoutV2).toHaveBeenCalledWith(301));
+  });
+
+  it('Pago pendiente: the cancel sheet opened from the comanda says "Tu saldo no cambia"', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([awaiting]);
+    renderPage();
+
+    const dialog = await openComanda();
+    fireEvent.click(within(dialog).getByRole('button', { name: /^cancelar pedido$/i }));
+
+    expect(await screen.findByText('Tu saldo no cambia')).toBeInTheDocument();
+    expect(screen.queryByText(/vuelve/i)).not.toBeInTheDocument();
+  });
+
+  it('Confirmado: read-only, no actions', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      { ...scheduled, estado: 'CONFIRMADO', cancellable: false, modifiable: false, pickupTimeChangeable: false },
+    ]);
+    renderPage();
+
+    const dialog = await openComanda();
+
+    expect(within(dialog).getByText('Confirmado')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /cancelar pedido|cambiar horario|pagar ahora/i })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('link', { name: /agregar platos/i })).not.toBeInTheDocument();
   });
 });

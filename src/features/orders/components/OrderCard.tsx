@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { formatLunches } from '../lunches';
 import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from './orderDateLabels';
 import { OrderStatusBadge } from './OrderStatusBadge';
+import { orderStatusLabel } from './orderStatus';
 import type { OrderItemV2, OrderV2 } from '../services/ordersApi';
 
 interface Props {
@@ -37,6 +38,14 @@ interface Props {
    * `undefined`: sin ella no aparece la acción y la tarjeta queda igual.
    */
   onRequestChangePickupTime?: (order: OrderV2) => void;
+  /**
+   * Optativo (F20) — cuando se pasa, tocar la tarjeta abre la comanda del
+   * pedido (`MyOrdersPage`). El área táctil es un botón con el día del
+   * pedido cuyo pseudo-elemento cubre la tarjeta entera; las acciones de la
+   * tarjeta quedan por encima, en áreas propias (no abren la comanda). Prop
+   * aditiva con default `undefined`: sin ella la tarjeta queda igual.
+   */
+  onOpen?: (order: OrderV2) => void;
 }
 
 /**
@@ -57,6 +66,7 @@ export function OrderCard({
   onRequestPayNow,
   payingNow,
   onRequestChangePickupTime,
+  onOpen,
 }: Props) {
   const dayLabel = formatOrderDayLabel(order.pickupAt, now);
   const timeLabel = formatOrderTimeLabel(order.pickupAt);
@@ -78,13 +88,25 @@ export function OrderCard({
       <div
         className={cn(
           'overflow-hidden rounded-lg border border-border bg-card',
+          onOpen && 'relative',
           isCancelled && 'opacity-80',
         )}
       >
         <div className="flex items-start justify-between gap-3 p-4 pb-3">
           <div className="flex flex-col gap-1">
-            <span className="font-display text-lg font-bold leading-tight text-foreground">{dayLabel}</span>
-            <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-foreground">
+            {onOpen ? (
+              <button
+                type="button"
+                onClick={() => onOpen(order)}
+                aria-label={`Ver la comanda del pedido del ${dayLabel.toLowerCase()}, retiro ${timeLabel}, ${orderStatusLabel(order.estado).toLowerCase()}`}
+                className="self-start rounded-md p-0 text-left font-display text-lg font-bold leading-tight text-foreground outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-ring"
+              >
+                {dayLabel}
+              </button>
+            ) : (
+              <span className="font-display text-lg font-bold leading-tight text-foreground">{dayLabel}</span>
+            )}
+            <span className="relative z-10 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-foreground">
               <Clock3 className="h-[15px] w-[15px] text-primary-deep" aria-hidden="true" />
               Retiro {timeLabel} hs
               {canChangePickupTime && (
@@ -119,7 +141,7 @@ export function OrderCard({
                   type="button"
                   onClick={() => onRequestRemoveItem(item)}
                   aria-label={`Quitar ${item.dishNombre}`}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-destructive"
+                  className="relative flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-destructive"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -136,7 +158,7 @@ export function OrderCard({
 
         <div aria-hidden="true" className="mx-4 border-t border-dashed border-border" />
 
-        <div className="flex min-h-[48px] items-center justify-between gap-3 py-1 pl-4 pr-2">
+        <div className="relative z-10 flex min-h-[48px] items-center justify-between gap-3 py-1 pl-4 pr-2">
           <span
             className={cn(
               'inline-flex items-center gap-1.5 text-[13.5px] font-bold',

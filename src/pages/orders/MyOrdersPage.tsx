@@ -4,12 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { ChangePickupTimeSheet } from '@/features/orders/components/ChangePickupTimeSheet';
 import { OrderCard } from '@/features/orders/components/OrderCard';
+import { OrderComandaScreen } from '@/features/orders/components/b2c/OrderComandaScreen';
 import { isRestaurantDayOnOrAfter } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useChangePickupTime } from '@/features/orders/hooks/useChangePickupTime';
 import { useOrders } from '@/features/orders/hooks/useOrders';
 import { usePayNow } from '@/features/orders/hooks/usePayNow';
 import { getRestaurantConfig, type OrderV2 } from '@/features/orders/services/ordersApi';
+import { useWallet } from '@/features/credits/hooks/useWallet';
+import { useAuthStore } from '@/features/auth/store/authStore';
 
 /**
  * Ruta `/orders/mine` — "Mis pedidos" del cliente B2C (`GET /api/v2/orders`,
@@ -40,6 +43,13 @@ import { getRestaurantConfig, type OrderV2 } from '@/features/orders/services/or
  * `isRestaurantDayOnOrAfter` — porque el corte de pago es independiente del
  * horario de retiro: un "Pago pendiente" de hoy cuenta como próximo aunque
  * su horario ya haya pasado.
+ *
+ * F20 (prototipo `MyOrders.dc.html`, tablero v20): tocar una tarjeta abre la
+ * comanda del pedido a pantalla completa (`OrderComandaScreen`) con las
+ * acciones de su estado; reusa las mismas hojas y hooks de la lista (cambiar
+ * horario, cancelar, pagar ahora). Se guarda solo el id abierto y el pedido
+ * se lee de la lista, así la comanda se actualiza en el lugar tras cada
+ * acción (la lista se refresca por las invalidaciones de `['ordersV2']`).
  */
 export function MyOrdersPage() {
   const { data: orders, isLoading, isError } = useOrders();
@@ -50,6 +60,10 @@ export function MyOrdersPage() {
   const { changeTarget, changeError, changing, requestChange, closeChangeSheet, confirmChange } =
     useChangePickupTime();
   const { payingOrderId, payNow } = usePayNow();
+  const [comandaOrderId, setComandaOrderId] = useState<number | null>(null);
+  // El saldo ("Te quedan N") solo se pide mientras hay una comanda abierta.
+  const { data: wallet } = useWallet({ enabled: comandaOrderId !== null });
+  const callName = useAuthStore((s) => s.user?.displayName ?? '');
   /**
    * `pickupLeadMinutes` para el aviso de corte de "Pago pendiente" (F18) —
    * la misma config pública que ya usa `B2cOrderPage`. Tolerante a que no
@@ -79,6 +93,7 @@ export function MyOrdersPage() {
   }
 
   const hasOrders = !!orders && orders.length > 0;
+  const comandaOrder = orders?.find((order) => order.id === comandaOrderId) ?? null;
 
   const isDefaultUpcoming = (order: OrderV2): boolean => {
     if (order.estado === 'PENDIENTE') {
@@ -138,6 +153,7 @@ export function MyOrdersPage() {
                     onRequestPayNow={(o) => payNow(o.id)}
                     payingNow={payingOrderId === order.id}
                     onRequestChangePickupTime={requestChange}
+                    onOpen={(o) => setComandaOrderId(o.id)}
                   />
                 ))}
               </ul>
@@ -184,6 +200,7 @@ export function MyOrdersPage() {
                     pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
                     onRequestPayNow={(o) => payNow(o.id)}
                     payingNow={payingOrderId === order.id}
+                    onOpen={(o) => setComandaOrderId(o.id)}
                   />
                 ))}
               </ul>
@@ -192,6 +209,21 @@ export function MyOrdersPage() {
 
           <p className="text-center text-xs text-muted-foreground">Mostramos tus últimos 30 pedidos.</p>
         </>
+      )}
+
+      {comandaOrder && (
+        <OrderComandaScreen
+          order={comandaOrder}
+          now={now}
+          callName={callName}
+          walletAvailable={wallet?.available ?? null}
+          pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+          payingNow={payingOrderId === comandaOrder.id}
+          onBack={() => setComandaOrderId(null)}
+          onRequestChangePickupTime={requestChange}
+          onRequestCancel={requestCancel}
+          onRequestPayNow={(o) => payNow(o.id)}
+        />
       )}
 
       <CancelOrderSheet

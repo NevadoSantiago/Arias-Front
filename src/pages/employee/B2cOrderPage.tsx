@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
 import { DishCard } from '@/features/orders/components/DishCard';
 import { FilterPills } from '@/features/orders/components/FilterPills';
@@ -151,13 +152,26 @@ export function B2cOrderPage() {
   const [payingDirect, setPayingDirect] = useState(false);
   const [payDirectError, setPayDirectError] = useState<string | null>(null);
   /** Atajo "Sumarlo al pedido de las HH:MM" de la hoja de revisión (F21): cada objeto nuevo mueve el selector de horario. */
-  const [pickupJumpTo, setPickupJumpTo] = useState<{ pickupAt: string } | null>(null);
+  const [searchParams] = useSearchParams();
 
   const todayStr = useMemo(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, []);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  /**
+   * "Agregar platos" desde la comanda de "Mis pedidos" (F20) abre esta pantalla
+   * con `?fecha=AAAA-MM-DD&hora=<ISO>`: arranca en ese día y, con la hoja de
+   * revisión, en ese horario (el mismo salto que "Sumarlo al pedido de las
+   * HH:MM"). Un `fecha` que no es una fecha, o ya pasó, se ignora.
+   */
+  const requestedDate = searchParams.get('fecha');
+  const requestedDayIsValid =
+    requestedDate !== null && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && requestedDate >= todayStr;
+  const requestedTime = requestedDayIsValid ? searchParams.get('hora') : null;
+  const [pickupJumpTo, setPickupJumpTo] = useState<{ pickupAt: string } | null>(
+    requestedTime && !Number.isNaN(new Date(requestedTime).getTime()) ? { pickupAt: requestedTime } : null,
+  );
+  const [selectedDate, setSelectedDate] = useState(requestedDayIsValid ? requestedDate : todayStr);
 
   const cart = useCart(selectedDate);
 

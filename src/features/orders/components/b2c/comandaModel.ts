@@ -1,4 +1,10 @@
 import { formatLunches } from '../../lunches';
+import {
+  formatOrderDateLabel,
+  formatOrderPayDeadlineLabel,
+  formatOrderTimeLabel,
+  isSameRestaurantDay,
+} from '../orderDateLabels';
 import type { OrderV2 } from '../../services/ordersApi';
 
 /** Un plato de la comanda B2C — ya con los textos listos para mostrar. */
@@ -93,4 +99,75 @@ export function comandaFooter(
     };
   }
   return { label: 'Pagado con almuerzos', value: formatLunches(order.creditTotal), icon: 'lunches' };
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+/** "Hoy, jueves 24 de septiembre · 13:00 hs" / "Viernes 25 de septiembre · 13:00 hs". */
+export function comandaWhenLabel(order: OrderV2, now: Date): string {
+  const date = formatOrderDateLabel(order.pickupAt);
+  const day = isSameRestaurantDay(order.pickupAt, now) ? `Hoy, ${lowerFirst(date)}` : date;
+  return `${day} · ${formatOrderTimeLabel(order.pickupAt)} hs`;
+}
+
+/**
+ * Título y bajada de la comanda abierta desde "Mis pedidos" (prototipo v20).
+ * Todo sale de `estado`, de los flags del backend y de `now`: el frontend no
+ * recalcula ninguna ventana de corte — solo la nombra cuando la config la
+ * trae (`pickupLeadMinutes`).
+ */
+export function comandaCopy(
+  order: OrderV2,
+  { now, pickupLeadMinutes }: { now: Date; pickupLeadMinutes?: number | null },
+): { title: string; headline: string } {
+  const time = formatOrderTimeLabel(order.pickupAt);
+  const date = formatOrderDateLabel(order.pickupAt);
+  const dayWhen = isSameRestaurantDay(order.pickupAt, now) ? 'hoy' : `el ${lowerFirst(date)}`;
+
+  if (order.estado === 'CANCELADO') {
+    const count = order.creditTotal;
+    return {
+      title: 'Pedido cancelado',
+      headline: order.paidWithMercadoPago
+        ? 'Este pedido ya no se va a preparar.'
+        : `${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo.`,
+    };
+  }
+  if (order.estado === 'PENDIENTE_PAGO') {
+    const deadline = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
+    return {
+      title: 'Falta confirmar el pago',
+      headline: `Estamos esperando la confirmación de Mercado Pago. Si no se confirma ${deadline ? `antes de las ${deadline}` : 'a tiempo'}, se cancela.`,
+    };
+  }
+  const upcoming = new Date(order.pickupAt).getTime() >= now.getTime();
+  if (upcoming && order.estado === 'PENDIENTE') {
+    const editable = order.pickupTimeChangeable || order.cancellable;
+    const limit = editable
+      ? ` Podés cambiarlo o cancelarlo hasta ${pickupLeadMinutes != null ? `${pickupLeadMinutes} minutos antes del retiro` : 'poco antes del retiro'}.`
+      : ' Ya pasó el límite para cambiarlo o cancelarlo.';
+    return { title: 'Pedido programado', headline: `Te esperamos ${dayWhen} a las ${time}.${limit}` };
+  }
+  if (upcoming) {
+    return {
+      title: 'Ya lo estamos preparando',
+      headline: `Te esperamos ${dayWhen} a las ${time}. Este pedido ya no se puede modificar.`,
+    };
+  }
+  return {
+    title: order.estado === 'ENTREGADO' ? 'Pedido retirado' : `Pedido del ${lowerFirst(date)}`,
+    headline: `Retiro ${dayWhen} a las ${time}.`,
+  };
+}
+
+/**
+ * "Agregar platos" desde la comanda: la pantalla de pedido B2C abre el día
+ * del pedido (`fecha`) y deja preseleccionado su horario (`hora`, ISO — el
+ * mismo salto que "Sumarlo al pedido de las HH:MM"), así lo que se agregue
+ * cae en este pedido.
+ */
+export function addPlatesPath(order: OrderV2): string {
+  return `/orders/today?fecha=${order.fecha}&hora=${encodeURIComponent(order.pickupAt)}`;
 }

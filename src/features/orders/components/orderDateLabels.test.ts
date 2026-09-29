@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  formatOrderDateLabel,
   formatOrderDayLabel,
   formatOrderPayDeadlineLabel,
   formatOrderTimeLabel,
@@ -131,5 +132,12 @@ describe('formatOrderPayDeadlineLabel', () => {
     expect(spy).not.toHaveBeenCalledWith('es-AR', expect.objectContaining({ hour12: false }));
 
     spy.mockRestore();
+  });
+
+  describe('formatOrderDateLabel', () => {
+    it('is the calendar date without the "Hoy, " prefix, even for a same-day order', () => {
+      expect(formatOrderDateLabel('2026-09-24T16:00:00Z')).toBe('Jueves 24 de septiembre');
+      expect(formatOrderDateLabel('2026-09-25T02:30:00Z')).toBe('Jueves 24 de septiembre');
+    });
   });
 });

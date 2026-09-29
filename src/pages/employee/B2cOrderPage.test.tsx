@@ -98,13 +98,13 @@ const dish: Dish = {
   especial: false,
 };
 
-function renderPage() {
+function renderPage(route = '/') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
   });
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[route]}>
         <B2cOrderPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -608,6 +608,62 @@ describe('B2cOrderPage — pickup time picker (F3)', () => {
         name: new RegExp(`^retiro ${dayShort} a las \\d{2}:\\d{2}$`, 'i'),
       }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — opened from "Agregar platos" of a comanda (F20)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  it('starts on the day given by ?fecha instead of today', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    vi.mocked(getPickupSlots).mockResolvedValue([`${futureDate}T15:00:00Z`]);
+
+    renderPage(`/orders/today?fecha=${futureDate}`);
+
+    await waitFor(() => expect(getAvailableDishes).toHaveBeenCalledWith(futureDate));
+    expect(getAvailableDishes).not.toHaveBeenCalledWith(toIso(new Date()));
+  });
+
+  it('ignores a ?fecha that is not a date and keeps today', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+
+    renderPage('/orders/today?fecha=abc');
+
+    await waitFor(() => expect(getAvailableDishes).toHaveBeenCalledWith(toIso(new Date())));
+    expect(getAvailableDishes).toHaveBeenCalledTimes(1);
+  });
+
+  it('preselects the pickup time of ?hora in the review sheet (the "Sumarlo" jump)', async () => {
+    const [futureDate] = nextWeekMondayAndTuesday();
+    const first = `${futureDate}T15:00:00Z`;
+    const wanted = `${futureDate}T18:00:00Z`;
+    vi.mocked(getPickupSlots).mockResolvedValue([first, wanted]);
+
+    renderPage(`/orders/today?fecha=${futureDate}&hora=${encodeURIComponent(wanted)}`);
+    await addDishToCart();
+    await openReview();
+
+    const hour = (await screen.findByLabelText('Hora de retiro')) as HTMLSelectElement;
+    expect(hour.value).toBe(String(new Date(wanted).getHours()));
+    expect(screen.getByRole('radio', { name: /elegir horario/i })).toHaveAttribute('aria-checked', 'true');
   });
 });
 

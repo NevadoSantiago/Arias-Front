@@ -82,3 +82,20 @@ export function formatOrderPayDeadlineLabel(pickupAt: string, leadMinutes: numbe
     timeZone: RESTAURANT_TIME_ZONE,
   });
 }
+
+/**
+ * "Jueves 24 de septiembre" — la fecha calendario del retiro, siempre sin el
+ * prefijo "Hoy, " y sin la coma tras el día (la comanda de F20 la muestra
+ * como el prototipo), en la zona del restaurante.
+ */
+export function formatOrderDateLabel(pickupAt: string): string {
+  const formatted = new Date(pickupAt)
+    .toLocaleDateString('es-AR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      timeZone: RESTAURANT_TIME_ZONE,
+    })
+    .replace(',', '');
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}

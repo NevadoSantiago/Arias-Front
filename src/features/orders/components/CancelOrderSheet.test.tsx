@@ -79,4 +79,28 @@ describe('CancelOrderSheet', () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByText('¿Cancelar este pedido?')).toBeInTheDocument();
   });
+
+  // Caracterización (antes del cambio): un pedido programado devuelve sus
+  // almuerzos al saldo y la hoja lo dice con el saldo resultante.
+  it('for a scheduled order says the lunches go back to the balance and shows the new balance', async () => {
+    renderSheet();
+
+    expect(await screen.findByText('Tus 4 almuerzos vuelven a tu saldo')).toBeInTheDocument();
+    expect(await screen.findByText('Pasás de 8 a 12 almuerzos disponibles.')).toBeInTheDocument();
+  });
+
+  // Bug de copy verificado: un pedido sin pagar (PENDIENTE_PAGO) no usó almuerzos
+  // del saldo, así que la hoja no puede decir que "vuelven".
+  it('for an order awaiting payment says the balance does not change and never that lunches go back', async () => {
+    renderSheet({ order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true } });
+
+    expect(await screen.findByText('Tu saldo no cambia')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Este pedido se iba a pagar con Mercado Pago y no usó almuerzos de tu saldo. Se libera la reserva del plato.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/vuelve/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/pasás de/i)).not.toBeInTheDocument();
+  });
 });
