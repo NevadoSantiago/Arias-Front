@@ -371,7 +371,7 @@ export async function changeOrderPickupTimeV2(orderId: number, pickupAt: string)
     const { data } = await api.patch<OrderV2>(`${BASE_V2}/${orderId}/pickup-time`, { pickupAt });
     return data;
   } catch (err) {
-    throw mapOrderV2Error(err);
+    throw mapOrderV2Error(err, { pickupTimeChange: true });
   }
 }
 
@@ -385,10 +385,15 @@ export async function getOrdersV2(): Promise<OrderV2[]> {
   return data;
 }
 
-function mapOrderV2Error(err: unknown): Error {
+/**
+ * `pickupTimeChange`: solo el cambio de horario mapea los `pickup-*` a
+ * {@link PickupTimeChangeError}; al crear un pedido o agregar platos esos
+ * errores conservan su comportamiento anterior (F19.1).
+ */
+function mapOrderV2Error(err: unknown, { pickupTimeChange = false }: { pickupTimeChange?: boolean } = {}): Error {
   if (typeof err === 'object' && err !== null && 'response' in err) {
     const data = (err as { response?: { data?: { title?: string; detail?: string } } }).response?.data;
-    if (data?.title && PICKUP_TIME_ERROR_TITLES.has(data.title)) {
+    if (pickupTimeChange && data?.title && PICKUP_TIME_ERROR_TITLES.has(data.title)) {
       const fallback =
         data.title === 'pickup-time-locked'
           ? 'El horario de retiro ya no se puede cambiar.'

@@ -43,7 +43,9 @@ interface Props {
    * F19 ("Cambiar horario" de Mis pedidos): solo los selectores de hora y
    * minutos — sin las opciones "Lo antes posible"/"Última utilizada" ni el
    * texto "Retirás…", que muestra quien lo usa. Con `jumpTo` arranca en el
-   * horario actual del pedido. Default `false`: comportamiento sin cambios.
+   * horario actual del pedido. Solo reporta por `onSelect` una elección
+   * explícita (F19.1): sin ella los selectores quedan vacíos, aunque haya un
+   * primer slot. Default `false`: comportamiento sin cambios.
    */
   selectOnly?: boolean;
 }
@@ -147,11 +149,15 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
 
   const effective = mode === 'custom' && customSlot ? customSlot : firstOption;
 
+  // En `selectOnly` el modo automático no es una elección del usuario: no se
+  // reporta (F19.1), para no hacer pasar el primer slot por un horario elegido.
+  const reported = selectOnly && mode === 'auto' ? null : effective;
+
   useEffect(() => {
-    if (effective) onSelect(effective.iso);
-    // Solo nos importa cuándo cambia el slot efectivo, no la identidad de `onSelect`.
+    if (reported) onSelect(reported.iso);
+    // Solo nos importa cuándo cambia el slot reportado, no la identidad de `onSelect`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effective?.iso]);
+  }, [reported?.iso]);
 
   if (isError) {
     return (
@@ -180,9 +186,10 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
     return <p className="text-sm text-muted-foreground">Cargando horarios…</p>;
   }
 
+  const unselected = selectOnly && mode === 'auto';
   const shownH = mode === 'custom' && customH !== null ? customH : effective!.h;
   const shownM = mode === 'custom' && customM !== null ? customM : effective!.m;
-  const minuteOptions = minutesForHour(shownH);
+  const minuteOptions = unselected ? [] : minutesForHour(shownH);
 
   const handleHourChange = (h: number) => {
     const mins = minutesForHour(h);
@@ -282,11 +289,16 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
             </label>
             <select
               id="pickup-hour"
-              value={shownH}
+              value={unselected ? '' : shownH}
               onClick={activateCustom}
               onChange={(e) => handleHourChange(Number(e.target.value))}
               className="h-11 w-[68px] rounded-md border border-border bg-background px-2 text-base font-bold text-foreground"
             >
+              {unselected && (
+                <option value="" disabled>
+                  --
+                </option>
+              )}
               {hours.map((h) => (
                 <option key={h} value={h}>
                   {pad(h)}
@@ -301,11 +313,17 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
             </label>
             <select
               id="pickup-minute"
-              value={shownM}
+              value={unselected ? '' : shownM}
+              disabled={unselected}
               onClick={activateCustom}
               onChange={(e) => handleMinuteChange(Number(e.target.value))}
               className="h-11 w-[68px] rounded-md border border-border bg-background px-2 text-base font-bold text-foreground"
             >
+              {unselected && (
+                <option value="" disabled>
+                  --
+                </option>
+              )}
               {minuteOptions.map((m) => (
                 <option key={m} value={m}>
                   {pad(m)}

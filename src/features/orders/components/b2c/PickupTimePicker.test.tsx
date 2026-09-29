@@ -261,4 +261,20 @@ describe('PickupTimePicker', () => {
     fireEvent.change(screen.getByLabelText(/^minutos$/i), { target: { value: String(new Date(SLOT_B1).getMinutes()) } });
     expect(onSelect).toHaveBeenLastCalledWith(SLOT_B1);
   });
+
+  // F19.1: sin selección explícita (el horario actual ya no está entre los
+  // slots) la variante selectOnly no reporta nada y muestra el campo vacío.
+  it('selectOnly reports nothing until the user picks, even when the jump target is not among the slots', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A2, SLOT_B1]);
+
+    const { onSelect } = renderPicker({ selectOnly: true, jumpTo: { pickupAt: SLOT_A1 } });
+
+    const hourSelect = (await screen.findByLabelText(/hora de retiro/i)) as HTMLSelectElement;
+    expect(hourSelect.value).toBe('');
+    expect((screen.getByLabelText(/^minutos$/i) as HTMLSelectElement).value).toBe('');
+    expect(onSelect).not.toHaveBeenCalled();
+
+    fireEvent.change(hourSelect, { target: { value: String(new Date(SLOT_A2).getHours()) } });
+    expect(onSelect).toHaveBeenLastCalledWith(SLOT_A2);
+  });
 });

@@ -125,7 +125,7 @@ describe('ChangePickupTimeSheet', () => {
     expect(screen.getByRole('button', { name: 'Continuar' })).toBeEnabled();
   });
 
-  it('shows the backend error in the confirm step and disables the button while changing', async () => {
+  it('shows the backend error in the confirm step', async () => {
     vi.mocked(getPickupSlots).mockResolvedValue(SLOTS);
     renderSheet({ errorMessage: 'El horario de retiro ya no se puede cambiar.' });
     await screen.findByLabelText('Hora de retiro');
@@ -133,6 +133,34 @@ describe('ChangePickupTimeSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('El horario de retiro ya no se puede cambiar.');
+  });
+
+  it('disables both confirm-step buttons and shows "Cambiando…" while the change is in flight', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(SLOTS);
+    renderSheet({ changing: true });
+    await screen.findByLabelText('Hora de retiro');
+    pickOther();
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    expect(screen.getByRole('button', { name: 'Cambiando…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /elegir otro horario/i })).toBeDisabled();
+  });
+
+  it('does not treat an auto-selected slot as a choice when the current time is not among the slots', async () => {
+    const FIRST = '2026-05-21T15:10:00Z';
+    vi.mocked(getPickupSlots).mockResolvedValue([FIRST, OTHER]);
+    const { onConfirm } = renderSheet();
+    const hourSelect = (await screen.findByLabelText('Hora de retiro')) as HTMLSelectElement;
+
+    expect(hourSelect.value).toBe('');
+    expect(screen.getByRole('button', { name: 'Continuar' })).toBeDisabled();
+
+    // Elegir a mano el primer slot (el que el picker mostraría solo) sí cuenta.
+    fireEvent.change(hourSelect, { target: { value: String(new Date(FIRST).getHours()) } });
+    expect(screen.getByRole('button', { name: 'Continuar' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+    fireEvent.click(screen.getByRole('button', { name: /sí, cambiar horario/i }));
+    expect(onConfirm).toHaveBeenCalledWith(FIRST);
   });
 
   it('"Volver sin cambiar" closes the sheet', async () => {
