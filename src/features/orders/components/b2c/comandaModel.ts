@@ -3,6 +3,7 @@ import {
   formatLunches,
   isPartialPayment,
   mercadoPagoPartOf,
+  MP_PAYMENT_CREDITED,
   PARTIAL_RETURNED_TO_BALANCE,
   reservedWord,
 } from '../../lunches';
@@ -81,11 +82,11 @@ export function comandaFooter(
   if (order.estado === 'CANCELADO') {
     if (isPartialPayment(order)) {
       // Pago parcial (F23): el DTO no dice si el pago se aprobó antes de cancelar, así que no se da un número.
-      return { label: 'Pedido cancelado', value: PARTIAL_RETURNED_TO_BALANCE, icon: 'lunches' };
+      return { label: 'Pedido cancelado', value: `${PARTIAL_RETURNED_TO_BALANCE}. ${MP_PAYMENT_CREDITED}`, icon: 'lunches' };
     }
     if (order.paidWithMercadoPago) {
-      // No se afirma nada sobre el saldo: el DTO no dice si el pago llegó a acreditarse.
-      return { label: 'Pedido cancelado', value: null, icon: 'card' };
+      // Sin número: el DTO no dice si el pago ya se acreditó; solo que lo pagado nunca se pierde (F26).
+      return { label: 'Pedido cancelado', value: MP_PAYMENT_CREDITED, icon: 'card' };
     }
     const count = order.creditTotal;
     return {
@@ -177,9 +178,9 @@ export function comandaCopy(
     return {
       title: 'Pedido cancelado',
       headline: isPartialPayment(order)
-        ? `${PARTIAL_RETURNED_TO_BALANCE}.`
+        ? `${PARTIAL_RETURNED_TO_BALANCE}. ${MP_PAYMENT_CREDITED}`
         : order.paidWithMercadoPago
-          ? 'Este pedido ya no se va a preparar.'
+          ? `Este pedido ya no se va a preparar. ${MP_PAYMENT_CREDITED}`
           : `${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo.`,
     };
   }

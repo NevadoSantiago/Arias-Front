@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { cancelOrderV2 } from '../services/ordersApi';
-import { balancePartOf, formatLunches } from '../lunches';
+import { balancePartOf, formatLunches, PENDING_PAYMENT_CREDITED_TOAST } from '../lunches';
 import type { OrderV2 } from '../services/ordersApi';
 
 /**
@@ -29,11 +29,12 @@ export function useCancelOrder() {
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
       // Un pedido esperando pago solo devuelve los almuerzos que reservó del saldo (F23).
       const count = order.estado === 'PENDIENTE_PAGO' ? balancePartOf(order) : order.creditTotal;
-      toast.success(
+      const base =
         count === 0
           ? 'Pedido cancelado'
-          : `Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`,
-      );
+          : `Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`;
+      // F26: si ya había pagado, Mercado Pago lo confirma después y el pago se acredita al saldo.
+      toast.success(order.estado === 'PENDIENTE_PAGO' ? `${base}. ${PENDING_PAYMENT_CREDITED_TOAST}` : base);
       setCancelTarget(null);
       setCancelError(null);
     },

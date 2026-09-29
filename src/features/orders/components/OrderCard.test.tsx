@@ -115,3 +115,35 @@ describe('OrderCard — partial balance payment (F23)', () => {
     expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
   });
 });
+
+describe('OrderCard — cancelled order paid with Mercado Pago (F26)', () => {
+  const MP_CREDITED = 'Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.';
+
+  it('says what was paid is credited to the balance', () => {
+    renderCard({ order: { ...order, estado: 'CANCELADO', cancellable: false, paidWithMercadoPago: true } });
+
+    expect(screen.getByText(MP_CREDITED)).toBeInTheDocument();
+  });
+
+  it('keeps the partial label without a number and adds the credit line', () => {
+    renderCard({
+      order: {
+        ...order,
+        estado: 'CANCELADO',
+        cancellable: false,
+        creditTotal: 2,
+        creditsFromBalance: 1,
+        paidWithMercadoPago: true,
+      },
+    });
+
+    expect(screen.getByText('Almuerzos reservados devueltos')).toBeInTheDocument();
+    expect(screen.getByText(MP_CREDITED)).toBeInTheDocument();
+  });
+
+  it('adds nothing to a cancelled order paid only with lunches', () => {
+    renderCard({ order: { ...order, estado: 'CANCELADO', cancellable: false } });
+
+    expect(screen.queryByText(MP_CREDITED)).not.toBeInTheDocument();
+  });
+});

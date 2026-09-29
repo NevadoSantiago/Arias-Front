@@ -3,7 +3,7 @@ import { RotateCcw } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { getWallet } from '@/features/credits/services/creditsApi';
 import { cn } from '@/lib/utils';
-import { balancePartOf, formatLunches } from '../lunches';
+import { balancePartOf, formatLunches, mercadoPagoPartOf, pendingPaymentCreditedNotice } from '../lunches';
 import { formatOrderDayLabel, formatOrderTimeLabel } from './orderDateLabels';
 import type { OrderV2 } from '../services/ordersApi';
 
@@ -58,6 +58,8 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
       : lunchCount === 1
         ? 'Tu almuerzo vuelve a tu saldo'
         : `Tus ${formatLunches(lunchCount)} vuelven a tu saldo`;
+  // F26: si el cliente ya pagó y Mercado Pago aún no lo confirmó, el pago se acredita al saldo.
+  const creditedNotice = order ? pendingPaymentCreditedNotice(mercadoPagoPartOf(order)) : '';
   const available = wallet?.available ?? null;
 
   return (
@@ -89,11 +91,9 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
                 </span>
               )}
               {!unpaid && available !== null && (
-                <span className="text-foreground">
-                  Pasás de {available} a {available + lunchCount} almuerzos disponibles.
-                  {awaitingPayment && ' No se cobra nada con Mercado Pago.'}
-                </span>
+                <span className="text-foreground">Pasás de {available} a {available + lunchCount} almuerzos disponibles.</span>
               )}
+              {awaitingPayment && <span className="text-foreground">{creditedNotice}</span>}
             </div>
           </div>
 

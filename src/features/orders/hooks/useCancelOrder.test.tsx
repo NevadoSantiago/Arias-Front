@@ -49,12 +49,16 @@ describe('useCancelOrder — success toast', () => {
   it('counts only the reserved lunches of an order awaiting payment with a partial balance (F23)', async () => {
     await cancel({ ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, creditsFromBalance: 1 });
 
-    expect(toast.success).toHaveBeenCalledWith('Pedido cancelado · 1 almuerzo volvió a tu saldo');
+    expect(toast.success).toHaveBeenCalledWith(
+      'Pedido cancelado · 1 almuerzo volvió a tu saldo. Si ya pagaste con Mercado Pago, te acreditamos lo que pagaste en tu saldo cuando se confirme el pago.',
+    );
   });
 
   it('does not claim any lunch came back when an order awaiting payment reserved none', async () => {
     await cancel({ ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true });
 
-    expect(toast.success).toHaveBeenCalledWith('Pedido cancelado');
+    expect(toast.success).toHaveBeenCalledWith(
+      'Pedido cancelado. Si ya pagaste con Mercado Pago, te acreditamos lo que pagaste en tu saldo cuando se confirme el pago.',
+    );
   });
 });

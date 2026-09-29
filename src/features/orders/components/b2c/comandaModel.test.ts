@@ -119,7 +119,11 @@ describe('comandaFooter', () => {
   it('cancelled Mercado Pago order: no claim about the balance', () => {
     expect(
       comandaFooter(order({ estado: 'CANCELADO', paidWithMercadoPago: true }), { now: NOW, walletAvailable: 10 }),
-    ).toEqual({ label: 'Pedido cancelado', value: null, icon: 'card' });
+    ).toEqual({
+      label: 'Pedido cancelado',
+      value: 'Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
+      icon: 'card',
+    });
   });
 
   describe('partial balance payment (F23)', () => {
@@ -175,7 +179,7 @@ describe('comandaFooter', () => {
     it('cancelled while partly reserved: neutral copy, no number that could be wrong', () => {
       expect(comandaFooter(order({ ...partial, estado: 'CANCELADO' }), { now: NOW, walletAvailable: 10 })).toEqual({
         label: 'Pedido cancelado',
-        value: 'Los almuerzos reservados volvieron a tu saldo',
+        value: 'Los almuerzos reservados volvieron a tu saldo. Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
         icon: 'lunches',
       });
     });
@@ -198,8 +202,28 @@ describe('comandaFooter', () => {
 
     it('comandaCopy uses neutral copy when a partly reserved order is cancelled', () => {
       expect(comandaCopy(order({ ...partial, estado: 'CANCELADO' }), { now: NOW }).headline).toBe(
-        'Los almuerzos reservados volvieron a tu saldo.',
+        'Los almuerzos reservados volvieron a tu saldo. Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
       );
+    });
+
+    it('comandaCopy tells a cancelled Mercado Pago order that the payment is credited (F26)', () => {
+      expect(comandaCopy(order({ estado: 'CANCELADO', paidWithMercadoPago: true }), { now: NOW }).headline).toBe(
+        'Este pedido ya no se va a preparar. Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
+      );
+    });
+
+    it('never says Mercado Pago charged nothing on cancelled orders (F26)', () => {
+      const cancelled = [
+        order({ estado: 'CANCELADO' }),
+        order({ ...partial, estado: 'CANCELADO' }),
+        order({ estado: 'CANCELADO', paidWithMercadoPago: true }),
+      ];
+      const texts = cancelled.flatMap((o) => [
+        comandaCopy(o, { now: NOW }).headline,
+        comandaFooter(o, { now: NOW, walletAvailable: 1 }).value ?? '',
+      ]);
+
+      expect(texts.join(' ')).not.toMatch(/no se cobra|no se cobró/i);
     });
   });
 

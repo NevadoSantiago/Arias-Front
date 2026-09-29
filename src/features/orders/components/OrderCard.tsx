@@ -1,6 +1,6 @@
 import { Clock3, CreditCard, Pencil, UtensilsCrossed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { balancePartOf, formatLunches, isPartialPayment, mercadoPagoPartOf } from '../lunches';
+import { balancePartOf, formatLunches, isPartialPayment, mercadoPagoPartOf, MP_PAYMENT_CREDITED } from '../lunches';
 import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from './orderDateLabels';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { orderStatusLabel } from './orderStatus';
@@ -156,6 +156,9 @@ export function OrderCard({
             </div>
           ))}
           {order.notas && <p className="m-0 text-[13px] italic text-muted-foreground">{order.notas}</p>}
+          {isCancelled && order.paidWithMercadoPago && (
+            <p className="m-0 text-[13px] leading-relaxed text-muted-foreground">{MP_PAYMENT_CREDITED}</p>
+          )}
           {isAwaitingPayment && (
             <p role="status" className="m-0 text-[13px] leading-relaxed text-muted-foreground">
               {payDeadlineText}

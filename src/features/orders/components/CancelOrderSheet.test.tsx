@@ -104,6 +104,34 @@ describe('CancelOrderSheet', () => {
     expect(screen.queryByText(/vuelve/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/pasás de/i)).not.toBeInTheDocument();
   });
+
+  // F26: si el cliente ya pagó y Mercado Pago no lo confirmó, el pago se acredita al saldo.
+  it('for an order awaiting payment with nothing reserved says a payment already made is credited (F26)', async () => {
+    renderSheet({ order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, creditTotal: 1 } });
+
+    expect(
+      await screen.findByText(
+        'Si ya pagaste con Mercado Pago, cuando se confirme el pago te acreditamos ese almuerzo en tu saldo.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('pluralizes the lunches credited when nothing was reserved (F26)', async () => {
+    renderSheet({ order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, creditTotal: 2 } });
+
+    expect(
+      await screen.findByText(
+        'Si ya pagaste con Mercado Pago, cuando se confirme el pago te acreditamos esos 2 almuerzos en tu saldo.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('never claims Mercado Pago charges nothing (F26)', async () => {
+    renderSheet({ order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true } });
+
+    await screen.findByText('Tu saldo no cambia');
+    expect(screen.queryByText(/no se cobra/i)).not.toBeInTheDocument();
+  });
 });
 
 describe('CancelOrderSheet — partly reserved order awaiting payment (F23)', () => {
@@ -115,14 +143,28 @@ describe('CancelOrderSheet — partly reserved order awaiting payment (F23)', ()
     creditsFromBalance: 1,
   };
 
-  it('says the reserved lunch goes back to the balance and that Mercado Pago charges nothing', async () => {
+  it('says the reserved lunch goes back and that a payment already made is credited (F26)', async () => {
     renderSheet({ order: partial });
 
     expect(await screen.findByText('Tu almuerzo reservado vuelve a tu saldo')).toBeInTheDocument();
+    expect(await screen.findByText('Pasás de 8 a 9 almuerzos disponibles.')).toBeInTheDocument();
     expect(
-      await screen.findByText(/pasás de 8 a 9 almuerzos disponibles\. no se cobra nada con mercado pago\./i),
+      screen.getByText(
+        'Si ya pagaste con Mercado Pago, cuando se confirme el pago te acreditamos esos 3 almuerzos en tu saldo.',
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText('Tu saldo no cambia')).not.toBeInTheDocument();
+    expect(screen.queryByText(/no se cobra/i)).not.toBeInTheDocument();
+  });
+
+  it('uses the singular when Mercado Pago covers one lunch (F26)', async () => {
+    renderSheet({ order: { ...partial, creditTotal: 2 } });
+
+    expect(
+      await screen.findByText(
+        'Si ya pagaste con Mercado Pago, cuando se confirme el pago te acreditamos ese almuerzo en tu saldo.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('pluralizes the reserved lunches', async () => {

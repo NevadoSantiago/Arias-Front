@@ -41,3 +41,23 @@ export function isPartialPayment(order: {
  * no, y el DTO no distingue ambos casos. Se evita un número que puede ser falso.
  */
 export const PARTIAL_RETURNED_TO_BALANCE = 'Los almuerzos reservados volvieron a tu saldo';
+
+/**
+ * Un pedido cancelado que se pagaba con Mercado Pago: si el pago ya se había hecho,
+ * el backend lo acredita al saldo al confirmarse (nunca se pierde). F26.
+ */
+export const MP_PAYMENT_CREDITED = 'Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.';
+
+/** "ese almuerzo" / "esos N almuerzos": los que cubre Mercado Pago y se acreditan si el pago ya se hizo (F26). */
+export function creditedLunchesPhrase(count: number): string {
+  return count === 1 ? 'ese almuerzo' : `esos ${count} almuerzos`;
+}
+
+/** Aviso al cancelar un pedido esperando el pago: si el cliente ya pagó, se le acredita cuando se confirme. */
+export function pendingPaymentCreditedNotice(mercadoPagoLunches: number): string {
+  return `Si ya pagaste con Mercado Pago, cuando se confirme el pago te acreditamos ${creditedLunchesPhrase(mercadoPagoLunches)} en tu saldo.`;
+}
+
+/** Versión corta para el aviso de éxito al cancelar. */
+export const PENDING_PAYMENT_CREDITED_TOAST =
+  'Si ya pagaste con Mercado Pago, te acreditamos lo que pagaste en tu saldo cuando se confirme el pago.';
