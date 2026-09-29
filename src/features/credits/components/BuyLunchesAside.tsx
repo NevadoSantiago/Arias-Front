@@ -3,6 +3,7 @@ import { Lock, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatLunches } from '@/features/orders/lunches';
 import { useWallet } from '../hooks/useWallet';
+import { useCreditExpiryDays } from '../hooks/useCreditExpiryDays';
 import { usePackCatalog, usePackPurchase } from '../hooks/usePackPurchase';
 import { formatPrice, perLunchPriceCents } from '../packPricing';
 import { planPurchase, resolveSelection, type PurchaseSelection } from '../purchaseModel';
@@ -41,6 +42,7 @@ export function BuyLunchesAside() {
   const { catalog, isLoading, isError, isEmpty } = usePackCatalog();
   const { data: wallet } = useWallet();
   const purchase = usePackPurchase();
+  const expiryDays = useCreditExpiryDays();
   const [selection, setSelection] = useState<PurchaseSelection | null>(null);
   const [qty, setQty] = useState(MIN_QTY);
 
@@ -196,7 +198,7 @@ export function BuyLunchesAside() {
 
           <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[12.5px] leading-snug text-foreground">
             <li>Se suman a tu saldo apenas Mercado Pago confirma el pago.</li>
-            <li>Vencen a los 90 días de tu última compra. Cada compra renueva el plazo.</li>
+            <li>Vencen a los {expiryDays} días de tu última compra. Cada compra renueva el plazo.</li>
           </ul>
         </>
       )}

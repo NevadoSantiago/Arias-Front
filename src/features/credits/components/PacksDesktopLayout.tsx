@@ -2,6 +2,7 @@ import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatPrice, perLunchPriceCents } from '../packPricing';
 import { expiryAfterPurchase, type PackCatalog, type PurchasePlan, type PurchaseSelection } from '../purchaseModel';
+import { useCreditExpiryDays } from '../hooks/useCreditExpiryDays';
 import { LooseCard } from './LooseCard';
 import { PackNudge } from './PackNudge';
 import { PackOptionCard } from './PackOptionCard';
@@ -35,6 +36,7 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
   const { dayPack, namedPacks, recommended, weekPack } = catalog;
   const loose = selection?.kind === 'loose';
   const showNudge = loose && qty >= NUDGE_FROM && !!weekPack;
+  const expiryDays = useCreditExpiryDays();
 
   return (
     <div className="container grid max-w-6xl grid-cols-[minmax(0,1fr)_380px] items-start gap-10 py-8">
@@ -100,7 +102,7 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary-deep">
               <CalendarDays className="h-4 w-4" aria-hidden="true" />
             </span>
-            <span>Vencen a los 90 días de tu última compra. Cada compra renueva el plazo.</span>
+            <span>Vencen a los {expiryDays} días de tu última compra. Cada compra renueva el plazo.</span>
           </li>
         </ul>
       </div>
@@ -108,7 +110,7 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
       {plan ? (
         <PackPurchasePanel
           selection={plan.checkout}
-          expiryLabel={formatExpiry(expiryAfterPurchase())}
+          expiryLabel={formatExpiry(expiryAfterPurchase(expiryDays))}
           onPay={onPay}
           isPending={isPending}
         />

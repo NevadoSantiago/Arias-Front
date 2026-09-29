@@ -65,6 +65,18 @@ describe('getRestaurantConfig', () => {
     });
   });
 
+  it('exposes creditExpiryDays (F22c.1) and tolerates a backend that omits it', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { horaCorte: '10:00:00', timezone: 'x', pickupWindowStart: null, pickupWindowEnd: null, creditExpiryDays: 45 },
+    });
+    expect((await getRestaurantConfig()).creditExpiryDays).toBe(45);
+
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { horaCorte: '10:00:00', timezone: 'x', pickupWindowStart: null, pickupWindowEnd: null },
+    });
+    expect((await getRestaurantConfig()).creditExpiryDays).toBeUndefined();
+  });
+
   it('does not throw and returns null window fields when pickupWindowStart/End are missing', async () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       data: {

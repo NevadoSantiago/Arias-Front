@@ -102,4 +102,10 @@ export interface RestaurantConfig {
    * y la UI omite el horario del aviso cuando no está.
    */
   pickupLeadMinutes?: number;
+  /**
+   * Días que duran los almuerzos desde la última compra (`restaurant_config.credit_expiry_days`,
+   * configurable por el admin). Lo lee "Tu compra" de la compra de almuerzos (F22c.1).
+   * Optional: tolerante a un backend viejo sin el campo.
+   */
+  creditExpiryDays?: number;
 }

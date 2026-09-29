@@ -4,7 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { CreditsPacksPage } from './CreditsPacksPage';
 import { mockMatchMedia } from '@/test/matchMedia';
+import { toast } from 'sonner';
 import { createPurchase, getPacks, getWallet } from '@/features/credits/services/creditsApi';
+import { getRestaurantConfig } from '@/features/orders/services/ordersApi';
 import type { CreditPack } from '@/features/credits/types';
 
 vi.mock('@/features/credits/services/creditsApi', () => ({
@@ -12,6 +14,7 @@ vi.mock('@/features/credits/services/creditsApi', () => ({
   createPurchase: vi.fn(),
   getWallet: vi.fn(),
 }));
+vi.mock('@/features/orders/services/ordersApi', () => ({ getRestaurantConfig: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const dayPack: CreditPack = { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true };
@@ -34,6 +37,7 @@ function arrange() {
   vi.setSystemTime(new Date('2026-09-25T12:00:00-03:00'));
   vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack, monthPack]);
   vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  vi.mocked(getRestaurantConfig).mockResolvedValue({ horaCorte: '10:00', pickupWindowStart: null, pickupWindowEnd: null });
   Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
 }
 
@@ -90,6 +94,33 @@ describe('CreditsPacksPage on desktop (F22c)', () => {
 
     await vi.waitFor(() => expect(createPurchase).toHaveBeenCalledWith({ type: 'PACK', packId: 2 }));
     await vi.waitFor(() => expect(window.location.href).toBe('https://mp.example/checkout/p1'));
+  });
+
+  it('takes the expiry from the restaurant config, in the date and in the copy (F22c.1)', async () => {
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: null,
+      pickupWindowEnd: null,
+      creditExpiryDays: 30,
+    });
+    renderPage();
+
+    const panel = await screen.findByRole('complementary', { name: 'Tu compra' });
+    await vi.waitFor(() => expect(panel).toHaveTextContent('25 de octubre de 2026'));
+    expect(screen.getByText(/vencen a los 30 días/i)).toBeInTheDocument();
+    expect(screen.queryByText(/90 días/i)).not.toBeInTheDocument();
+  });
+
+  it('on a payment error shows a toast and does not redirect', async () => {
+    vi.mocked(createPurchase).mockRejectedValueOnce(new Error('boom'));
+    renderPage();
+    const panel = await screen.findByRole('complementary', { name: 'Tu compra' });
+    await within(panel).findByText('Paquete Semana');
+
+    fireEvent.click(within(panel).getByRole('button', { name: /pagar con mercado pago/i }));
+
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(window.location.href).toBe('');
   });
 
   it('Sueltos: 1..10 stepper that disables at the limits, priced by DAY x quantity, no discount row', async () => {

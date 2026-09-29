@@ -7,8 +7,12 @@ import type { CreditPack } from './types';
 export const DAY_CODE = 'DAY';
 /** Código del pack "Paquete Semana" (el que empuja el aviso de Sueltos). */
 export const WEEK_CODE = 'WEEK';
-/** Los almuerzos vencen a los 90 días de la última compra (mismo texto que en la pantalla). */
-export const EXPIRY_DAYS = 90;
+/**
+ * Plazo de vencimiento mientras la config del restaurante no cargó (o el backend no
+ * lo informa): el de la migración inicial. El valor real es
+ * `restaurant_config.credit_expiry_days` (ver `useCreditExpiryDays`).
+ */
+export const DEFAULT_EXPIRY_DAYS = 90;
 
 export interface PackCatalog {
   /** Pack "Sueltos" habilitado, si lo hay. */
@@ -119,8 +123,8 @@ export function planPurchase(
 }
 
 /** Fecha en que vencerían los almuerzos si se comprara hoy (cada compra renueva el plazo). */
-export function expiryAfterPurchase(now: Date = new Date()): Date {
+export function expiryAfterPurchase(days: number = DEFAULT_EXPIRY_DAYS, now: Date = new Date()): Date {
   const d = new Date(now);
-  d.setDate(d.getDate() + EXPIRY_DAYS);
+  d.setDate(d.getDate() + days);
   return d;
 }

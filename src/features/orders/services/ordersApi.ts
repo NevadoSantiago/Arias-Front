@@ -18,6 +18,7 @@ export async function getRestaurantConfig(): Promise<RestaurantConfig> {
       windowEnd: string | null;
     }[] | null;
     pickupLeadMinutes?: number | null;
+    creditExpiryDays?: number | null;
   }>(`${BASE}/restaurant-config`);
   return {
     horaCorte: data.horaCorte.substring(0, 5),
@@ -37,6 +38,9 @@ export async function getRestaurantConfig(): Promise<RestaurantConfig> {
     // esta respuesta (unidad 8) pero el frontend no lo leía — tolerante a un
     // backend viejo sin el campo.
     pickupLeadMinutes: data.pickupLeadMinutes ?? undefined,
+    // F22c.1: vencimiento de los almuerzos comprados; `GET /restaurant-config` es
+    // para cualquier usuario autenticado, no solo admin.
+    creditExpiryDays: data.creditExpiryDays ?? undefined,
   };
 }
 

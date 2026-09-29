@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCatalog, planPurchase, resolveSelection } from './purchaseModel';
+import { buildCatalog, DEFAULT_EXPIRY_DAYS, expiryAfterPurchase, planPurchase, resolveSelection } from './purchaseModel';
 import type { CreditPack } from './types';
 
 const pack = (over: Partial<CreditPack> & Pick<CreditPack, 'id' | 'code'>): CreditPack => ({
@@ -94,5 +94,18 @@ describe('planPurchase', () => {
     });
     expect(planPurchase({ kind: 'pack', packId: 99 }, 1, catalog, 12)).toBeNull();
     expect(planPurchase(null, 1, catalog, 12)).toBeNull();
+  });
+});
+
+describe('expiryAfterPurchase', () => {
+  const now = new Date('2026-09-25T12:00:00-03:00');
+
+  it('adds the configured expiry days to the purchase date', () => {
+    expect(expiryAfterPurchase(30, now).toDateString()).toBe(new Date('2026-10-25T12:00:00-03:00').toDateString());
+  });
+
+  it('falls back to 90 days while the restaurant config is unknown', () => {
+    expect(DEFAULT_EXPIRY_DAYS).toBe(90);
+    expect(expiryAfterPurchase(undefined, now).toDateString()).toBe(new Date('2026-12-24T12:00:00-03:00').toDateString());
   });
 });

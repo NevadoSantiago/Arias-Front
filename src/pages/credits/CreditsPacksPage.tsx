@@ -7,6 +7,7 @@ import { usePackCatalog, usePackPurchase } from '@/features/credits/hooks/usePac
 import { planPurchase, resolveSelection, type PurchaseSelection } from '@/features/credits/purchaseModel';
 import { formatPrice, perLunchPriceCents } from '@/features/credits/packPricing';
 import { PacksDesktopLayout } from '@/features/credits/components/PacksDesktopLayout';
+import { useCreditExpiryDays } from '@/features/credits/hooks/useCreditExpiryDays';
 import { useIsDesktop } from '@/lib/useMediaQuery';
 
 /**
@@ -24,6 +25,7 @@ export function CreditsPacksPage() {
 
   const purchaseMutation = usePackPurchase();
   const isDesktop = useIsDesktop();
+  const expiryDays = useCreditExpiryDays();
 
   if (isLoading) {
     return (
@@ -142,7 +144,7 @@ export function CreditsPacksPage() {
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary-deep">
               ⏱
             </span>
-            <span>Vencen a los 90 días de tu última compra. Cada compra renueva el plazo.</span>
+            <span>Vencen a los {expiryDays} días de tu última compra. Cada compra renueva el plazo.</span>
           </li>
         </ul>
       </div>

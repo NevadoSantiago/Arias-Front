@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { BuyLunchesAside } from './BuyLunchesAside';
 import { createPurchase, getPacks, getWallet } from '../services/creditsApi';
+import { getRestaurantConfig } from '@/features/orders/services/ordersApi';
 import type { CreditPack } from '../types';
 
 vi.mock('../services/creditsApi', () => ({
@@ -12,6 +13,7 @@ vi.mock('../services/creditsApi', () => ({
   createPurchase: vi.fn(),
   getWallet: vi.fn(),
 }));
+vi.mock('@/features/orders/services/ordersApi', () => ({ getRestaurantConfig: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const dayPack: CreditPack = { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true };
@@ -41,6 +43,7 @@ describe('BuyLunchesAside', () => {
   beforeEach(() => {
     vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack, monthPack]);
     vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 1, expiresAt: null });
+    vi.mocked(getRestaurantConfig).mockResolvedValue({ horaCorte: '10:00', pickupWindowStart: null, pickupWindowEnd: null });
     Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
   });
   afterEach(() => vi.clearAllMocks());
@@ -141,5 +144,33 @@ describe('BuyLunchesAside', () => {
     renderAside();
     await screen.findByTestId('buy-summary');
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
+  });
+
+  it('states the expiry configured by the restaurant instead of a fixed 90 days (F22c.1)', async () => {
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: null,
+      pickupWindowEnd: null,
+      creditExpiryDays: 30,
+    });
+    renderAside();
+    await screen.findByTestId('buy-summary');
+
+    expect(await screen.findByText(/vencen a los 30 días/i)).toBeInTheDocument();
+    expect(screen.queryByText(/90 días/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['loading', () => vi.mocked(getPacks).mockReturnValue(new Promise(() => {})), /cargando paquetes/i],
+    ['error', () => vi.mocked(getPacks).mockRejectedValue(new Error('boom')), /no pudimos cargar los paquetes/i],
+    ['empty catalog', () => vi.mocked(getPacks).mockResolvedValue([]), /todavía no hay paquetes/i],
+  ])('shows no radio group and no "Comprar" while %s', async (_name, arrange, message) => {
+    arrange();
+    renderAside();
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /comprar/i })).not.toBeInTheDocument();
   });
 });
