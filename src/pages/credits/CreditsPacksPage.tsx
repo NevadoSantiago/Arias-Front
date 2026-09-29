@@ -1,50 +1,23 @@
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useState } from 'react';
 import { LooseCard } from '@/features/credits/components/LooseCard';
 import { PackOptionCard } from '@/features/credits/components/PackOptionCard';
 import { PackCheckoutSheet } from '@/features/credits/components/PackCheckoutSheet';
-import type { PackCheckoutSelection } from '@/features/credits/components/PackCheckoutSheet';
-import { createPurchase, getPacks, getWallet } from '@/features/credits/services/creditsApi';
-import { formatPrice, pickRecommended } from '@/features/credits/packPricing';
-import { formatLunches } from '@/features/orders/lunches';
-
-const DAY_CODE = 'DAY';
-
-type Selection = { kind: 'loose' } | { kind: 'pack'; packId: number };
+import { useWallet } from '@/features/credits/hooks/useWallet';
+import { usePackCatalog, usePackPurchase } from '@/features/credits/hooks/usePackPurchase';
+import { planPurchase, resolveSelection, type PurchaseSelection } from '@/features/credits/purchaseModel';
+import { formatPrice, perLunchPriceCents } from '@/features/credits/packPricing';
 
 /** Ruta `/credits/packs` — catálogo de Sueltos + paquetes (F6, prototipo `Packs.dc.html`). */
 export function CreditsPacksPage() {
-  const { data: allPacks, isLoading, isError } = useQuery({ queryKey: ['creditPacks'], queryFn: getPacks });
-  const { data: wallet } = useQuery({ queryKey: ['creditsWallet'], queryFn: getWallet });
+  const { catalog, isLoading, isError, isEmpty: catalogEmpty } = usePackCatalog();
+  const { data: wallet } = useWallet();
+  const { dayPack, namedPacks, recommended } = catalog;
 
-  const dayPack = useMemo(() => allPacks?.find((p) => p.code === DAY_CODE && p.enabled) ?? null, [allPacks]);
-  const namedPacks = useMemo(
-    () =>
-      (allPacks ?? [])
-        .filter((p) => p.code !== DAY_CODE && p.enabled)
-        .sort((a, b) => a.ordenDisplay - b.ordenDisplay),
-    [allPacks],
-  );
-  const recommended = useMemo(() => pickRecommended(namedPacks), [namedPacks]);
-  const catalogEmpty = !isLoading && !isError && !dayPack && namedPacks.length === 0;
-
-  const [selection, setSelection] = useState<Selection>({ kind: 'loose' });
+  const [selection, setSelection] = useState<PurchaseSelection | null>(null);
   const [qty, setQty] = useState(1);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  const purchaseMutation = useMutation({
-    mutationFn: (payload: { packId: number; quantity?: number }) =>
-      createPurchase({ type: 'PACK', packId: payload.packId, ...(payload.quantity ? { quantity: payload.quantity } : {}) }),
-    onSuccess: (checkout) => {
-      // Redirige al checkout de Mercado Pago — la acreditación real ocurre
-      // solo vía webhook del backend cuando el usuario vuelva.
-      window.location.href = checkout.initPoint;
-    },
-    onError: () => {
-      toast.error('No pudimos iniciar la compra. Probá de nuevo en unos minutos.');
-    },
-  });
+  const purchaseMutation = usePackPurchase();
 
   if (isLoading) {
     return (
@@ -72,60 +45,28 @@ export function CreditsPacksPage() {
 
   /**
    * Selección efectiva: si Sueltos no está disponible (no hay pack DAY
-   * habilitado) pero `selection` sigue en 'loose' — el valor inicial, ya
-   * que la tarjeta Sueltos ni se renderiza para volver a elegirlo — se usa
-   * el pack recomendado en su lugar. Derivado en vez de un efecto que
-   * dispare un segundo render (mismo patrón que `pickupSelection` en
-   * `B2cOrderPage`). Cuando se llega hasta acá, `catalogEmpty` ya garantiza
-   * que hay `dayPack` o al menos un pack con nombre.
+   * habilitado) se usa el pack recomendado en su lugar (ver `resolveSelection`).
+   * Cuando se llega hasta acá, `catalogEmpty` ya garantiza que hay `dayPack` o
+   * al menos un pack con nombre.
    */
-  const effectiveSelection: Selection =
-    selection.kind === 'loose' && !dayPack ? { kind: 'pack', packId: recommended!.id } : selection;
-
-  const selectedPack =
-    effectiveSelection.kind === 'pack' ? namedPacks.find((p) => p.id === effectiveSelection.packId) ?? null : null;
-  const looseTotalCents = dayPack ? dayPack.priceCents * qty : 0;
-
-  const summary =
-    effectiveSelection.kind === 'loose' && dayPack
-      ? { label: `Sueltos · ${formatLunches(qty)}`, totalLabel: formatPrice(looseTotalCents) }
-      : selectedPack
-        ? { label: `${selectedPack.nombre} · ${formatLunches(selectedPack.creditAmount)}`, totalLabel: formatPrice(selectedPack.priceCents) }
-        : { label: '', totalLabel: '' };
-
-  const checkoutSelection: PackCheckoutSelection =
-    effectiveSelection.kind === 'loose' && dayPack
-      ? {
-          isLoose: true,
-          icon: 'plate',
-          productName: 'Almuerzos sueltos',
-          amountLabel: formatLunches(qty),
-          perLunchLabel: formatPrice(dayPack.priceCents),
-          hasDiscount: false,
-          discountLabel: '',
-          totalLabel: formatPrice(looseTotalCents),
-          fromAvailable: wallet ? wallet.available : null,
-          toAvailable: wallet ? wallet.available + qty : null,
-        }
-      : {
-          isLoose: false,
-          icon: selectedPack && namedPacks[0]?.id === selectedPack.id ? 'stack2' : 'stack5',
-          productName: selectedPack?.nombre ?? '',
-          amountLabel: selectedPack ? formatLunches(selectedPack.creditAmount) : '',
-          perLunchLabel: selectedPack ? formatPrice(Math.round(selectedPack.priceCents / selectedPack.creditAmount)) : '',
-          hasDiscount: !!selectedPack && selectedPack.discountPercent > 0,
-          discountLabel: selectedPack ? `−${selectedPack.discountPercent}%` : '',
-          totalLabel: selectedPack ? formatPrice(selectedPack.priceCents) : '',
-          fromAvailable: wallet ? wallet.available : null,
-          toAvailable: wallet && selectedPack ? wallet.available + selectedPack.creditAmount : null,
-        };
+  const effectiveSelection = resolveSelection(selection, catalog, 'loose');
+  const plan = planPurchase(effectiveSelection, qty, catalog, wallet ? wallet.available : null);
+  const summary = plan?.summary ?? { label: '', totalLabel: '' };
+  const checkoutSelection = plan?.checkout ?? {
+    isLoose: false,
+    icon: 'stack5' as const,
+    productName: '',
+    amountLabel: '',
+    perLunchLabel: '',
+    hasDiscount: false,
+    discountLabel: '',
+    totalLabel: '',
+    fromAvailable: wallet ? wallet.available : null,
+    toAvailable: null,
+  };
 
   const handlePay = () => {
-    if (effectiveSelection.kind === 'loose' && dayPack) {
-      purchaseMutation.mutate({ packId: dayPack.id, quantity: qty });
-    } else if (selectedPack) {
-      purchaseMutation.mutate({ packId: selectedPack.id });
-    }
+    if (plan) purchaseMutation.mutate(plan.payload);
   };
 
   return (
@@ -143,12 +84,12 @@ export function CreditsPacksPage() {
         <div role="radiogroup" aria-label="Elegí qué comprar" className="flex flex-col gap-3">
           {dayPack && (
             <LooseCard
-              checked={effectiveSelection.kind === 'loose'}
+              checked={effectiveSelection?.kind === 'loose'}
               onSelect={() => setSelection({ kind: 'loose' })}
               qty={qty}
               onQtyChange={setQty}
               unitPriceLabel={formatPrice(dayPack.priceCents)}
-              showNudge={effectiveSelection.kind === 'loose' && qty >= 4 && namedPacks.length > 0}
+              showNudge={effectiveSelection?.kind === 'loose' && qty >= 4 && namedPacks.length > 0}
               onPickRecommended={() => {
                 if (recommended) setSelection({ kind: 'pack', packId: recommended.id });
               }}
@@ -159,12 +100,12 @@ export function CreditsPacksPage() {
             <PackOptionCard
               key={pack.id}
               pack={pack}
-              checked={effectiveSelection.kind === 'pack' && effectiveSelection.packId === pack.id}
+              checked={effectiveSelection?.kind === 'pack' && effectiveSelection.packId === pack.id}
               onSelect={() => setSelection({ kind: 'pack', packId: pack.id })}
               recommended={recommended?.id === pack.id}
               stackLayers={i === 0 ? 2 : 5}
               priceLabel={formatPrice(pack.priceCents)}
-              perLunchLabel={`${formatPrice(Math.round(pack.priceCents / pack.creditAmount))} por almuerzo`}
+              perLunchLabel={`${formatPrice(perLunchPriceCents(pack))} por almuerzo`}
             />
           ))}
         </div>

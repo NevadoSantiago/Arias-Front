@@ -61,13 +61,22 @@ function formatDate(createdAt: string): string {
   });
 }
 
+interface Props {
+  /**
+   * `compact` (default, móvil): la fecha va en la línea de detalle.
+   * `wide` (escritorio, F22c): la fecha tiene su propia columna, a la derecha del detalle.
+   */
+  layout?: 'compact' | 'wide';
+}
+
 /**
  * Historial de movimientos en el orden en que el backend los devuelve — el
  * frontend no reordena ni recalcula nada (spec `credits-ui`, requisito
  * "Historial de movimientos legible"). F5: un ícono por tipo, montos con
  * signo, y solo los primeros 5 hasta que el cliente pide ver el resto.
  */
-export function PurchaseHistory() {
+export function PurchaseHistory({ layout = 'compact' }: Props = {}) {
+  const wide = layout === 'wide';
   const [expanded, setExpanded] = useState(false);
   const { data: movements, isLoading, isError } = useQuery({
     queryKey: ['creditMovements'],
@@ -105,10 +114,14 @@ export function PurchaseHistory() {
                   {MOVEMENT_LABELS[movement.type] ?? movement.type}
                 </span>
                 <span className="text-[12.5px] leading-snug text-muted-foreground">
-                  {formatDate(movement.createdAt)}
-                  {movement.description ? ` · ${movement.description}` : ''}
+                  {wide ? movement.description : `${formatDate(movement.createdAt)}${movement.description ? ` · ${movement.description}` : ''}`}
                 </span>
               </span>
+              {wide && (
+                <time dateTime={movement.createdAt} className="w-24 shrink-0 text-[13px] text-muted-foreground">
+                  {formatDate(movement.createdAt)}
+                </time>
+              )}
               <span
                 className={cn(
                   'shrink-0 text-base font-bold',
