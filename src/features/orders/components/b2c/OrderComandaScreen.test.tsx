@@ -178,7 +178,7 @@ describe('OrderComandaScreen', () => {
       pickupTimeChangeable: false,
     };
 
-    it('shows the awaiting-payment copy, the price placeholder and "Pagar ahora" plus "Cancelar pedido" only', () => {
+    it('shows the awaiting-payment copy, the lunches, no price and "Pagar ahora" plus "Cancelar pedido" only', () => {
       renderScreen(awaiting);
 
       expect(screen.getByRole('dialog', { name: 'Falta confirmar el pago' })).toBeInTheDocument();
@@ -187,7 +187,8 @@ describe('OrderComandaScreen', () => {
         screen.getByText('Estamos esperando la confirmación de Mercado Pago. Si no se confirma antes de las 12:40, se cancela.'),
       ).toBeInTheDocument();
       expect(screen.getByText('A pagar con Mercado Pago')).toBeInTheDocument();
-      expect(screen.getAllByText('$ [PRECIO]').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('2 almuerzos').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/PRECIO/)).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /pagar ahora/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /cancelar pedido/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /cambiar horario/i })).not.toBeInTheDocument();
@@ -224,7 +225,7 @@ describe('OrderComandaScreen', () => {
       expect(screen.queryByRole('link', { name: /agregar platos/i })).not.toBeInTheDocument();
     });
 
-    it('Confirmado paid with Mercado Pago: "Pagado con Mercado Pago" and the price placeholder', () => {
+    it('Confirmado paid with Mercado Pago: "Pagado con Mercado Pago" and the lunches, no price', () => {
       renderScreen({
         ...scheduled,
         estado: 'CONFIRMADO',
@@ -236,7 +237,8 @@ describe('OrderComandaScreen', () => {
       });
 
       expect(screen.getByText('Pagado con Mercado Pago')).toBeInTheDocument();
-      expect(screen.getAllByText('$ [PRECIO]').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('2 almuerzos').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/PRECIO/)).not.toBeInTheDocument();
     });
 
     it('Cancelado: muted comanda, the lunches went back, and no actions', () => {

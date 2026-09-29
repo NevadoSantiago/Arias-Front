@@ -21,7 +21,7 @@ export interface ComandaItem {
   /** "c/ papas fritas"; null = sin acompañamiento. */
   side: string | null;
   note: string | null;
-  /** "1 almuerzo" o el marcador `$ [PRECIO]` (pedido con Mercado Pago). */
+  /** "1 almuerzo" / "2 almuerzos": los platos no tienen precio, cuestan almuerzos (F28). */
   costLabel: string;
   /** Marca "Nuevo" (platos sumados a un pedido existente). */
   isNew?: boolean;
@@ -35,9 +35,6 @@ export interface ComandaFooter {
   icon: 'lunches' | 'card';
 }
 
-/** Marcador visible: el pedido no trae importe (no hay campo en el DTO). */
-export const PRICE_PLACEHOLDER = '$ [PRECIO]';
-
 /**
  * Pagado con Mercado Pago (B12): `paidWithMercadoPago` es verdadero con
  * CUALQUIER compra DIRECT, también una PENDING en un pedido `PENDIENTE_PAGO`,
@@ -47,18 +44,12 @@ export function isPaidWithMercadoPago(order: OrderV2): boolean {
   return order.paidWithMercadoPago && order.estado !== 'PENDIENTE_PAGO';
 }
 
-/** Un pedido que se paga (o pagó) con Mercado Pago muestra el marcador de importe en vez de almuerzos. */
-function isMercadoPagoOrder(order: OrderV2): boolean {
-  return order.estado === 'PENDIENTE_PAGO' || isPaidWithMercadoPago(order);
-}
-
 export function comandaItems(order: OrderV2, { newItemIds }: { newItemIds?: ReadonlySet<number> } = {}): ComandaItem[] {
-  const byMercadoPago = isMercadoPagoOrder(order);
   return order.items.map((item) => ({
     name: item.dishNombre,
     side: item.sideNombre ? `c/ ${item.sideNombre.toLowerCase()}` : null,
     note: item.notas,
-    costLabel: byMercadoPago ? PRICE_PLACEHOLDER : formatLunches(item.creditCost),
+    costLabel: formatLunches(item.creditCost),
     isNew: newItemIds?.has(item.id) ?? false,
   }));
 }
@@ -99,22 +90,22 @@ export function comandaFooter(
     if (fromBalance > 0) {
       return {
         label: `${fromBalance} de tu saldo (${reservedWord(fromBalance)})`,
-        value: `A pagar con Mercado Pago: ${mercadoPagoPartOf(order)} · ${PRICE_PLACEHOLDER}`,
+        value: `A pagar con Mercado Pago: ${formatLunches(mercadoPagoPartOf(order))}`,
         icon: 'card',
       };
     }
-    return { label: 'A pagar con Mercado Pago', value: PRICE_PLACEHOLDER, icon: 'card' };
+    return { label: 'A pagar con Mercado Pago', value: formatLunches(order.creditTotal), icon: 'card' };
   }
   if (isPaidWithMercadoPago(order)) {
     if (fromBalance > 0) {
       const upcoming = justPlaced || new Date(order.pickupAt).getTime() >= now.getTime();
       return {
         label: `${upcoming ? 'Reservaste' : 'Usaste'} ${formatLunches(fromBalance)} de tu saldo`,
-        value: `Pagado con Mercado Pago: ${mercadoPagoPartOf(order)} · ${PRICE_PLACEHOLDER}`,
+        value: `Pagado con Mercado Pago: ${formatLunches(mercadoPagoPartOf(order))}`,
         icon: 'card',
       };
     }
-    return { label: 'Pagado con Mercado Pago', value: PRICE_PLACEHOLDER, icon: 'card' };
+    return { label: 'Pagado con Mercado Pago', value: formatLunches(order.creditTotal), icon: 'card' };
   }
   if (justPlaced || new Date(order.pickupAt).getTime() >= now.getTime()) {
     return {

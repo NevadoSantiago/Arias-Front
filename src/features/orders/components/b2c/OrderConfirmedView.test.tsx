@@ -104,18 +104,18 @@ describe('OrderConfirmedView', () => {
 
   describe('paid with Mercado Pago', () => {
     const directProps = {
-      footer: { label: 'Pagado con Mercado Pago', value: '$ [PRECIO]', icon: 'card' as const },
+      footer: { label: 'Pagado con Mercado Pago', value: '2 almuerzos', icon: 'card' as const },
       paidWithMercadoPago: true,
       creditsFromBalance: 0,
-      items: items.map((i) => ({ ...i, costLabel: '$ [PRECIO]' })),
+      items: items.map((i) => ({ ...i, costLabel: '1 almuerzo' })),
     };
 
-    it('says Mercado Pago approved the payment and shows the price placeholder in the footer', () => {
+    it('says Mercado Pago approved the payment and shows the lunches in the footer', () => {
       renderView(directProps);
 
       expect(screen.getByText('Mercado Pago aprobó el pago. Te esperamos hoy a las 15:00.')).toBeInTheDocument();
       expect(screen.getByText('Pagado con Mercado Pago')).toBeInTheDocument();
-      expect(screen.getAllByText('$ [PRECIO]').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('2 almuerzos').length).toBeGreaterThan(0);
       expect(screen.queryByText(/te quedan/i)).not.toBeInTheDocument();
     });
 

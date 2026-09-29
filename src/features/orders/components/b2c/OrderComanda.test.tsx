@@ -59,11 +59,11 @@ describe('OrderComanda', () => {
     expect(screen.getByText('Te quedan 10 almuerzos')).toBeInTheDocument();
   });
 
-  it('shows the Mercado Pago footer with the visible price placeholder', () => {
-    renderComanda({ footer: { label: 'Pagado con Mercado Pago', value: '$ [PRECIO]', icon: 'card' } });
+  it('shows the Mercado Pago footer with the lunches', () => {
+    renderComanda({ footer: { label: 'Pagado con Mercado Pago', value: '2 almuerzos', icon: 'card' } });
 
     expect(screen.getByText('Pagado con Mercado Pago')).toBeInTheDocument();
-    expect(screen.getByText('$ [PRECIO]')).toBeInTheDocument();
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
   });
 
   it('shows the state badge when an estado is given and none otherwise', () => {

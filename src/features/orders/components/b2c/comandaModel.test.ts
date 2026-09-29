@@ -49,12 +49,18 @@ describe('comandaItems', () => {
     expect(items.map((i) => i.isNew)).toEqual([false, true]);
   });
 
-  it('shows the price placeholder instead of lunches for an order paid with, or awaiting, Mercado Pago', () => {
+  it('shows the lunches of each dish, never a price, for lunch-paid, partial and Mercado Pago orders', () => {
     const paid = comandaItems(order({ estado: 'CONFIRMADO', paidWithMercadoPago: true }));
     const awaiting = comandaItems(order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true }));
+    const partial = comandaItems(order({ estado: 'PENDIENTE', paidWithMercadoPago: true, creditsFromBalance: 1 }));
+    const lunches = comandaItems(order());
 
-    expect(paid.every((i) => i.costLabel === '$ [PRECIO]')).toBe(true);
-    expect(awaiting.every((i) => i.costLabel === '$ [PRECIO]')).toBe(true);
+    for (const items of [paid, awaiting, partial, lunches]) {
+      expect(items.map((i) => i.costLabel)).toEqual(['1 almuerzo', '1 almuerzo']);
+    }
+    expect(comandaItems(order({ items: [{ ...order().items[0], creditCost: 2 }], paidWithMercadoPago: true }))[0].costLabel).toBe(
+      '2 almuerzos',
+    );
   });
 });
 
@@ -93,16 +99,16 @@ describe('comandaFooter', () => {
     });
   });
 
-  it('paid with Mercado Pago: label plus the visible price placeholder', () => {
+  it('paid with Mercado Pago: label plus the lunches, no money', () => {
     expect(
       comandaFooter(order({ estado: 'CONFIRMADO', paidWithMercadoPago: true }), { now: NOW, walletAvailable: 10 }),
-    ).toEqual({ label: 'Pagado con Mercado Pago', value: '$ [PRECIO]', icon: 'card' });
+    ).toEqual({ label: 'Pagado con Mercado Pago', value: '2 almuerzos', icon: 'card' });
   });
 
   it('awaiting payment: "A pagar con Mercado Pago" even though a DIRECT purchase exists', () => {
     expect(
       comandaFooter(order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true }), { now: NOW, walletAvailable: 10 }),
-    ).toEqual({ label: 'A pagar con Mercado Pago', value: '$ [PRECIO]', icon: 'card' });
+    ).toEqual({ label: 'A pagar con Mercado Pago', value: '2 almuerzos', icon: 'card' });
   });
 
   it('cancelled lunch-paid order: the lunches went back to the balance', () => {
@@ -134,7 +140,7 @@ describe('comandaFooter', () => {
         comandaFooter(order({ ...partial, estado: 'PENDIENTE' }), { now: NOW, walletAvailable: 0 }),
       ).toEqual({
         label: 'Reservaste 1 almuerzo de tu saldo',
-        value: 'Pagado con Mercado Pago: 1 · $ [PRECIO]',
+        value: 'Pagado con Mercado Pago: 1 almuerzo',
         icon: 'card',
       });
     });
@@ -147,7 +153,7 @@ describe('comandaFooter', () => {
         }),
       ).toEqual({
         label: 'Reservaste 3 almuerzos de tu saldo',
-        value: 'Pagado con Mercado Pago: 1 · $ [PRECIO]',
+        value: 'Pagado con Mercado Pago: 1 almuerzo',
         icon: 'card',
       });
     });
@@ -163,7 +169,7 @@ describe('comandaFooter', () => {
         comandaFooter(order({ ...partial, estado: 'PENDIENTE_PAGO' }), { now: NOW, walletAvailable: 0 }),
       ).toEqual({
         label: '1 de tu saldo (reservado)',
-        value: 'A pagar con Mercado Pago: 1 · $ [PRECIO]',
+        value: 'A pagar con Mercado Pago: 1 almuerzo',
         icon: 'card',
       });
       expect(
@@ -210,7 +216,7 @@ describe('comandaFooter', () => {
           now: NOW,
           walletAvailable: 0,
         }),
-      ).toEqual({ label: 'A pagar con Mercado Pago', value: '$ [PRECIO]', icon: 'card' });
+      ).toEqual({ label: 'A pagar con Mercado Pago', value: '2 almuerzos', icon: 'card' });
     });
 
     it('comandaCopy tells the reserved lunches return to the balance if the payment is not confirmed', () => {
