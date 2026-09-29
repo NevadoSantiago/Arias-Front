@@ -1,5 +1,5 @@
 import { formatLunches } from '@/features/orders/lunches';
-import { formatOrderTimeLabel, isSameRestaurantDay } from '@/features/orders/components/orderDateLabels';
+import { formatOrderShortDate, formatOrderTimeLabel, isSameRestaurantDay } from '@/features/orders/components/orderDateLabels';
 import { formatPrice } from './packPricing';
 import type { CreditPurchase } from './types';
 
@@ -28,10 +28,14 @@ function orderNumber(orderId: number): string {
   return String(orderId).padStart(4, '0');
 }
 
-/** "hoy 12:05" o "ayer 12:05" (una compra pendiente vive 24 h, así que a lo sumo es de ayer), hora de Buenos Aires. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** "hoy 12:05", "ayer 12:05" o "el 27/09 12:05" para cualquier otro día; hora de Buenos Aires. */
 function startedLabel(createdAt: string, now: Date): string {
-  const day = isSameRestaurantDay(createdAt, now) ? 'hoy' : 'ayer';
-  return `iniciado ${day} ${formatOrderTimeLabel(createdAt)}`;
+  const time = formatOrderTimeLabel(createdAt);
+  if (isSameRestaurantDay(createdAt, now)) return `iniciado hoy ${time}`;
+  if (isSameRestaurantDay(createdAt, new Date(now.getTime() - DAY_MS))) return `iniciado ayer ${time}`;
+  return `iniciado el ${formatOrderShortDate(createdAt)} ${time}`;
 }
 
 /**

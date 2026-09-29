@@ -44,6 +44,13 @@ export function formatOrderTimeLabel(pickupAt: string): string {
   });
 }
 
+/** "27/09": día y mes en la zona del restaurante. */
+export function formatOrderShortDate(iso: string): string {
+  // ICU de es-AR omite el cero inicial ("27/9"): se arma a mano para tener siempre DD/MM.
+  const [, month, day] = restaurantDateKey(new Date(iso)).split('-');
+  return `${day}/${month}`;
+}
+
 /**
  * True si `pickupAt` cae el mismo día calendario que `now`, en la zona del
  * restaurante (F17: "Mis pedidos" la usa para decidir si un CONFIRMADO

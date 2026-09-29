@@ -138,7 +138,15 @@ describe('OrderCard — cancelled order paid with Mercado Pago (F26)', () => {
     });
 
     expect(screen.getByText('Almuerzos reservados devueltos')).toBeInTheDocument();
-    expect(screen.getByText(MP_CREDITED)).toBeInTheDocument();
+    expect(screen.getByText(`Los almuerzos reservados volvieron a tu saldo. ${MP_CREDITED}`)).toBeInTheDocument();
+  });
+
+  it('says the reserved lunches returned when the balance covered the whole total (F27.1)', () => {
+    renderCard({
+      order: { ...order, estado: 'CANCELADO', cancellable: false, creditTotal: 2, creditsFromBalance: 2, paidWithMercadoPago: true },
+    });
+
+    expect(screen.getByText(`Los almuerzos reservados volvieron a tu saldo. ${MP_CREDITED}`)).toBeInTheDocument();
   });
 
   it('adds nothing to a cancelled order paid only with lunches', () => {

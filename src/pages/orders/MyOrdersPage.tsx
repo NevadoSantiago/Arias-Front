@@ -61,7 +61,7 @@ import { useIsDesktop } from '@/lib/useMediaQuery';
  * componentes y hooks que en móvil; solo cambia la presentación.
  */
 export function MyOrdersPage() {
-  const { data: orders, isLoading, isError } = useOrders();
+  const { data: orders, isLoading, isError, isFetching } = useOrders();
   const now = useMemo(() => new Date(), [orders]);
   const [showPast, setShowPast] = useState(false);
   const { cancelTarget, cancelError, cancelling, requestCancel, closeSheet, confirmCancel } =
@@ -78,7 +78,8 @@ export function MyOrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedOrderParam = searchParams.get('pedido');
   useEffect(() => {
-    if (linkedOrderParam === null || !orders) return;
+    // Con datos viejos de la caché el pedido puede faltar: se espera a que termine el refetch antes de consumir el parámetro.
+    if (linkedOrderParam === null || !orders || isFetching) return;
     const linkedId = Number(linkedOrderParam);
     // Un id desconocido o mal formado se ignora; en ambos casos se limpia el parámetro para no reabrirla.
     if (linkedOrderParam !== '' && orders.some((o) => o.id === linkedId)) setComandaOrderId(linkedId);
@@ -90,7 +91,7 @@ export function MyOrdersPage() {
       },
       { replace: true },
     );
-  }, [linkedOrderParam, orders, setSearchParams]);
+  }, [linkedOrderParam, orders, isFetching, setSearchParams]);
   const sheetPresentation = isDesktop ? 'dialog' : 'sheet';
   const user = useAuthStore((s) => s.user);
   const callName = user ? resolveCallName(user) : '';

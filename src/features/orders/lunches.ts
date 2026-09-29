@@ -36,6 +36,17 @@ export function isPartialPayment(order: {
 }
 
 /**
+ * Un pedido con pago de Mercado Pago asociado que también reservó almuerzos del saldo
+ * (parcial o cubierto entero por el saldo): al cancelarlo esos almuerzos vuelven.
+ */
+export function hasReservedBalanceWithMercadoPago(order: {
+  paidWithMercadoPago: boolean;
+  creditsFromBalance?: number | null;
+}): boolean {
+  return order.paidWithMercadoPago && balancePartOf(order) > 0;
+}
+
+/**
  * Un pedido parcial cancelado no dice cuánto volvió: el backend devuelve todo
  * `creditTotal` si el pago ya se había aprobado y solo la parte del saldo si
  * no, y el DTO no distingue ambos casos. Se evita un número que puede ser falso.

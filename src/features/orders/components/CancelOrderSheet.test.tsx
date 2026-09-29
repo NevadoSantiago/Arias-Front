@@ -126,6 +126,16 @@ describe('CancelOrderSheet', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows no "0 almuerzos" notice when Mercado Pago covers nothing (F27.1)', async () => {
+    renderSheet({
+      order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, creditTotal: 2, creditsFromBalance: 2 },
+    });
+
+    await screen.findByText('Tus 2 almuerzos reservados vuelven a tu saldo');
+    expect(screen.queryByText(/te acreditamos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/esos 0/i)).not.toBeInTheDocument();
+  });
+
   it('never claims Mercado Pago charges nothing (F26)', async () => {
     renderSheet({ order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true } });
 

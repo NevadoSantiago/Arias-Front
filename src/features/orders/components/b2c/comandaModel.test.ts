@@ -184,6 +184,26 @@ describe('comandaFooter', () => {
       });
     });
 
+    // Todo el total salió del saldo pero hay un pago de Mercado Pago asociado: no es un pago parcial,
+    // pero los almuerzos reservados igual volvieron (F27.1).
+    describe('cancelled with the whole total taken from the balance and a Mercado Pago payment', () => {
+      const full = { estado: 'CANCELADO' as const, paidWithMercadoPago: true, creditTotal: 2, creditsFromBalance: 2 };
+
+      it('the footer says the reserved lunches returned and the payment is credited', () => {
+        expect(comandaFooter(order(full), { now: NOW, walletAvailable: 10 })).toEqual({
+          label: 'Pedido cancelado',
+          value: 'Los almuerzos reservados volvieron a tu saldo. Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
+          icon: 'lunches',
+        });
+      });
+
+      it('the headline says the reserved lunches returned and the payment is credited', () => {
+        expect(comandaCopy(order(full), { now: NOW }).headline).toBe(
+          'Los almuerzos reservados volvieron a tu saldo. Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
+        );
+      });
+    });
+
     it('with no balance part the footers stay as before', () => {
       expect(
         comandaFooter(order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, creditsFromBalance: 0 }), {

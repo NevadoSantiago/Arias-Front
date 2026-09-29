@@ -90,7 +90,9 @@ describe('cartStore — an ownerless cart is never adopted', () => {
     const { useAuthStore } = await import('@/features/auth/store/authStore');
     useAuthStore.setState({ user: { id: 9 } as never });
     const { useCartStore } = await import('./cartStore');
-    expect(useCartStore.getState().byDate['2026-06-01']).toHaveLength(1);
+    // La garantía vale al rehidratar, no solo en addLine (F27.1).
+    expect(useCartStore.getState().byDate).toEqual({});
+    expect(useCartStore.getState().ownerId).toBeNull();
 
     useCartStore.getState().addLine('2026-06-02', { ...validLine, localId: 'new' } as never);
 
@@ -98,6 +100,46 @@ describe('cartStore — an ownerless cart is never adopted', () => {
     expect(ownerId).toBe(9);
     expect(byDate['2026-06-01']).toBeUndefined();
     expect(byDate['2026-06-02']).toHaveLength(1);
+    useAuthStore.setState({ user: null });
+  });
+
+  it('clears a rehydrated cart owned by another user when a user is signed in', async () => {
+    vi.resetModules();
+    window.sessionStorage.setItem(
+      KEY,
+      JSON.stringify({ state: { ownerId: 3, byDate: { '2026-06-01': [validLine] } }, version: 1 }),
+    );
+    const { useAuthStore } = await import('@/features/auth/store/authStore');
+    useAuthStore.setState({ user: { id: 9 } as never });
+    const { useCartStore } = await import('./cartStore');
+
+    expect(useCartStore.getState().byDate).toEqual({});
+    useAuthStore.setState({ user: null });
+  });
+
+  it('keeps a rehydrated cart owned by the signed-in user', async () => {
+    vi.resetModules();
+    window.sessionStorage.setItem(
+      KEY,
+      JSON.stringify({ state: { ownerId: 9, byDate: { '2026-06-01': [validLine] } }, version: 1 }),
+    );
+    const { useAuthStore } = await import('@/features/auth/store/authStore');
+    useAuthStore.setState({ user: { id: 9 } as never });
+    const { useCartStore } = await import('./cartStore');
+
+    expect(useCartStore.getState().byDate['2026-06-01']).toHaveLength(1);
+    useAuthStore.setState({ user: null });
+  });
+
+  it('clears an ownerless cart on sign-in', async () => {
+    vi.resetModules();
+    const { useAuthStore } = await import('@/features/auth/store/authStore');
+    const { useCartStore } = await import('./cartStore');
+    useCartStore.setState({ ownerId: null, byDate: { '2026-06-01': [validLine as never] } });
+
+    useAuthStore.setState({ user: { id: 9 } as never });
+
+    expect(useCartStore.getState().byDate).toEqual({});
     useAuthStore.setState({ user: null });
   });
 });
@@ -122,6 +164,21 @@ describe('cartStore — deeper line validation', () => {
     const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [full] } });
 
     expect(store.getState().byDate['2026-06-01']).toEqual([full]);
+  });
+
+  it('normalizes absent sideId, sideNombre and notas to null instead of dropping the line (F27.1)', async () => {
+    // JSON.stringify omite las claves undefined: así quedan guardadas las líneas viejas.
+    const { sideId: _s, sideNombre: _n, notas: _o, ...bare } = validLine;
+    const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [bare] } });
+
+    expect(store.getState().byDate['2026-06-01']).toEqual([validLine]);
+  });
+
+  it('still drops a line whose optional keys have the wrong type even when others are absent', async () => {
+    const { sideNombre: _n, ...bare } = validLine;
+    const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [{ ...bare, notas: 3 }] } });
+
+    expect(store.getState().byDate['2026-06-01']).toBeUndefined();
   });
 
   it('drops days whose key is not an ISO date', async () => {

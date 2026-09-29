@@ -355,3 +355,25 @@ describe('useCart — persistence across navigation (F24)', () => {
     expect(useCartStore.getState().byDate[DAY_A] ?? []).toHaveLength(0);
   });
 });
+
+describe('useCart — foreign or ownerless lines are never exposed (F27.1)', () => {
+  const line = { localId: 'x', dish: makeDish(1, 2), sideId: null, sideNombre: null, notas: null };
+
+  afterEach(() => useAuthStore.setState({ user: null }));
+
+  it('returns nothing for a signed-in user when the stored cart has no owner', () => {
+    useAuthStore.setState({ user: { id: 9 } as AuthUser });
+    useCartStore.setState({ ownerId: null, byDate: { [DAY_A]: [line] } });
+    const { result } = renderHook(() => useCart(DAY_A));
+
+    expect(result.current.lines).toHaveLength(0);
+    expect(result.current.totalCredits).toBe(0);
+  });
+
+  it('returns nothing for a signed-out visitor when the stored cart belongs to a user', () => {
+    useCartStore.setState({ ownerId: 3, byDate: { [DAY_A]: [line] } });
+    const { result } = renderHook(() => useCart(DAY_A));
+
+    expect(result.current.lines).toHaveLength(0);
+  });
+});

@@ -51,18 +51,28 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-const isStringOrNull = (value: unknown) => value === null || typeof value === 'string';
+/** JSON omite las claves `undefined`: una clave ausente vale null; un tipo equivocado no. */
+const isAbsentOr = (value: unknown, type: 'string' | 'number') =>
+  value === undefined || value === null || typeof value === type;
 
 /** Una línea sirve si trae lo que el carrito lee: id local, plato con nombre y costo, y los datos del acompañamiento. */
 function isValidLine(value: unknown): value is CartLine {
   if (!isRecord(value) || typeof value.localId !== 'string') return false;
-  if (!(value.sideId === null || typeof value.sideId === 'number')) return false;
-  if (!isStringOrNull(value.sideNombre) || !isStringOrNull(value.notas)) return false;
+  if (!isAbsentOr(value.sideId, 'number')) return false;
+  if (!isAbsentOr(value.sideNombre, 'string') || !isAbsentOr(value.notas, 'string')) return false;
   const dish = value.dish;
   if (!isRecord(dish) || !isRecord(dish.category) || typeof dish.nombre !== 'string') return false;
   const cost = dish.category.creditCost;
   return typeof dish.id === 'number' && typeof cost === 'number' && Number.isFinite(cost);
 }
+
+/** Las claves opcionales ausentes se guardan como null, la forma que lee el resto de la app. */
+const normalizeLine = (line: CartLine): CartLine => ({
+  ...line,
+  sideId: line.sideId ?? null,
+  sideNombre: line.sideNombre ?? null,
+  notas: line.notas ?? null,
+});
 
 /**
  * Lo que vuelve de `sessionStorage` es texto ajeno: se conserva solo lo que
@@ -77,13 +87,19 @@ function sanitizePersisted(persisted: unknown): Pick<CartState, 'ownerId' | 'byD
   const byDate: Record<string, CartLine[]> = {};
   for (const [fecha, lines] of Object.entries(persisted.byDate)) {
     if (!ISO_DATE.test(fecha) || !Array.isArray(lines)) continue;
-    const valid = lines.filter(isValidLine);
+    const valid = lines.filter(isValidLine).map(normalizeLine);
     if (valid.length > 0) byDate[fecha] = valid;
   }
   return { ownerId, byDate };
 }
 
 const currentUserId = () => useAuthStore.getState().user?.id ?? null;
+
+/** Con un usuario en sesión solo se conserva un carrito que ya es suyo; uno ajeno o sin dueño no se adopta. */
+function enforceOwnership(state: Pick<CartState, 'ownerId' | 'byDate'>): Pick<CartState, 'ownerId' | 'byDate'> {
+  const user = currentUserId();
+  return user !== null && state.ownerId !== user ? { ownerId: null, byDate: {} } : state;
+}
 
 /**
  * Carrito B2C que sobrevive a la navegación entre pantallas (F24). Vive en
@@ -117,7 +133,7 @@ export const useCartStore = create<CartState>()(
       version: CART_STORAGE_VERSION,
       // Otra versión: se descarta en vez de adivinar la forma vieja.
       migrate: () => ({ ownerId: null, byDate: {} }),
-      merge: (persisted, current) => ({ ...current, ...sanitizePersisted(persisted) }),
+      merge: (persisted, current) => ({ ...current, ...enforceOwnership(sanitizePersisted(persisted)) }),
     },
   ),
 );

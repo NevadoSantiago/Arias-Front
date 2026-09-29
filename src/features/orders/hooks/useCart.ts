@@ -42,9 +42,10 @@ export function useCart(fecha: string) {
   const removeLine = useCartStore((s) => s.removeLine);
   const clearDay = useCartStore((s) => s.clearDay);
 
-  // Un carrito de otro usuario (o sin dueño) nunca se muestra, aunque el store aún no se haya limpiado.
+  // Un carrito ajeno o sin dueño nunca se muestra ni se envía, aunque el store aún no se haya limpiado:
+  // con usuario, el dueño tiene que ser él; sin usuario, solo sirve un carrito sin dueño.
   const lines = useMemo(
-    () => (userId !== null && ownerId !== userId ? [] : (stored ?? [])),
+    () => (ownerId !== userId ? [] : (stored ?? [])),
     [ownerId, userId, stored],
   );
 

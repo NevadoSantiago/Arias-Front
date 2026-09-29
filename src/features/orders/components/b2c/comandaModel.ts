@@ -1,7 +1,7 @@
 import {
   balancePartOf,
   formatLunches,
-  isPartialPayment,
+  hasReservedBalanceWithMercadoPago,
   mercadoPagoPartOf,
   MP_PAYMENT_CREDITED,
   PARTIAL_RETURNED_TO_BALANCE,
@@ -80,7 +80,7 @@ export function comandaFooter(
 ): ComandaFooter {
   const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
-    if (isPartialPayment(order)) {
+    if (hasReservedBalanceWithMercadoPago(order)) {
       // Pago parcial (F23): el DTO no dice si el pago se aprobó antes de cancelar, así que no se da un número.
       return { label: 'Pedido cancelado', value: `${PARTIAL_RETURNED_TO_BALANCE}. ${MP_PAYMENT_CREDITED}`, icon: 'lunches' };
     }
@@ -177,7 +177,7 @@ export function comandaCopy(
     const count = order.creditTotal;
     return {
       title: 'Pedido cancelado',
-      headline: isPartialPayment(order)
+      headline: hasReservedBalanceWithMercadoPago(order)
         ? `${PARTIAL_RETURNED_TO_BALANCE}. ${MP_PAYMENT_CREDITED}`
         : order.paidWithMercadoPago
           ? `Este pedido ya no se va a preparar. ${MP_PAYMENT_CREDITED}`

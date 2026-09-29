@@ -59,7 +59,8 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
         ? 'Tu almuerzo vuelve a tu saldo'
         : `Tus ${formatLunches(lunchCount)} vuelven a tu saldo`;
   // F26: si el cliente ya pagó y Mercado Pago aún no lo confirmó, el pago se acredita al saldo.
-  const creditedNotice = order ? pendingPaymentCreditedNotice(mercadoPagoPartOf(order)) : '';
+  const mpLunches = order ? mercadoPagoPartOf(order) : 0;
+  const creditedNotice = pendingPaymentCreditedNotice(mpLunches);
   const available = wallet?.available ?? null;
 
   return (
@@ -93,7 +94,7 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
               {!unpaid && available !== null && (
                 <span className="text-foreground">Pasás de {available} a {available + lunchCount} almuerzos disponibles.</span>
               )}
-              {awaitingPayment && <span className="text-foreground">{creditedNotice}</span>}
+              {awaitingPayment && mpLunches > 0 && <span className="text-foreground">{creditedNotice}</span>}
             </div>
           </div>
 

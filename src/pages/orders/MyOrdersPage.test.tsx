@@ -917,6 +917,25 @@ describe('MyOrdersPage — deep link ?pedido= (D6)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /pedido programado/i })).not.toBeInTheDocument());
   });
 
+  it('waits for the refetch when the cache is stale and still opens the linked order (F27.1)', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+    });
+    // Datos viejos en caché, sin el pedido enlazado: el refetch lo trae.
+    queryClient.setQueryData(['ordersV2'], [other]);
+    vi.mocked(getOrdersV2).mockResolvedValue([other, linked]);
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/orders/mine?pedido=300']}>
+          <MyOrdersPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const dialog = await screen.findByRole('dialog', { name: /pedido programado/i });
+    expect(within(dialog).getByText('Comanda Nº 0300')).toBeInTheDocument();
+  });
+
   it.each(['999', 'abc', ''])('ignores an unknown pedido (%j) and shows the list', async (value) => {
     vi.mocked(getOrdersV2).mockResolvedValue([linked]);
     renderAt(`/orders/mine?pedido=${value}`);
