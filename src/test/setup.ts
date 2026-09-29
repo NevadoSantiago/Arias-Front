@@ -1,7 +1,6 @@
 import { afterEach } from 'vitest';
 import { cleanup, configure } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { useCartStore } from '../features/orders/store/cartStore';
 
 // Mismo motivo que el `testTimeout` de `vite.config.ts`: cada archivo levanta
 // su propio jsdom y la suite completa satura una máquina con poca memoria.
@@ -51,7 +50,7 @@ if (!globalWithIO.IntersectionObserver) {
 
 afterEach(() => {
   cleanup();
-  // El carrito B2C es un store global persistido (F24): se limpia entre tests.
-  useCartStore.getState().reset();
+  // No se importa el store del carrito acá: arrastraría el store de auth antes
+  // de que un test pueda mockearlo. Los tests que usan el carrito lo vacían.
   window.sessionStorage.clear();
 });

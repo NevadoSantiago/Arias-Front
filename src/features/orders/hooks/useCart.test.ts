@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
+import { useCartStore } from '../store/cartStore';
 import { useCart } from './useCart';
 import type { Dish } from '../types';
 
@@ -18,6 +19,9 @@ function makeDish(id: number, creditCost: number): Dish {
     especial: false,
   };
 }
+
+// El carrito es un store global: cada test arranca vacío (ya no lo hace `setup.ts`).
+afterEach(() => useCartStore.getState().reset());
 
 const DAY_A = '2026-06-01';
 const DAY_B = '2026-06-02';
@@ -309,13 +313,10 @@ describe('useCart — persistence across navigation (F24)', () => {
     expect(renderHook(() => useCart(DAY_B)).result.current.lines).toHaveLength(1);
   });
 
-  it('falls back to memory without crashing when sessionStorage throws', () => {
+  it('falls back to memory without crashing when sessionStorage throws on write', () => {
     useAuthStore.setState({ accessToken: 't', user: userA, bootstrapping: false });
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota', 'QuotaExceededError');
-    });
-    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new DOMException('denied', 'SecurityError');
     });
     try {
       const { result } = renderHook(() => useCart(DAY_A));
@@ -323,7 +324,34 @@ describe('useCart — persistence across navigation (F24)', () => {
       expect(result.current.lines).toHaveLength(1);
     } finally {
       setItem.mockRestore();
+    }
+  });
+
+  it('starts empty and stays usable when sessionStorage throws on the startup read', async () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    try {
+      vi.resetModules();
+      const { useCartStore: fresh } = await import('../store/cartStore');
+      expect(fresh.getState().byDate).toEqual({});
+      expect(getItem).toHaveBeenCalled();
+      expect(() => fresh.getState().addLine(DAY_A, { localId: 'a', ...input(1) })).not.toThrow();
+      expect(fresh.getState().byDate[DAY_A]).toHaveLength(1);
+    } finally {
       getItem.mockRestore();
     }
+  });
+
+  it('does not hand a cart built without a signed-in user to the next user who signs in', () => {
+    act(() => useAuthStore.getState().clear());
+    const { result } = renderHook(() => useCart(DAY_A));
+    act(() => result.current.addItem(input(1)));
+    expect(result.current.lines).toHaveLength(1);
+
+    act(() => useAuthStore.getState().setAuth('t', userA));
+
+    expect(result.current.lines).toHaveLength(0);
+    expect(useCartStore.getState().byDate[DAY_A] ?? []).toHaveLength(0);
   });
 });

@@ -8,9 +8,12 @@ import { useCreditExpiryDays } from './useCreditExpiryDays';
 
 vi.mock('@/features/orders/services/ordersApi', () => ({ getRestaurantConfig: vi.fn() }));
 
-function wrapper({ children }: { children: ReactNode }) {
+function setup() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  return { queryClient, wrapper };
 }
 
 function config(creditExpiryDays: unknown) {
@@ -22,15 +25,19 @@ describe('useCreditExpiryDays', () => {
 
   it('uses the configured days when it is a positive integer', async () => {
     vi.mocked(getRestaurantConfig).mockResolvedValue(config(30));
+    const { wrapper } = setup();
     const { result } = renderHook(() => useCreditExpiryDays(), { wrapper });
     await waitFor(() => expect(result.current).toBe(30));
   });
 
   it.each([0, -5, 2.5, '30', Number.NaN, null])('falls back to the default for %s', async (value) => {
     vi.mocked(getRestaurantConfig).mockResolvedValue(config(value));
+    const { queryClient, wrapper } = setup();
     const { result } = renderHook(() => useCreditExpiryDays(), { wrapper });
-    await waitFor(() => expect(getRestaurantConfig).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 20));
+    // Se espera a que la query resuelva con el valor recibido: recién ahí el
+    // default demuestra que el valor inválido se descartó, no que aún no llegó.
+    await waitFor(() => expect(queryClient.getQueryState(['restaurantConfig'])?.status).toBe('success'));
+    expect(queryClient.getQueryData(['restaurantConfig'])).toMatchObject({ creditExpiryDays: value });
     expect(result.current).toBe(DEFAULT_EXPIRY_DAYS);
   });
 });

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { B2cOrderPage } from './B2cOrderPage';
 import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
+import { useCartStore } from '@/features/orders/store/cartStore';
 import {
   addOrderItemsV2,
   cancelOrderV2,
@@ -120,6 +121,9 @@ async function addDishToCart() {
 async function openReview() {
   fireEvent.click(await screen.findByRole('button', { name: /ver pedido/i }));
 }
+
+// El carrito es un store global (F24): cada test arranca vacío.
+afterEach(() => useCartStore.getState().reset());
 
 describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   beforeEach(() => {

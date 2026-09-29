@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { B2cOrderPage } from './B2cOrderPage';
 import { mockMatchMedia } from '@/test/matchMedia';
 import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
+import { useCartStore } from '@/features/orders/store/cartStore';
 import {
   getAvailableDishes,
   getDisabledDates,
@@ -123,6 +124,9 @@ function mockBackend() {
   vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
   vi.mocked(getPacks).mockResolvedValue([]);
 }
+
+// El carrito es un store global (F24): cada test arranca vacío.
+afterEach(() => useCartStore.getState().reset());
 
 describe('B2cOrderPage — desktop layout (F22a)', () => {
   let media: ReturnType<typeof mockMatchMedia>;

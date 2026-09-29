@@ -43,6 +43,40 @@ const safeSessionStorage: StateStorage = {
   },
 };
 
+/** Sube al cambiar la forma de lo guardado: un payload de otra versión se descarta. */
+const CART_STORAGE_VERSION = 1;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** Una línea sirve si trae lo que el carrito lee: id local y costo del plato. */
+function isValidLine(value: unknown): value is CartLine {
+  if (!isRecord(value) || typeof value.localId !== 'string') return false;
+  const dish = value.dish;
+  if (!isRecord(dish) || !isRecord(dish.category)) return false;
+  const cost = dish.category.creditCost;
+  return typeof dish.id === 'number' && typeof cost === 'number' && Number.isFinite(cost);
+}
+
+/**
+ * Lo que vuelve de `sessionStorage` es texto ajeno: se conserva solo lo que
+ * tiene la forma esperada y el resto se descarta, para que un JSON raro nunca
+ * rompa la página.
+ */
+function sanitizePersisted(persisted: unknown): Pick<CartState, 'ownerId' | 'byDate'> {
+  const empty = { ownerId: null, byDate: {} };
+  if (!isRecord(persisted) || !isRecord(persisted.byDate)) return empty;
+  const ownerId = persisted.ownerId;
+  if (ownerId !== null && typeof ownerId !== 'number') return empty;
+  const byDate: Record<string, CartLine[]> = {};
+  for (const [fecha, lines] of Object.entries(persisted.byDate)) {
+    if (!Array.isArray(lines)) continue;
+    const valid = lines.filter(isValidLine);
+    if (valid.length > 0) byDate[fecha] = valid;
+  }
+  return { ownerId, byDate };
+}
+
 const currentUserId = () => useAuthStore.getState().user?.id ?? null;
 
 /**
@@ -60,7 +94,7 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           const owner = currentUserId();
           // Si el carrito era de otro usuario, no se mezcla: se arranca de cero.
-          const base = state.ownerId !== null && owner !== null && state.ownerId !== owner ? {} : state.byDate;
+          const base = owner !== null && state.ownerId !== owner && state.ownerId !== null ? {} : state.byDate;
           return { ownerId: owner ?? state.ownerId, byDate: { ...base, [fecha]: [...(base[fecha] ?? []), line] } };
         }),
       removeLine: (fecha, localId) =>
@@ -73,6 +107,10 @@ export const useCartStore = create<CartState>()(
     {
       name: 'arias-b2c-cart',
       storage: createJSONStorage(() => safeSessionStorage),
+      version: CART_STORAGE_VERSION,
+      // Otra versión: se descarta en vez de adivinar la forma vieja.
+      migrate: () => ({ ownerId: null, byDate: {} }),
+      merge: (persisted, current) => ({ ...current, ...sanitizePersisted(persisted) }),
     },
   ),
 );
@@ -84,7 +122,8 @@ useAuthStore.subscribe((state, prev) => {
   const cart = useCartStore.getState();
   if (before !== null && next === null) {
     cart.reset();
-  } else if (next !== null && cart.ownerId !== null && cart.ownerId !== next) {
+  } else if (next !== null && cart.ownerId !== next) {
+    // Dueño distinto o ninguno: un carrito armado sin usuario tampoco se hereda.
     cart.reset();
   }
 });
