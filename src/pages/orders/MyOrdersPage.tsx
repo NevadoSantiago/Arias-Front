@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { ChangePickupTimeSheet } from '@/features/orders/components/ChangePickupTimeSheet';
@@ -74,6 +74,23 @@ export function MyOrdersPage() {
   // El saldo ("Te quedan N") solo se pide mientras hay una comanda abierta; en
   // escritorio el panel lateral lo muestra siempre.
   const { data: wallet } = useWallet({ enabled: comandaOrderId !== null || isDesktop });
+  // D6: `?pedido=<id>` ("Ver pedido" del aviso de pago pendiente) abre esa comanda apenas cargan los pedidos.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedOrderParam = searchParams.get('pedido');
+  useEffect(() => {
+    if (linkedOrderParam === null || !orders) return;
+    const linkedId = Number(linkedOrderParam);
+    // Un id desconocido o mal formado se ignora; en ambos casos se limpia el parámetro para no reabrirla.
+    if (linkedOrderParam !== '' && orders.some((o) => o.id === linkedId)) setComandaOrderId(linkedId);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete('pedido');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [linkedOrderParam, orders, setSearchParams]);
   const sheetPresentation = isDesktop ? 'dialog' : 'sheet';
   const user = useAuthStore((s) => s.user);
   const callName = user ? resolveCallName(user) : '';

@@ -1,3 +1,5 @@
+import type { OrderEstado } from '@/features/orders/types';
+
 /**
  * Tipos del feature de credits (billetera/almuerzos).
  * Matchean (en su forma serializada) lo que expone el backend — ver
@@ -91,4 +93,7 @@ export interface CreditPurchase {
    * puede faltar en una respuesta vieja de caché.
    */
   packNombre?: string | null;
+  /** Pedido de una compra `DIRECT` y su estado (D6, backend B14); `null` en `PACK`. Puede faltar en una respuesta vieja. */
+  orderId?: number | null;
+  orderEstado?: OrderEstado | null;
 }

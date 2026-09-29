@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { PENDING_PURCHASES_KEY } from '@/features/credits/hooks/usePendingPurchases';
 import { cancelOrderV2 } from '../services/ordersApi';
 import { balancePartOf, formatLunches, PENDING_PAYMENT_CREDITED_TOAST } from '../lunches';
 import type { OrderV2 } from '../services/ordersApi';
@@ -27,6 +28,8 @@ export function useCancelOrder() {
     onSuccess: (_data, order) => {
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
+      // D6: cancelar cambia el aviso de pagos pendientes de "Mis almuerzos" (el pedido pasa a CANCELADO).
+      queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
       // Un pedido esperando pago solo devuelve los almuerzos que reservó del saldo (F23).
       const count = order.estado === 'PENDIENTE_PAGO' ? balancePartOf(order) : order.creditTotal;
       const base =

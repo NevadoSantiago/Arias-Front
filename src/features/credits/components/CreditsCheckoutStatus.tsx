@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Clock3, Info, ShieldAlert, X, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsDesktop } from '@/lib/useMediaQuery';
+import { PENDING_PURCHASES_KEY } from '../hooks/usePendingPurchases';
 import { getPurchase } from '../services/creditsApi';
 import type { CreditPurchase, CreditPurchaseStatus } from '../types';
 import { PurchaseResultDesktop } from './PurchaseResultDesktop';
@@ -357,6 +358,14 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
   });
 
   const status = purchase?.status;
+
+  // D6: en cuanto la compra deja de estar pendiente, el aviso de "Mis almuerzos" ya no debe listarla.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (status && status !== 'PENDING') {
+      void queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
+    }
+  }, [status, queryClient]);
 
   // Depends on the primitive `status` (not the `purchase` object) so a
   // refetch that resolves with the SAME status does not reschedule the

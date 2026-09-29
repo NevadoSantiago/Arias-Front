@@ -62,3 +62,24 @@ describe('useCancelOrder — success toast', () => {
     );
   });
 });
+
+describe('useCancelOrder — pending purchases (D6)', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('refreshes the pending Mercado Pago payments once the order is cancelled', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useCancelOrder(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    });
+
+    act(() => result.current.requestCancel({ ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true }));
+    act(() => result.current.confirmCancel());
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsPendingPurchases'] });
+  });
+});

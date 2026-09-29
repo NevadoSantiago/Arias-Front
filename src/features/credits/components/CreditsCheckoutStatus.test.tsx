@@ -416,3 +416,45 @@ describe('CreditsCheckoutStatus', () => {
     });
   });
 });
+
+describe('CreditsCheckoutStatus — pending purchases (D6)', () => {
+  beforeEach(() => {
+    vi.mocked(getPurchase).mockReset();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function renderSpying(purchaseId: string) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CreditsCheckoutStatus purchaseId={purchaseId} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    return invalidate;
+  }
+
+  it('refreshes the pending payments once the purchase leaves PENDING', async () => {
+    vi.mocked(getPurchase)
+      .mockResolvedValueOnce(pendingPurchase)
+      .mockResolvedValueOnce({ ...pendingPurchase, status: 'APPROVED', creditedAt: '2026-01-01T00:05:00Z' });
+
+    const invalidate = renderSpying('p1');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['creditsPendingPurchases'] });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsPendingPurchases'] });
+  });
+});

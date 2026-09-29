@@ -47,3 +47,14 @@ export async function getPurchase(id: string): Promise<CreditPurchase> {
   const { data } = await api.get<CreditPurchase>(`${BASE}/purchases/${id}`);
   return data;
 }
+
+/**
+ * Pagos de Mercado Pago que todavía no se confirmaron (D6, backend B14): solo
+ * las compras `PENDING` del usuario dentro de las últimas 24 h, la más nueva
+ * primero. Las de tipo `DIRECT` traen el pedido (`orderId`, `orderEstado`);
+ * las de `PACK` los traen en `null`.
+ */
+export async function getPendingPurchases(): Promise<CreditPurchase[]> {
+  const { data } = await api.get<CreditPurchase[]>(`${BASE}/purchases/pending`);
+  return data;
+}

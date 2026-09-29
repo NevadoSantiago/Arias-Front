@@ -879,3 +879,49 @@ describe('MyOrdersPage — comanda del pedido (F20)', () => {
     expect(within(dialog).queryByRole('link', { name: /agregar platos/i })).not.toBeInTheDocument();
   });
 });
+
+describe('MyOrdersPage — deep link ?pedido= (D6)', () => {
+  const linked: OrderV2 = { ...cancellableOrder, id: 300 };
+  const other: OrderV2 = { ...cancellableOrder, id: 301 };
+
+  afterEach(() => vi.clearAllMocks());
+
+  function renderAt(entry: string) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+    });
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[entry]}>
+          <MyOrdersPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('opens the comanda of the order in the query string once the orders load', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([other, linked]);
+    renderAt('/orders/mine?pedido=300');
+
+    const dialog = await screen.findByRole('dialog', { name: /pedido programado/i });
+    expect(within(dialog).getByText('Comanda Nº 0300')).toBeInTheDocument();
+  });
+
+  it('closes normally and does not reopen by itself', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([linked]);
+    renderAt('/orders/mine?pedido=300');
+
+    const dialog = await screen.findByRole('dialog', { name: /pedido programado/i });
+    fireEvent.click(within(dialog).getByRole('button', { name: /mis pedidos/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /pedido programado/i })).not.toBeInTheDocument());
+  });
+
+  it.each(['999', 'abc', ''])('ignores an unknown pedido (%j) and shows the list', async (value) => {
+    vi.mocked(getOrdersV2).mockResolvedValue([linked]);
+    renderAt(`/orders/mine?pedido=${value}`);
+
+    expect(await screen.findByRole('button', { name: /ver la comanda del pedido/i })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
