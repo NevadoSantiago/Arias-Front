@@ -7,6 +7,13 @@ export interface AuthUser {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  /** Apodo elegido por el cliente; null si nunca cargó uno. */
+  nickname: string | null;
+  /**
+   * Nombre con el que la cocina llama al cliente: apodo → nombre + apellido →
+   * email. Nunca es null; lo resuelve el backend (una sola regla).
+   */
+  displayName: string;
   role: Role;
   companyId: number | null;
   companyName: string | null;

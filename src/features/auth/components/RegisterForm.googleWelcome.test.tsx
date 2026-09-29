@@ -32,6 +32,8 @@ const baseUser = {
   email: 'ana@example.com',
   firstName: 'Ana',
   lastName: null,
+  nickname: null,
+  displayName: 'Test',
   role: 'EMPLOYEE' as const,
   companyId: null,
   companyName: null,

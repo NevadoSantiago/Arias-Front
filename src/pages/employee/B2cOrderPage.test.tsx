@@ -75,6 +75,8 @@ const baseUser: AuthUser = {
   email: 'cliente@example.com',
   firstName: 'Lucía',
   lastName: null,
+  nickname: null,
+  displayName: 'Test',
   role: 'EMPLOYEE',
   companyId: null,
   companyName: null,
