@@ -2,13 +2,10 @@ import { Plus } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { CartSummary } from '../CartSummary';
 import { PickupTimePicker } from './PickupTimePicker';
-import { formatLunches } from '../../lunches';
-import { formatOrderTimeLabel } from '../orderDateLabels';
+import { BalanceBox, PickupNotices } from './OrderReviewParts';
 import type { CartLine } from '../../hooks/useCart';
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
+export interface OrderReviewProps {
   isToday: boolean;
   dayShortLabel: string;
   fecha: string;
@@ -53,6 +50,11 @@ interface Props {
   onConfirm: () => void;
 }
 
+interface Props extends OrderReviewProps {
+  open: boolean;
+  onClose: () => void;
+}
+
 /**
  * Hoja de revisión del pedido (F4, prototipo `Main.dc.html` — hoja de
  * revisión). Reúne el carrito, el horario de retiro y la confirmación en un
@@ -85,7 +87,6 @@ export function OrderReviewSheet({
   onConfirm,
 }: Props) {
   const dayLabel = isToday ? `Para retirar hoy, ${dayShortLabel}` : `Pedido programado para el ${dayShortLabel}`;
-  const left = walletAvailable !== null ? walletAvailable - totalLunches : null;
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
@@ -127,52 +128,14 @@ export function OrderReviewSheet({
             />
           </div>
 
-          {addToOrder && (
-            <div role="status" className="flex flex-col gap-0.5 rounded-lg border-[1.5px] border-success bg-success/10 px-3.5 py-3">
-              <strong className="text-sm font-bold text-foreground">
-                Se agrega a tu pedido de las {formatOrderTimeLabel(addToOrder.pickupAt)}
-              </strong>
-              <span className="text-[13px] leading-snug text-muted-foreground">Retirás todo junto.</span>
-            </div>
-          )}
+          <PickupNotices
+            addToOrder={addToOrder}
+            newOrderNotice={newOrderNotice}
+            pickupTimeLabel={pickupTimeLabel}
+            onJoinOrder={onJoinOrder}
+          />
 
-          {!addToOrder && newOrderNotice && pickupTimeLabel && (
-            <div role="status" className="flex flex-col gap-0.5 rounded-lg border-[1.5px] border-dashed border-border bg-card px-3.5 py-3">
-              <strong className="text-sm font-bold text-foreground">Nuevo pedido a las {pickupTimeLabel}</strong>
-              <span className="text-[13px] leading-snug text-muted-foreground">
-                {newOrderNotice.lockedSamePickupAt
-                  ? `Tu pedido de las ${formatOrderTimeLabel(newOrderNotice.lockedSamePickupAt)} espera el pago, así que este va aparte.`
-                  : `Tu pedido de las ${newOrderNotice.otherPickupAts.map(formatOrderTimeLabel).join(' y de las ')} queda como está.`}
-              </span>
-              {newOrderNotice.joinablePickupAt && (
-                <button
-                  type="button"
-                  onClick={() => onJoinOrder(newOrderNotice.joinablePickupAt!)}
-                  className="mt-0.5 flex min-h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep underline underline-offset-2"
-                >
-                  Sumarlo al pedido de las {formatOrderTimeLabel(newOrderNotice.joinablePickupAt)}
-                </button>
-              )}
-            </div>
-          )}
-
-          {left !== null && (
-            <div className="flex flex-col gap-2 rounded-md bg-muted p-3.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tenés disponibles</span>
-                <span className="font-semibold text-foreground">{formatLunches(walletAvailable!)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Este pedido usa</span>
-                <span className="font-semibold text-foreground">{formatLunches(totalLunches)}</span>
-              </div>
-              <div className="border-t border-border" />
-              <div className="flex justify-between text-[15px] font-bold text-foreground">
-                <span>Te quedan</span>
-                <span>{formatLunches(left)}</span>
-              </div>
-            </div>
-          )}
+          <BalanceBox walletAvailable={walletAvailable} totalLunches={totalLunches} />
 
           {submitError && (
             <p role="alert" className="text-xs text-destructive">

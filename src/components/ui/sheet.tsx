@@ -34,14 +34,25 @@ SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> & { closeLabel?: string }
->(({ className, children, closeLabel = 'Cerrar', ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> & {
+    closeLabel?: string;
+    /**
+     * `sheet` (default): anclada abajo, la hoja móvil de siempre. `dialog`:
+     * centrada en la pantalla, para las versiones de escritorio (F22) — mismo
+     * primitivo y mismo contenido, otra presentación.
+     */
+    variant?: 'sheet' | 'dialog';
+  }
+>(({ className, children, closeLabel = 'Cerrar', variant = 'sheet', ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
+      data-presentation={variant}
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=closed]:duration-200 data-[state=open]:duration-300',
+        variant === 'dialog'
+          ? 'fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:duration-200'
+          : 'fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=closed]:duration-200 data-[state=open]:duration-300',
         className,
       )}
       {...props}

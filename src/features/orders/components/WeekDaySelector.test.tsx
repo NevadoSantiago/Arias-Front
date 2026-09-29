@@ -164,3 +164,35 @@ describe('WeekDaySelector — includeWeekendToday (F13, B2C only)', () => {
     expect(screen.queryByText('26')).not.toBeInTheDocument();
   });
 });
+
+describe('WeekDaySelector — fitColumn (B2C desktop, F22a)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function renderAt(props: { fitColumn?: boolean }) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-30T09:00:00'));
+    const { container } = render(
+      <WeekDaySelector selectedDate="2026-09-30" onSelect={() => {}} orderedDates={new Set()} {...props} />,
+    );
+    return { root: container.firstElementChild as HTMLElement, tile: screen.getByText('30').closest('button')! };
+  }
+
+  it('by default keeps the wide desktop tiles and the overflow-visible strip (B2B unchanged)', () => {
+    const { root, tile } = renderAt({});
+
+    expect(tile.className).toContain('lg:w-20');
+    expect(root.className).toContain('lg:overflow-visible');
+    expect(screen.getAllByRole('button')).toHaveLength(10);
+  });
+
+  it('with fitColumn the tiles are narrower and the strip scrolls instead of overflowing the column', () => {
+    const { root, tile } = renderAt({ fitColumn: true });
+
+    expect(tile.className).toContain('lg:w-16');
+    expect(tile.className).not.toContain('lg:w-20');
+    expect(root.className).not.toContain('lg:overflow-visible');
+    expect(screen.getAllByRole('button')).toHaveLength(10);
+  });
+});

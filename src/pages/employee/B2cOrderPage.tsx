@@ -14,7 +14,8 @@ import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceC
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
 import { comandaFooter, comandaItems, isPaidWithMercadoPago } from '@/features/orders/components/b2c/comandaModel';
 import { OrderPayDirectSheet } from '@/features/orders/components/b2c/OrderPayDirectSheet';
-import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
+import { OrderReviewPanel } from '@/features/orders/components/b2c/OrderReviewPanel';
+import { OrderReviewSheet, type OrderReviewProps } from '@/features/orders/components/b2c/OrderReviewSheet';
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
 import { formatOrderTimeLabel } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
@@ -38,6 +39,7 @@ import type { OrderV2 } from '@/features/orders/services/ordersApi';
 import type { Dish, RestaurantConfig } from '@/features/orders/types';
 import { useWallet } from '@/features/credits/hooks/useWallet';
 import { resolveCallName } from '@/features/auth/lib/callName';
+import { useIsDesktop } from '@/lib/useMediaQuery';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { cn } from '@/lib/utils';
 
@@ -127,6 +129,8 @@ interface DoneData {
  */
 export function B2cOrderPage() {
   const user = useAuthStore((s) => s.user);
+  /** Escritorio (≥1024px): panel fijo "Tu pedido" y diálogos en vez de barra inferior y hojas (F22a). */
+  const isDesktop = useIsDesktop();
   const queryClient = useQueryClient();
 
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
@@ -547,7 +551,7 @@ export function B2cOrderPage() {
   // ─── Confirmado ─────────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="container max-w-xl py-8 lg:py-12">
+      <div className="container max-w-xl py-8 lg:max-w-6xl lg:py-12">
         <OrderConfirmedView
           isToday={done.isToday}
           dayLongLabel={done.dayLongLabel}
@@ -569,170 +573,187 @@ export function B2cOrderPage() {
     );
   }
 
+  // Mismos datos y handlers para la hoja móvil y el panel de escritorio: solo cambia el layout.
+  const reviewProps: OrderReviewProps = {
+    isToday,
+    dayShortLabel,
+    fecha: selectedDate,
+    lastUsedTimeOfDay,
+    onSelectPickup: (time) => setPickupSelection({ date: selectedDate, time }),
+    addToOrder: modifiableOrderForSelectedDay ? { pickupAt: modifiableOrderForSelectedDay.pickupAt } : null,
+    pickupTimeLabel,
+    newOrderNotice,
+    pickupJumpTo,
+    onJoinOrder: (time) => setPickupJumpTo({ pickupAt: time }),
+    lines: cart.lines,
+    totalLunches: cart.totalCredits,
+    onRemoveLine: handleRemoveLine,
+    walletAvailable: wallet?.available ?? null,
+    confirmLabel,
+    canConfirm,
+    submitting,
+    submitError,
+    insufficientBalance,
+    onConfirm: handleReviewConfirm,
+  };
+
   return (
     <div className="flex flex-col">
-      <div className="container flex-1 py-8 lg:py-12">
-        <header className="mb-6 lg:mb-8">
-          <h1 className="font-display text-foreground text-3xl lg:text-5xl font-bold leading-tight mb-1 lg:mb-2">
-            {isToday ? `¡Buen día, ${user.firstName}!` : `Planificá tu comida del ${formatDayLabel(selectedDate)}`}
-          </h1>
-          <p className="text-muted-foreground text-sm lg:text-base">
-            {isToday ? '¿Qué querés comer hoy?' : '¿Qué querés comer?'}
-          </p>
-        </header>
-
-        {wallet && wallet.available === 0 && (
-          <div className="mb-6">
-            <EmptyBalanceCard />
-          </div>
-        )}
-
-        <div className="mb-6 space-y-3">
-          <WeekDaySelector
-            selectedDate={selectedDate}
-            onSelect={handleSelectDate}
-            orderedDates={orderedDates}
-            disabledDates={disabledDates}
-            includeWeekendToday
-          />
-
-          <div className="flex items-center justify-between gap-3 px-1">
-            <span
-              className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-bold',
-                isToday
-                  ? 'bg-primary-deep text-primary-foreground'
-                  : 'border border-foreground text-foreground',
-              )}
-            >
-              {isToday ? (
-                <UtensilsCrossed className="h-3.5 w-3.5" aria-hidden="true" />
-              ) : (
-                <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-              {isToday ? 'Menú de hoy' : 'Pedido programado'}
-            </span>
-
-            {(() => {
-              const windowDisplay = pickupWindowDisplayFor(config, selectedDate);
-              if (!windowDisplay) return null;
-              return (
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                  <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
-                  {windowDisplay.kind === 'open' ? (
-                    <span>
-                      <span className="sr-only">Horario de retiro: </span>
-                      {windowDisplay.start} – {windowDisplay.end}
-                    </span>
-                  ) : (
-                    <span>Cerrado ese día</span>
-                  )}
-                </span>
-              );
-            })()}
-          </div>
-        </div>
-
-        <SelectedDayOrders
-          orders={ordersForSelectedDay}
-          dayHeadingLabel={dayHeadingLabel}
-          now={now}
-          onRequestCancel={requestCancel}
-          onRequestRemoveItem={requestRemoveItem}
-          pickupLeadMinutes={config?.pickupLeadMinutes}
-          onRequestPayNow={(order) => payNow(order.id)}
-          payingOrderId={payingOrderId}
-        />
-
-        <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
-          <FilterPills
-            sections={sections}
-            active={activeFilter}
-            counts={counts}
-            onChange={setActiveFilter}
-          />
-        </div>
-
-        {groupedBySection.length === 0 && specialDishes.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-border rounded-lg">
-            <p className="text-muted-foreground text-sm uppercase tracking-brand">
-              No hay platos disponibles
+      <div className="container flex-1 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-10 lg:py-12">
+        <div className="min-w-0">
+          <header className="mb-6 lg:mb-8">
+            <h1 className="font-display text-foreground text-3xl lg:text-5xl font-bold leading-tight mb-1 lg:mb-2">
+              {isToday ? `¡Buen día, ${user.firstName}!` : `Planificá tu comida del ${formatDayLabel(selectedDate)}`}
+            </h1>
+            <p className="text-muted-foreground text-sm lg:text-base">
+              {isToday ? '¿Qué querés comer hoy?' : '¿Qué querés comer?'}
             </p>
-          </div>
-        ) : (
-          <div className="space-y-10">
-            {specialDishes.length > 0 && (
-              <section>
-                <h2 className="font-display text-primary text-xl lg:text-2xl font-bold mb-4 border-b border-primary pb-2">
-                  Especiales del día
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
-                  {specialDishes.map((dish) => (
-                    <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} hideStock={!isToday} />
-                  ))}
-                </div>
-              </section>
-            )}
-            {groupedBySection.map(({ section, dishes: sectionDishes }) => (
-              <section key={section.id} id={`section-${section.id}`}>
-                <h2 className="font-display text-foreground text-xl lg:text-2xl font-bold mb-4 border-b border-border pb-2">
-                  {section.nombre}
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
-                  {sectionDishes.map((dish) => (
-                    <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} hideStock={!isToday} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </div>
+          </header>
 
-      <div className="sticky bottom-0 z-20 bg-background">
-        <div className="container max-w-xl px-0">
-          <CartBar
-            count={cart.lines.length}
-            totalLunches={cart.totalCredits}
-            isToday={isToday}
-            dayLabel={dayShortLabel}
-            onOpenReview={() => setReviewOpen(true)}
+          {wallet && wallet.available === 0 && (
+            <div className="mb-6">
+              <EmptyBalanceCard />
+            </div>
+          )}
+
+          <div className="mb-6 space-y-3">
+            <WeekDaySelector
+              selectedDate={selectedDate}
+              onSelect={handleSelectDate}
+              orderedDates={orderedDates}
+              disabledDates={disabledDates}
+              includeWeekendToday
+              fitColumn
+            />
+
+            <div className="flex items-center justify-between gap-3 px-1">
+              <span
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-bold',
+                  isToday
+                    ? 'bg-primary-deep text-primary-foreground'
+                    : 'border border-foreground text-foreground',
+                )}
+              >
+                {isToday ? (
+                  <UtensilsCrossed className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {isToday ? 'Menú de hoy' : 'Pedido programado'}
+              </span>
+
+              {(() => {
+                const windowDisplay = pickupWindowDisplayFor(config, selectedDate);
+                if (!windowDisplay) return null;
+                return (
+                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                    <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
+                    {windowDisplay.kind === 'open' ? (
+                      <span>
+                        <span className="sr-only">Horario de retiro: </span>
+                        {windowDisplay.start} – {windowDisplay.end}
+                      </span>
+                    ) : (
+                      <span>Cerrado ese día</span>
+                    )}
+                  </span>
+                );
+              })()}
+            </div>
+          </div>
+
+          <SelectedDayOrders
+            orders={ordersForSelectedDay}
+            dayHeadingLabel={dayHeadingLabel}
+            now={now}
+            onRequestCancel={requestCancel}
+            onRequestRemoveItem={requestRemoveItem}
+            pickupLeadMinutes={config?.pickupLeadMinutes}
+            onRequestPayNow={(order) => payNow(order.id)}
+            payingOrderId={payingOrderId}
           />
+
+          <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
+            <FilterPills
+              sections={sections}
+              active={activeFilter}
+              counts={counts}
+              onChange={setActiveFilter}
+            />
+          </div>
+
+          {groupedBySection.length === 0 && specialDishes.length === 0 ? (
+            <div className="text-center py-20 border border-dashed border-border rounded-lg">
+              <p className="text-muted-foreground text-sm uppercase tracking-brand">
+                No hay platos disponibles
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-10">
+              {specialDishes.length > 0 && (
+                <section>
+                  <h2 className="font-display text-primary text-xl lg:text-2xl font-bold mb-4 border-b border-primary pb-2">
+                    Especiales del día
+                  </h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-3 sm:gap-5">
+                    {specialDishes.map((dish) => (
+                      <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} hideStock={!isToday} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {groupedBySection.map(({ section, dishes: sectionDishes }) => (
+                <section key={section.id} id={`section-${section.id}`}>
+                  <h2 className="font-display text-foreground text-xl lg:text-2xl font-bold mb-4 border-b border-border pb-2">
+                    {section.nombre}
+                  </h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-3 sm:gap-5">
+                    {sectionDishes.map((dish) => (
+                      <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} hideStock={!isToday} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
+        {isDesktop && <OrderReviewPanel {...reviewProps} />}
       </div>
 
-      <DishSheet dish={selectedDish} open={!!selectedDish} onClose={() => setSelectedDish(null)} onConfirm={handleAddToCart} />
+      {!isDesktop && (
+        <div className="sticky bottom-0 z-20 bg-background">
+          <div className="container max-w-xl px-0">
+            <CartBar
+              count={cart.lines.length}
+              totalLunches={cart.totalCredits}
+              isToday={isToday}
+              dayLabel={dayShortLabel}
+              onOpenReview={() => setReviewOpen(true)}
+            />
+          </div>
+        </div>
+      )}
 
-      <OrderReviewSheet
-        open={reviewOpen && cart.lines.length > 0}
-        onClose={() => {
-          setReviewOpen(false);
-          // El salto del atajo es de una sola vez: no sobrevive al cierre.
-          setPickupJumpTo(null);
-        }}
-        isToday={isToday}
-        dayShortLabel={dayShortLabel}
-        fecha={selectedDate}
-        lastUsedTimeOfDay={lastUsedTimeOfDay}
-        onSelectPickup={(time) => setPickupSelection({ date: selectedDate, time })}
-        addToOrder={
-          modifiableOrderForSelectedDay ? { pickupAt: modifiableOrderForSelectedDay.pickupAt } : null
-        }
-        pickupTimeLabel={pickupTimeLabel}
-        newOrderNotice={newOrderNotice}
-        pickupJumpTo={pickupJumpTo}
-        onJoinOrder={(time) => setPickupJumpTo({ pickupAt: time })}
-        lines={cart.lines}
-        totalLunches={cart.totalCredits}
-        onRemoveLine={handleRemoveLine}
-        walletAvailable={wallet?.available ?? null}
-        confirmLabel={confirmLabel}
-        canConfirm={canConfirm}
-        submitting={submitting}
-        submitError={submitError}
-        insufficientBalance={insufficientBalance}
-        onConfirm={handleReviewConfirm}
+      <DishSheet
+        dish={selectedDish}
+        open={!!selectedDish}
+        onClose={() => setSelectedDish(null)}
+        onConfirm={handleAddToCart}
+        presentation={isDesktop ? 'dialog' : 'sheet'}
       />
+
+      {!isDesktop && (
+        <OrderReviewSheet
+          open={reviewOpen && cart.lines.length > 0}
+          onClose={() => {
+            setReviewOpen(false);
+            // El salto del atajo es de una sola vez: no sobrevive al cierre.
+            setPickupJumpTo(null);
+          }}
+          {...reviewProps}
+        />
+      )}
 
       <OrderPayDirectSheet
         open={payDirectOpen}
@@ -750,6 +771,7 @@ export function B2cOrderPage() {
         onPay={handlePayDirect}
         paying={payingDirect}
         payError={payDirectError}
+        presentation={isDesktop ? 'dialog' : 'sheet'}
       />
 
       <CancelOrderSheet

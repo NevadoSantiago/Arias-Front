@@ -21,6 +21,8 @@ interface Props {
   onPay: () => void;
   paying: boolean;
   payError: string | null;
+  /** `sheet` (default): hoja móvil. `dialog`: diálogo centrado para escritorio (F22a) — mismo contenido y handlers. */
+  presentation?: 'sheet' | 'dialog';
 }
 
 /**
@@ -42,6 +44,7 @@ export function OrderPayDirectSheet({
   onPay,
   paying,
   payError,
+  presentation = 'sheet',
 }: Props) {
   const { data: packs, isLoading: packsLoading, isError: packsError } = useQuery({
     queryKey: ['creditPacks'],
@@ -86,7 +89,7 @@ export function OrderPayDirectSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent aria-label="Pagá este pedido con Mercado Pago" className="p-0">
+      <SheetContent aria-label="Pagá este pedido con Mercado Pago" variant={presentation} className={presentation === 'dialog' ? 'max-w-[600px] p-0' : 'p-0'}>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
           <div className="flex items-start gap-3">
             <span

@@ -51,30 +51,32 @@ export function OrderConfirmedView({
 
   return (
     <ChefBackdrop>
-      <div className="flex flex-col gap-[18px] px-4 pb-7 pt-[18px]">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-[18px] px-4 pb-7 pt-[18px] lg:grid lg:grid-cols-[minmax(0,1fr)_480px] lg:grid-rows-[auto_auto_1fr] lg:gap-x-[72px] lg:gap-y-6 lg:px-0 lg:pt-6">
+        <div className="flex items-center gap-3 lg:col-start-1 lg:flex-col lg:items-start lg:gap-[22px]">
           <span
             aria-hidden="true"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground lg:h-[72px] lg:w-[72px]"
           >
-            <Check className="h-6 w-6" strokeWidth={2.6} aria-hidden="true" />
+            <Check className="h-6 w-6 lg:h-9 lg:w-9" strokeWidth={2.6} aria-hidden="true" />
           </span>
-          <span className="flex min-w-0 flex-col gap-[3px]">
-            <h1 className="m-0 font-display text-[25px] font-bold leading-[1.1] text-foreground">{title}</h1>
-            <span className="text-sm leading-snug text-muted-foreground">{headline}</span>
+          <span className="flex min-w-0 flex-col gap-[3px] lg:gap-2">
+            <h1 className="m-0 font-display text-[25px] font-bold leading-[1.1] text-foreground lg:text-[46px]">{title}</h1>
+            <span className="text-sm leading-snug text-muted-foreground lg:text-base">{headline}</span>
           </span>
         </div>
 
-        <OrderComanda
-          orderId={orderId}
-          dateLabel={dayLongLabel}
-          callName={callName}
-          whenLabel={whenLabel}
-          items={items}
-          footer={footer}
-        />
+        <div className="lg:col-start-2 lg:row-span-3 lg:row-start-1">
+          <OrderComanda
+            orderId={orderId}
+            dateLabel={dayLongLabel}
+            callName={callName}
+            whenLabel={whenLabel}
+            items={items}
+            footer={footer}
+          />
+        </div>
 
-        <ul className="m-0 mt-1.5 flex list-none flex-col gap-2.5 p-0">
+        <ul className="m-0 mt-1.5 flex list-none flex-col gap-2.5 p-0 lg:col-start-1 lg:mt-0">
           <li className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-foreground">
             <Bell className="mt-px h-[18px] w-[18px] shrink-0 text-primary" aria-hidden="true" />
             <span>Te avisamos 25 minutos antes del horario de retiro.</span>
@@ -87,7 +89,7 @@ export function OrderConfirmedView({
           )}
         </ul>
 
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5 lg:col-start-1 lg:max-w-sm">
           <button
             type="button"
             onClick={onBackToMenu}

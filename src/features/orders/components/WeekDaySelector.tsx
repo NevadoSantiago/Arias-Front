@@ -20,6 +20,14 @@ interface Props {
    * (B2B) no lo pasa y su salida queda idéntica (ver test de caracterización).
    */
   includeWeekendToday?: boolean;
+  /**
+   * B2C en escritorio (F22a): la columna del menú es más angosta que la
+   * pantalla (el panel "Tu pedido" ocupa el resto), así que las fichas de
+   * `lg:` bajan a 64px y la tira scrollea si aún no entra, en vez de
+   * desbordar hacia el panel. Default `false`: `CompanyOrderPage` (B2B) no lo
+   * pasa y su salida queda idéntica.
+   */
+  fitColumn?: boolean;
 }
 
 function getWeekdays(mondayDate: Date): string[] {
@@ -45,6 +53,7 @@ export function WeekDaySelector({
   orderedDates,
   disabledDates,
   includeWeekendToday = false,
+  fitColumn = false,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const week1Ref = useRef<HTMLDivElement>(null);
@@ -100,7 +109,8 @@ export function WeekDaySelector({
         disabled={isDisabled}
         onClick={() => onSelect(date)}
         className={cn(
-          'relative flex flex-col items-center justify-center w-12 h-14 lg:w-20 lg:h-16 rounded-lg text-xs transition-all shrink-0',
+          'relative flex flex-col items-center justify-center w-12 h-14 rounded-lg text-xs transition-all shrink-0',
+          fitColumn ? 'lg:w-16 lg:h-16' : 'lg:w-20 lg:h-16',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isSelected
             ? 'bg-primary text-primary-foreground shadow-md'
@@ -137,7 +147,7 @@ export function WeekDaySelector({
       ref={scrollRef}
       className={cn(
         'flex overflow-x-auto snap-x snap-mandatory',
-        'lg:overflow-visible lg:snap-none lg:justify-center',
+        fitColumn ? 'lg:snap-none' : 'lg:overflow-visible lg:snap-none lg:justify-center',
         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       )}
     >
