@@ -242,4 +242,23 @@ describe('PickupTimePicker', () => {
     expect(await screen.findByText(/ese horario ya no está disponible/i)).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /lo antes posible/i })).toHaveAttribute('aria-checked', 'true');
   });
+
+  // F19: variante solo-selectores ("Cambiar horario" de Mis pedidos): sin las
+  // opciones automáticas ni el texto de retiro; el resto no cambia.
+  it('selectOnly hides the radios and the readout but keeps hour/minute selects reporting the chosen slot', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
+
+    const { onSelect } = renderPicker({ selectOnly: true, jumpTo: { pickupAt: SLOT_A2 } });
+
+    const hourSelect = (await screen.findByLabelText(/hora de retiro/i)) as HTMLSelectElement;
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(hourSelect.value).toBe(String(new Date(SLOT_A2).getHours()));
+    expect((screen.getByLabelText(/^minutos$/i) as HTMLSelectElement).value).toBe(String(new Date(SLOT_A2).getMinutes()));
+    await waitFor(() => expect(onSelect).toHaveBeenLastCalledWith(SLOT_A2));
+
+    fireEvent.change(hourSelect, { target: { value: String(new Date(SLOT_B1).getHours()) } });
+    fireEvent.change(screen.getByLabelText(/^minutos$/i), { target: { value: String(new Date(SLOT_B1).getMinutes()) } });
+    expect(onSelect).toHaveBeenLastCalledWith(SLOT_B1);
+  });
 });

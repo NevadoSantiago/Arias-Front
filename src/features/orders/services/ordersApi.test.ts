@@ -2,19 +2,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
 import {
   addOrderItemsV2,
+  changeOrderPickupTimeV2,
   DirectCheckoutNotResumableError,
   DirectCheckoutUnavailableError,
   getPickupSlots,
   getRestaurantConfig,
   InsufficientCreditsError,
   OrderNotModifiableError,
+  PickupTimeChangeError,
   removeOrderItemV2,
   resumeDirectCheckoutV2,
   startDirectCheckoutV2,
 } from './ordersApi';
 
 vi.mock('@/lib/api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), patch: vi.fn() },
 }));
 
 describe('getPickupSlots', () => {
@@ -302,4 +304,54 @@ describe('removeOrderItemV2', () => {
 
     await expect(removeOrderItemV2(5, 42)).rejects.toBeInstanceOf(OrderNotModifiableError);
   });
+});
+
+describe('changeOrderPickupTimeV2', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('PATCHes /api/v2/orders/{id}/pickup-time with { pickupAt } and returns the updated order', async () => {
+    const order = {
+      id: 5,
+      fecha: '2026-05-21',
+      pickupAt: '2026-05-21T15:30:00Z',
+      estado: 'PENDIENTE',
+      creditTotal: 2,
+      notas: null,
+      items: [],
+      cancellable: true,
+      modifiable: true,
+      pickupTimeChangeable: true,
+    };
+    vi.mocked(api.patch).mockResolvedValueOnce({ data: order });
+
+    const result = await changeOrderPickupTimeV2(5, '2026-05-21T15:30:00Z');
+
+    expect(api.patch).toHaveBeenCalledWith('/api/v2/orders/5/pickup-time', { pickupAt: '2026-05-21T15:30:00Z' });
+    expect(result).toEqual(order);
+  });
+
+  it('surfaces the backend message of a 409 pickup-time-locked as PickupTimeChangeError', async () => {
+    vi.mocked(api.patch).mockRejectedValueOnce({
+      response: { data: { title: 'pickup-time-locked', detail: 'El horario de retiro ya no se puede cambiar.' } },
+    });
+
+    const error = await changeOrderPickupTimeV2(5, '2026-05-21T15:30:00Z').catch((e) => e);
+
+    expect(error).toBeInstanceOf(PickupTimeChangeError);
+    expect(error.message).toBe('El horario de retiro ya no se puede cambiar.');
+  });
+
+  it.each(['pickup-day-change-not-allowed', 'pickup-out-of-range', 'pickup-too-soon', 'pickup-time-not-aligned'])(
+    'maps %s to PickupTimeChangeError with a Spanish fallback when the backend sends no detail',
+    async (title) => {
+      vi.mocked(api.patch).mockRejectedValueOnce({ response: { data: { title } } });
+
+      const error = await changeOrderPickupTimeV2(5, '2026-05-21T15:30:00Z').catch((e) => e);
+
+      expect(error).toBeInstanceOf(PickupTimeChangeError);
+      expect(error.message).toBe('No pudimos cambiar el horario de retiro.');
+    },
+  );
 });

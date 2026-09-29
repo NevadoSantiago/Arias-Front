@@ -39,6 +39,13 @@ interface Props {
    * los slots del día, el selector pasa a "Elegir horario" con ese valor.
    */
   jumpTo?: { pickupAt: string } | null;
+  /**
+   * F19 ("Cambiar horario" de Mis pedidos): solo los selectores de hora y
+   * minutos — sin las opciones "Lo antes posible"/"Última utilizada" ni el
+   * texto "Retirás…", que muestra quien lo usa. Con `jumpTo` arranca en el
+   * horario actual del pedido. Default `false`: comportamiento sin cambios.
+   */
+  selectOnly?: boolean;
 }
 
 /**
@@ -51,7 +58,7 @@ interface Props {
  * click — igual que el prototipo aprobado, donde el readout y el botón de
  * confirmar ya muestran un horario válido apenas cargan los slots.
  */
-export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOfDay, onSelect, jumpTo = null }: Props) {
+export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOfDay, onSelect, jumpTo = null, selectOnly = false }: Props) {
   const { data: slots, isLoading, isError, refetch } = useQuery({
     queryKey: ['pickupSlots', fecha],
     queryFn: () => getPickupSlots(fecha),
@@ -208,37 +215,39 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
   return (
     <div className="space-y-2">
       <div role="radiogroup" aria-label="Horario de retiro" className="flex flex-col gap-2">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === 'auto'}
-          onClick={() => setMode('auto')}
-          className={cn(
-            'flex min-h-[52px] items-center gap-2.5 rounded-lg border-2 px-3.5',
-            mode === 'auto'
-              ? 'border-primary-deep bg-card text-foreground'
-              : 'border-border bg-card text-muted-foreground',
-          )}
-        >
-          <span
-            aria-hidden="true"
+        {!selectOnly && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === 'auto'}
+            onClick={() => setMode('auto')}
             className={cn(
-              'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
-              mode === 'auto' ? 'border-primary-deep' : 'border-muted-foreground',
+              'flex min-h-[52px] items-center gap-2.5 rounded-lg border-2 px-3.5',
+              mode === 'auto'
+                ? 'border-primary-deep bg-card text-foreground'
+                : 'border-border bg-card text-muted-foreground',
             )}
           >
-            {mode === 'auto' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
-          </span>
-          {isLastUsed ? (
-            <History className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
-          ) : (
-            <Zap className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
-          )}
-          <span className="flex-1 text-left text-sm font-bold">
-            {isLastUsed ? 'Última utilizada' : 'Lo antes posible'}
-          </span>
-          <span className="text-base font-bold">{formatHM(firstOption.h, firstOption.m)}</span>
-        </button>
+            <span
+              aria-hidden="true"
+              className={cn(
+                'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
+                mode === 'auto' ? 'border-primary-deep' : 'border-muted-foreground',
+              )}
+            >
+              {mode === 'auto' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
+            </span>
+            {isLastUsed ? (
+              <History className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
+            ) : (
+              <Zap className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
+            )}
+            <span className="flex-1 text-left text-sm font-bold">
+              {isLastUsed ? 'Última utilizada' : 'Lo antes posible'}
+            </span>
+            <span className="text-base font-bold">{formatHM(firstOption.h, firstOption.m)}</span>
+          </button>
+        )}
 
         <div
           className={cn(
@@ -246,26 +255,28 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
             mode === 'custom' ? 'border-primary-deep bg-card' : 'border-border bg-card',
           )}
         >
-          <button
-            type="button"
-            role="radio"
-            aria-checked={mode === 'custom'}
-            onClick={activateCustom}
-            className="flex min-h-[44px] flex-1 items-center gap-2.5 text-left text-sm font-bold text-foreground"
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
-                mode === 'custom' ? 'border-primary-deep' : 'border-muted-foreground',
-              )}
+          {!selectOnly && (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={mode === 'custom'}
+              onClick={activateCustom}
+              className="flex min-h-[44px] flex-1 items-center gap-2.5 text-left text-sm font-bold text-foreground"
             >
-              {mode === 'custom' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
-            </span>
-            Elegir horario
-          </button>
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
+                  mode === 'custom' ? 'border-primary-deep' : 'border-muted-foreground',
+                )}
+              >
+                {mode === 'custom' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
+              </span>
+              Elegir horario
+            </button>
+          )}
 
-          <div className={cn('flex items-center gap-1', mode === 'auto' && 'opacity-50')}>
+          <div className={cn('flex items-center gap-1', mode === 'auto' && !selectOnly && 'opacity-50')}>
             <label htmlFor="pickup-hour" className="sr-only">
               Hora de retiro
             </label>
@@ -305,10 +316,12 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
         </div>
       </div>
 
-      <p role="status" aria-live="polite" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-        {readoutText}
-      </p>
-      {jumpMissed && (
+      {!selectOnly && (
+        <p role="status" aria-live="polite" className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          {readoutText}
+        </p>
+      )}
+      {jumpMissed && !selectOnly && (
         <p role="alert" className="text-sm text-muted-foreground">
           Ese horario ya no está disponible. Elegí otro.
         </p>

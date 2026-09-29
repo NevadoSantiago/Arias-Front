@@ -1,4 +1,4 @@
-import { Clock3, CreditCard, UtensilsCrossed, X } from 'lucide-react';
+import { Clock3, CreditCard, Pencil, UtensilsCrossed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatLunches } from '../lunches';
 import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from './orderDateLabels';
@@ -30,6 +30,13 @@ interface Props {
   onRequestPayNow?: (order: OrderV2) => void;
   /** true mientras `onRequestPayNow` está en curso PARA ESTE pedido — deshabilita el botón. */
   payingNow?: boolean;
+  /**
+   * Optativo (F19) — cuando se pasa, un pedido con `pickupTimeChangeable`
+   * (lo decide el backend: programado y antes del corte) ofrece "Cambiar
+   * horario" junto al horario de retiro. Prop aditiva con default
+   * `undefined`: sin ella no aparece la acción y la tarjeta queda igual.
+   */
+  onRequestChangePickupTime?: (order: OrderV2) => void;
 }
 
 /**
@@ -49,6 +56,7 @@ export function OrderCard({
   pickupLeadMinutes,
   onRequestPayNow,
   payingNow,
+  onRequestChangePickupTime,
 }: Props) {
   const dayLabel = formatOrderDayLabel(order.pickupAt, now);
   const timeLabel = formatOrderTimeLabel(order.pickupAt);
@@ -57,6 +65,7 @@ export function OrderCard({
   // F18: mismo par (isCancellable) que decide "Cancelar pedido" — el
   // backend nunca la deja modificable aunque cancellable sea true.
   const canRemoveItems = !!onRequestRemoveItem && order.cancellable && !isAwaitingPayment;
+  const canChangePickupTime = !!onRequestChangePickupTime && order.pickupTimeChangeable;
   const deadlineLabel = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
   const payDeadlineText = deadlineLabel
     ? `Estamos esperando la confirmación de Mercado Pago. Si no se confirma antes de las ${deadlineLabel}, se cancela.`
@@ -78,6 +87,17 @@ export function OrderCard({
             <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-foreground">
               <Clock3 className="h-[15px] w-[15px] text-primary-deep" aria-hidden="true" />
               Retiro {timeLabel} hs
+              {canChangePickupTime && (
+                <button
+                  type="button"
+                  onClick={() => onRequestChangePickupTime(order)}
+                  aria-label={`Cambiar el horario de retiro del pedido del ${dayLabel.toLowerCase()}`}
+                  className="-my-3 -ml-1 flex h-11 items-center gap-1.5 px-1.5 text-[13px] font-bold text-primary-deep"
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  Cambiar horario
+                </button>
+              )}
             </span>
           </div>
           <OrderStatusBadge estado={order.estado} />

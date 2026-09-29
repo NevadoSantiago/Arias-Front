@@ -210,6 +210,29 @@ export class OrderNotModifiableError extends Error {
 }
 
 /**
+ * El backend rechazó el cambio de horario de retiro (F19, `PATCH
+ * /orders/{id}/pickup-time`): 409 `pickup-time-locked` /
+ * `pickup-day-change-not-allowed` o 400 `pickup-*`. El mensaje es el que
+ * manda el backend (`detail`); si no manda ninguno, un texto genérico.
+ */
+export class PickupTimeChangeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PickupTimeChangeError';
+  }
+}
+
+const PICKUP_TIME_ERROR_TITLES = new Set([
+  'pickup-time-locked',
+  'pickup-day-change-not-allowed',
+  'pickup-out-of-range',
+  'pickup-day-closed',
+  'pickup-outside-service-window',
+  'pickup-time-not-aligned',
+  'pickup-too-soon',
+]);
+
+/**
  * La compra directa no está disponible (503 `direct-purchase-unavailable`)
  * — el backend no tiene un paquete `DAY` habilitado para calcular el precio
  * por almuerzo. F18/B7.
@@ -338,6 +361,21 @@ export async function removeOrderItemV2(orderId: number, itemId: number): Promis
 }
 
 /**
+ * Cambia el horario de retiro de un pedido programado (F19, backend B11 —
+ * `PATCH /api/v2/orders/{id}/pickup-time`). `pickupAt` es el instante exacto
+ * que devolvió `getPickupSlots` del mismo día; el backend decide si todavía
+ * se puede cambiar y devuelve el pedido actualizado.
+ */
+export async function changeOrderPickupTimeV2(orderId: number, pickupAt: string): Promise<OrderV2> {
+  try {
+    const { data } = await api.patch<OrderV2>(`${BASE_V2}/${orderId}/pickup-time`, { pickupAt });
+    return data;
+  } catch (err) {
+    throw mapOrderV2Error(err);
+  }
+}
+
+/**
  * Pedidos del usuario autenticado — últimos 30, con retiro más próximo
  * primero, incluye pedidos cancelados. Scope por el usuario del JWT en el
  * backend, nunca por un parámetro que el cliente pudiera manipular.
@@ -349,7 +387,14 @@ export async function getOrdersV2(): Promise<OrderV2[]> {
 
 function mapOrderV2Error(err: unknown): Error {
   if (typeof err === 'object' && err !== null && 'response' in err) {
-    const data = (err as { response?: { data?: { title?: string } } }).response?.data;
+    const data = (err as { response?: { data?: { title?: string; detail?: string } } }).response?.data;
+    if (data?.title && PICKUP_TIME_ERROR_TITLES.has(data.title)) {
+      const fallback =
+        data.title === 'pickup-time-locked'
+          ? 'El horario de retiro ya no se puede cambiar.'
+          : 'No pudimos cambiar el horario de retiro.';
+      return new PickupTimeChangeError(data.detail || fallback);
+    }
     if (data?.title === 'insufficient-credits') {
       return new InsufficientCreditsError();
     }

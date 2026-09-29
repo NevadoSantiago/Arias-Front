@@ -6,12 +6,16 @@ import { toast } from 'sonner';
 import { MyOrdersPage } from './MyOrdersPage';
 import {
   cancelOrderV2,
+  changeOrderPickupTimeV2,
   DirectCheckoutNotResumableError,
   getOrdersV2,
+  getPickupSlots,
   getRestaurantConfig,
+  PickupTimeChangeError,
   resumeDirectCheckoutV2,
 } from '@/features/orders/services/ordersApi';
 import { getWallet } from '@/features/credits/services/creditsApi';
+import { formatOrderTimeLabel } from '@/features/orders/components/orderDateLabels';
 import type { OrderV2 } from '@/features/orders/services/ordersApi';
 
 vi.mock('@/features/orders/services/ordersApi', async () => {
@@ -22,6 +26,8 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     ...actual,
     getOrdersV2: vi.fn(),
     cancelOrderV2: vi.fn(),
+    changeOrderPickupTimeV2: vi.fn(),
+    getPickupSlots: vi.fn(),
     getRestaurantConfig: vi.fn(),
     resumeDirectCheckoutV2: vi.fn(),
   };
@@ -594,5 +600,81 @@ describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
     expect(
       await screen.findByRole('button', { name: /ver pedidos anteriores/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('MyOrdersPage — "Cambiar horario" (F19)', () => {
+  const NOW = new Date('2026-09-26T10:00:00-03:00');
+  const CURRENT = new Date(NOW.getTime() + 3 * HOUR_MS).toISOString();
+  const OTHER = new Date(NOW.getTime() + 3 * HOUR_MS + 30 * 60 * 1000).toISOString();
+  const scheduled: OrderV2 = { ...cancellableOrder, id: 300, pickupAt: CURRENT, pickupTimeChangeable: true };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    vi.mocked(getPickupSlots).mockResolvedValue([CURRENT, OTHER]);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+  });
+
+  async function pickOtherAndContinue() {
+    fireEvent.click(await screen.findByRole('button', { name: /cambiar el horario de retiro del pedido/i }));
+    const hour = await screen.findByLabelText('Hora de retiro');
+    const target = new Date(OTHER);
+    fireEvent.change(hour, { target: { value: String(target.getHours()) } });
+    fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: String(target.getMinutes()) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+  }
+
+  it('offers "Cambiar horario" only on orders whose pickupTimeChangeable is true', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([
+      scheduled,
+      { ...nonCancellableOrder, id: 301, pickupAt: CURRENT, pickupTimeChangeable: false },
+      { ...cancellableOrder, id: 302, pickupAt: CURRENT, estado: 'PENDIENTE_PAGO', pickupTimeChangeable: false },
+    ]);
+
+    renderPage();
+
+    const cards = await screen.findAllByTestId('order-card');
+    expect(cards).toHaveLength(3);
+    expect(within(cards[0]).getByRole('button', { name: /cambiar el horario de retiro del pedido/i })).toBeInTheDocument();
+    expect(within(cards[1]).queryByRole('button', { name: /cambiar el horario de retiro del pedido/i })).not.toBeInTheDocument();
+    expect(within(cards[2]).queryByRole('button', { name: /cambiar el horario de retiro del pedido/i })).not.toBeInTheDocument();
+  });
+
+  it('changes the pickup time in two steps, shows the toast and refreshes the orders', async () => {
+    vi.mocked(getOrdersV2)
+      .mockResolvedValueOnce([scheduled])
+      .mockResolvedValueOnce([{ ...scheduled, pickupAt: OTHER }]);
+    vi.mocked(changeOrderPickupTimeV2).mockResolvedValueOnce({ ...scheduled, pickupAt: OTHER });
+
+    renderPage();
+    await pickOtherAndContinue();
+
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cambiar horario/i }));
+
+    await waitFor(() => expect(changeOrderPickupTimeV2).toHaveBeenCalledWith(300, OTHER));
+    await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
+    expect(toast.success).toHaveBeenCalledWith('Horario cambiado', expect.objectContaining({ description: expect.stringContaining(formatOrderTimeLabel(OTHER)) }));
+    await waitFor(() => expect(screen.queryByText('Cambiar horario de retiro')).not.toBeInTheDocument());
+    expect(await screen.findByText(new RegExp(`Retiro ${formatOrderTimeLabel(OTHER)} hs`))).toBeInTheDocument();
+  });
+
+  it('shows the backend message and keeps the sheet open when the change is rejected', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
+    vi.mocked(changeOrderPickupTimeV2).mockRejectedValueOnce(
+      new PickupTimeChangeError('El horario de retiro ya no se puede cambiar.'),
+    );
+
+    renderPage();
+    await pickOtherAndContinue();
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cambiar horario/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El horario de retiro ya no se puede cambiar.');
+    expect(toast.success).not.toHaveBeenCalled();
   });
 });

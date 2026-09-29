@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
+import { ChangePickupTimeSheet } from '@/features/orders/components/ChangePickupTimeSheet';
 import { OrderCard } from '@/features/orders/components/OrderCard';
 import { isRestaurantDayOnOrAfter } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
+import { useChangePickupTime } from '@/features/orders/hooks/useChangePickupTime';
 import { useOrders } from '@/features/orders/hooks/useOrders';
 import { usePayNow } from '@/features/orders/hooks/usePayNow';
 import { getRestaurantConfig, type OrderV2 } from '@/features/orders/services/ordersApi';
@@ -45,6 +47,8 @@ export function MyOrdersPage() {
   const [showPast, setShowPast] = useState(false);
   const { cancelTarget, cancelError, cancelling, requestCancel, closeSheet, confirmCancel } =
     useCancelOrder();
+  const { changeTarget, changeError, changing, requestChange, closeChangeSheet, confirmChange } =
+    useChangePickupTime();
   const { payingOrderId, payNow } = usePayNow();
   /**
    * `pickupLeadMinutes` para el aviso de corte de "Pago pendiente" (F18) —
@@ -133,6 +137,7 @@ export function MyOrdersPage() {
                     pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
                     onRequestPayNow={(o) => payNow(o.id)}
                     payingNow={payingOrderId === order.id}
+                    onRequestChangePickupTime={requestChange}
                   />
                 ))}
               </ul>
@@ -196,6 +201,14 @@ export function MyOrdersPage() {
         errorMessage={cancelError}
         onConfirm={confirmCancel}
         onClose={closeSheet}
+      />
+
+      <ChangePickupTimeSheet
+        order={changeTarget}
+        changing={changing}
+        errorMessage={changeError}
+        onConfirm={confirmChange}
+        onClose={closeChangeSheet}
       />
     </div>
   );
