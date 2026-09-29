@@ -1,5 +1,6 @@
 import { WalletBalance } from '@/features/credits/components/WalletBalance';
 import { PurchaseHistory } from '@/features/credits/components/PurchaseHistory';
+import { PendingPurchases } from '@/features/credits/components/PendingPurchases';
 import { BuyLunchesAside } from '@/features/credits/components/BuyLunchesAside';
 import { useIsDesktop } from '@/lib/useMediaQuery';
 
@@ -9,6 +10,10 @@ import { useIsDesktop } from '@/lib/useMediaQuery';
  * de `WalletBalance` (debajo de la tarjeta de saldo). En escritorio (F22c,
  * `DesktopCredits.dc.html`) el saldo va en horizontal sobre los movimientos y
  * la compra se hace en el lugar, en el panel lateral `BuyLunchesAside`.
+ *
+ * D6 (`Credits.dc.html` / `DesktopCredits.dc.html`, tablero v23): entre el saldo
+ * y lo que sigue va el aviso de pagos de Mercado Pago pendientes; sus almuerzos
+ * "por acreditar" no se suman al saldo.
  */
 export function CreditsWalletPage() {
   const isDesktop = useIsDesktop();
@@ -20,6 +25,8 @@ export function CreditsWalletPage() {
           <h1 className="font-display text-[42px] font-bold leading-tight text-foreground">Mis almuerzos</h1>
 
           <WalletBalance variant="wide" />
+
+          <PendingPurchases variant="wide" />
 
           <section aria-labelledby="movements-title" className="flex flex-col gap-2">
             <h2
@@ -42,6 +49,8 @@ export function CreditsWalletPage() {
       <h1 className="font-display text-2xl lg:text-3xl font-bold text-foreground">Mis almuerzos</h1>
 
       <WalletBalance />
+
+      <PendingPurchases />
 
       <div>
         <h2 className="text-sm uppercase tracking-brand font-medium text-muted-foreground mb-3">
