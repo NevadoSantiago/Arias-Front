@@ -11,12 +11,12 @@ vi.mock('../services/creditsApi', () => ({
   getPurchase: vi.fn(),
 }));
 
-function renderStatus() {
+function renderStatus(purchaseId: string | null = 'p1') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <CreditsCheckoutStatus purchaseId="p1" />
+        <CreditsCheckoutStatus purchaseId={purchaseId} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -89,6 +89,7 @@ describe('CreditsCheckoutStatus on desktop (F22d)', () => {
     const right = within(detailsColumn());
     expect(left.getByRole('heading', { level: 1, name: '¡Listo! Sumaste 10 almuerzos' })).toBeInTheDocument();
     expect(left.getByText(/se acreditaron 10 almuerzos en tu billetera/i)).toBeInTheDocument();
+    expect(left.getByRole('status')).toHaveTextContent(/se acreditaron 10 almuerzos/i);
     expect(left.getByRole('link', { name: 'Pedir mi almuerzo' })).toHaveAttribute('href', '/orders/today');
     expect(left.getByRole('link', { name: 'Ver mis almuerzos' })).toHaveAttribute('href', '/credits');
     expect(right.getByText('Total pagado')).toBeInTheDocument();
@@ -143,6 +144,71 @@ describe('CreditsCheckoutStatus on desktop (F22d)', () => {
     expect(left.getByRole('link', { name: 'Volver a mis almuerzos' })).toHaveAttribute('href', '/credits');
     expect(left.getByRole('link', { name: 'Ir al menú' })).toHaveAttribute('href', '/orders/today');
     expect(within(detailsColumn()).getByText('En revisión por Mercado Pago')).toBeInTheDocument();
+  });
+
+  it('PENDING (direct payment): secondary action goes to Mis pedidos', async () => {
+    vi.mocked(getPurchase).mockResolvedValue({ ...purchase, type: 'DIRECT', packNombre: null });
+    renderStatus();
+    await settle();
+
+    expect(within(statusColumn()).getByRole('link', { name: 'Ver mis pedidos' })).toHaveAttribute('href', '/orders/mine');
+    expect(within(detailsColumn()).getByText('Tu pedido queda programado')).toBeInTheDocument();
+    expect(screen.queryByText(/se acreditaron/i)).not.toBeInTheDocument();
+  });
+
+  it('PENDING after the polling budget: says it is taking longer than expected', async () => {
+    vi.mocked(getPurchase).mockResolvedValue(purchase);
+    renderStatus();
+    await settle();
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+    }
+
+    expect(within(statusColumn()).getByText(/demorando más de lo esperado/i)).toBeInTheDocument();
+    expect(screen.queryByText(/estamos procesando tu pago/i)).not.toBeInTheDocument();
+  });
+
+  it('disables "Actualizar estado" while the purchase is being fetched', async () => {
+    vi.mocked(getPurchase).mockResolvedValueOnce(purchase);
+    renderStatus();
+    await settle();
+
+    vi.mocked(getPurchase).mockReturnValueOnce(new Promise(() => {}));
+    const button = within(statusColumn()).getByRole('button', { name: 'Actualizar estado' });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await settle();
+    expect(within(statusColumn()).getByRole('button', { name: 'Actualizar estado' })).toBeDisabled();
+  });
+
+  it('without purchaseId: narrow column with the recovery link, no desktop band', async () => {
+    renderStatus(null);
+    await settle();
+
+    expect(document.querySelector('.max-w-md')).toBeInTheDocument();
+    expect(document.querySelector('[data-layout]')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'No pudimos identificar tu compra' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ir a mis almuerzos' })).toHaveAttribute('href', '/credits');
+  });
+
+  it('while loading: narrow column with the verifying status', async () => {
+    vi.mocked(getPurchase).mockReturnValue(new Promise(() => {}));
+    renderStatus();
+    await settle();
+
+    expect(document.querySelector('.max-w-md')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Verificando el estado de tu compra');
+  });
+
+  it('on query error: narrow column with the alert', async () => {
+    vi.mocked(getPurchase).mockRejectedValue(new Error('boom'));
+    renderStatus();
+    await settle();
+
+    expect(document.querySelector('.max-w-md')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('No pudimos consultar el estado de tu compra');
   });
 
   it('never says "créditos"', async () => {

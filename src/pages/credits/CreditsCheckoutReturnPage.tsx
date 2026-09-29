@@ -23,10 +23,11 @@ export function CreditsCheckoutReturnPage() {
   const purchaseId = purchaseIdParam ?? searchParams.get('purchaseId');
   const isDesktop = useIsDesktop();
 
-  if (isDesktop) return <CreditsCheckoutStatus purchaseId={purchaseId} />;
-
+  // Misma posición en el árbol en ambos anchos (solo cambian las clases del
+  // contenedor): si el componente se remontara al cruzar el corte, perdería
+  // su contador de intentos del polling.
   return (
-    <div className="container max-w-md py-8">
+    <div className={isDesktop ? undefined : 'container max-w-md py-8'}>
       <CreditsCheckoutStatus purchaseId={purchaseId} />
     </div>
   );

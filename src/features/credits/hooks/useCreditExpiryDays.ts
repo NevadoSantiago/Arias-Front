@@ -9,5 +9,7 @@ import { DEFAULT_EXPIRY_DAYS } from '../purchaseModel';
  */
 export function useCreditExpiryDays(): number {
   const { data } = useQuery({ queryKey: ['restaurantConfig'], queryFn: getRestaurantConfig });
-  return data?.creditExpiryDays ?? DEFAULT_EXPIRY_DAYS;
+  // Solo un entero finito >= 1 es un plazo válido; cualquier otra cosa usa el default.
+  const days = data?.creditExpiryDays;
+  return typeof days === 'number' && Number.isInteger(days) && days >= 1 ? days : DEFAULT_EXPIRY_DAYS;
 }

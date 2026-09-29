@@ -464,7 +464,7 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
         note={
           noteNode &&
           (note.highlight ? (
-            <div className="flex items-center gap-3.5 rounded-[10px] bg-foreground px-4 py-3.5 text-background">
+            <div role={note.role} className="flex items-center gap-3.5 rounded-[10px] bg-foreground px-4 py-3.5 text-background">
               <span className="text-base font-bold">{note.text}</span>
             </div>
           ) : (

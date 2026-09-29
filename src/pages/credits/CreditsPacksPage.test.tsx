@@ -3,7 +3,10 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CreditsPacksPage } from './CreditsPacksPage';
 import { createPurchase, getPacks, getWallet } from '@/features/credits/services/creditsApi';
+import { getRestaurantConfig } from '@/features/orders/services/ordersApi';
 import type { CreditPack } from '@/features/credits/types';
+
+vi.mock('@/features/orders/services/ordersApi', () => ({ getRestaurantConfig: vi.fn() }));
 
 vi.mock('@/features/credits/services/creditsApi', () => ({
   getPacks: vi.fn(),
@@ -55,6 +58,9 @@ describe('CreditsPacksPage', () => {
   beforeEach(() => {
     vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack, monthPack]);
     vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00', pickupWindowStart: null, pickupWindowEnd: null, creditExpiryDays: 45,
+    } as never);
     Object.defineProperty(window, 'location', {
       writable: true,
       value: { href: '' },
@@ -63,6 +69,12 @@ describe('CreditsPacksPage', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('shows the expiry configured by the restaurant in the mobile copy', async () => {
+    renderPage();
+
+    expect(await screen.findByText(/vencen a los 45 días de tu última compra/i)).toBeInTheDocument();
   });
 
   it('shows Sueltos first, then the other packs ordered by ordenDisplay, with prices from priceCents', async () => {

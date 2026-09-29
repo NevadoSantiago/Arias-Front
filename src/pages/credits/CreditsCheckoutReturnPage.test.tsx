@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,5 +52,28 @@ describe('CreditsCheckoutReturnPage layout (F22d)', () => {
 
     expect(container.querySelector('.container.max-w-md')).toBeInTheDocument();
     expect(container.querySelector('[data-layout]')).not.toBeInTheDocument();
+  });
+
+  it('keeps the polling budget when the viewport crosses the breakpoint', async () => {
+    vi.mocked(getPurchase).mockResolvedValue({
+      id: 'p1', type: 'PACK', creditAmount: 5, amountCents: 700000, currency: 'ARS', status: 'PENDING',
+      createdAt: '2026-01-01T00:00:00Z', creditedAt: null, reversedAt: null,
+    });
+    media = mockMatchMedia(false);
+    renderPage();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+
+    // 5 de los 10 intentos en móvil…
+    for (let i = 0; i < 5; i++) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    }
+    expect(screen.queryByText(/demorando más de lo esperado/i)).not.toBeInTheDocument();
+
+    // …cruza el corte (rotar / redimensionar) y quedan los otros 5.
+    await act(async () => { media.set(true); });
+    for (let i = 0; i < 5; i++) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    }
+    expect(screen.getByText(/demorando más de lo esperado/i)).toBeInTheDocument();
   });
 });
