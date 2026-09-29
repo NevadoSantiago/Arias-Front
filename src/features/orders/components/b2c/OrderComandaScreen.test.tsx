@@ -276,11 +276,11 @@ describe('OrderComandaScreen', () => {
   });
 });
 
-describe('OrderComandaScreen — modal variant (F22b)', () => {
+describe('OrderComandaScreen — dialog presentation (F22b)', () => {
   it('is a centered modal with a close button, and keeps Escape', async () => {
-    const handlers = renderScreen(scheduled, { variant: 'modal' });
+    const handlers = renderScreen(scheduled, { presentation: 'dialog' });
     const dialog = screen.getByRole('dialog', { name: 'Pedido programado' });
-    expect(dialog).toHaveAttribute('data-presentation', 'modal');
+    expect(dialog).toHaveAttribute('data-presentation', 'dialog');
     expect(screen.queryByRole('button', { name: /mis pedidos/i })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar la comanda' }));
     expect(handlers.onBack).toHaveBeenCalledTimes(1);
@@ -288,7 +288,7 @@ describe('OrderComandaScreen — modal variant (F22b)', () => {
     await waitFor(() => expect(handlers.onBack).toHaveBeenCalledTimes(2));
   });
 
-  it('defaults to the full-screen variant', () => {
+  it('defaults to the full-screen presentation', () => {
     renderScreen(scheduled);
     expect(screen.getByRole('dialog', { name: 'Pedido programado' })).toHaveAttribute('data-presentation', 'screen');
   });

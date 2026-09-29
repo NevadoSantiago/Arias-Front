@@ -14,9 +14,10 @@ function DesktopProbe() {
 describe('useMediaQuery', () => {
   let media: ReturnType<typeof mockMatchMedia> | null = null;
   afterEach(() => {
+    // En orden inverso al de instalación: primero el spy, después el helper.
+    vi.restoreAllMocks();
     media?.restore();
     media = null;
-    vi.restoreAllMocks();
   });
 
   it('reads the current match synchronously and follows changes', () => {

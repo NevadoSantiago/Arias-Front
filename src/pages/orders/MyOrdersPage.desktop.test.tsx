@@ -156,7 +156,7 @@ describe('MyOrdersPage on desktop (F22b)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /ver la comanda del pedido/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /pedido programado/i });
-    expect(dialog).toHaveAttribute('data-presentation', 'modal');
+    expect(dialog).toHaveAttribute('data-presentation', 'dialog');
     expect(within(dialog).getByRole('button', { name: 'Cerrar la comanda' })).toBeInTheDocument();
 
     fireEvent.keyDown(dialog, { key: 'Escape' });
@@ -202,11 +202,19 @@ describe('MyOrdersPage on mobile (F22b)', () => {
     expect(screen.queryByRole('complementary', { name: 'Resumen' })).not.toBeInTheDocument();
   });
 
-  it('opens the cancel sheet bottom-anchored and the comanda full screen', async () => {
+  it('opens the cancel sheet bottom-anchored', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: /cancelar pedido/i }));
     expect(await screen.findByRole('dialog', { name: '¿Cancelar este pedido?' })).toHaveAttribute('data-presentation', 'sheet');
+  });
+
+  it('opens the comanda full screen', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /ver la comanda del pedido/i }));
+    expect(await screen.findByRole('dialog', { name: /pedido programado/i })).toHaveAttribute('data-presentation', 'screen');
   });
 });

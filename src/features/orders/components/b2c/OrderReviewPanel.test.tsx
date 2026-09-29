@@ -59,7 +59,7 @@ describe('OrderReviewPanel', () => {
     expect(screen.getByText('Agregá al menos un plato para confirmar.')).toBeInTheDocument();
   });
 
-  it('labels the day: today vs a scheduled day', () => {
+  it('labels today', () => {
     renderPanel();
     expect(screen.getByText('Para retirar hoy, jueves 24')).toBeInTheDocument();
   });

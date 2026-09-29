@@ -25,10 +25,10 @@ interface Props {
   onRequestPayNow?: (order: OrderV2) => void;
   /**
    * `screen` (default): pantalla completa con "‹ Mis pedidos", la móvil.
-   * `modal`: diálogo centrado de ~580px con una "×", para escritorio (F22b).
+   * `dialog`: diálogo centrado de ~580px con una "×", para escritorio (F22b).
    * Mismo contenido y mismas acciones; solo cambia la presentación.
    */
-  variant?: 'screen' | 'modal';
+  presentation?: 'screen' | 'dialog';
 }
 
 /**
@@ -55,7 +55,7 @@ export function OrderComandaScreen({
   onRequestChangePickupTime,
   onRequestCancel,
   onRequestPayNow,
-  variant = 'screen',
+  presentation = 'screen',
 }: Props) {
   // Quién tenía el foco al abrirla (la tarjeta del pedido): Radix solo lo devuelve
   // a un `Trigger`, y esta vista la monta la página sin uno.
@@ -67,16 +67,16 @@ export function OrderComandaScreen({
   const canChange = scheduled && order.pickupTimeChangeable && !!onRequestChangePickupTime;
   const canAdd = scheduled && order.modifiable;
   const canCancel = !cancelled && order.cancellable && !!onRequestCancel;
-  const modal = variant === 'modal';
+  const modal = presentation === 'dialog';
 
   return (
     <DialogPrimitive.Root open onOpenChange={(open) => !open && onBack()}>
       <DialogPrimitive.Portal>
-        {/* El foco entra al primer control ("‹ Mis pedidos") al abrirla. */}
+        {/* El foco entra al primer control al abrirla: "‹ Mis pedidos" en pantalla, la "×" en diálogo. */}
         {modal && <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/55" />}
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          data-presentation={variant}
+          data-presentation={presentation}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             opener?.focus();

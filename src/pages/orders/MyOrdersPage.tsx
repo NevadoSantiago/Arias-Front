@@ -250,7 +250,7 @@ export function MyOrdersPage() {
           onRequestChangePickupTime={requestChange}
           onRequestCancel={requestCancel}
           onRequestPayNow={(o) => payNow(o.id)}
-          variant={isDesktop ? 'modal' : 'screen'}
+          presentation={isDesktop ? 'dialog' : 'screen'}
         />
       )}
 
