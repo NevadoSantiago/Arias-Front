@@ -7,10 +7,23 @@ export interface AuthUser {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  /** Apodo elegido por el cliente; null si nunca cargó uno. */
+  nickname: string | null;
+  /**
+   * Nombre con el que la cocina llama al cliente: apodo → nombre + apellido →
+   * email. El backend lo manda siempre, pero un despliegue en otro orden (o un
+   * rollback) puede omitirlo: por eso es opcional y `resolveCallName` aplica la
+   * misma regla en el cliente.
+   */
+  displayName?: string | null;
   role: Role;
   companyId: number | null;
   companyName: string | null;
   categoryId: number | null;
+  /** true si la cuenta ya validó su correo (verificación de correo o Google). */
+  emailVerified: boolean;
+  /** true si tiene teléfono y apodo. false hasta completar el perfil (alta con Google). */
+  profileComplete: boolean;
 }
 
 interface AuthState {

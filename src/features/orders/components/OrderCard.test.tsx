@@ -1,0 +1,157 @@
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { OrderCard } from './OrderCard';
+import type { OrderV2 } from '../services/ordersApi';
+
+const NOW = new Date('2026-09-24T12:00:00Z');
+
+const order: OrderV2 = {
+  id: 77,
+  fecha: '2026-09-24',
+  pickupAt: '2026-09-24T16:00:00Z',
+  estado: 'PENDIENTE',
+  creditTotal: 1,
+  notas: null,
+  items: [
+    { id: 1, dishId: 10, dishNombre: 'Milanesa', dishCategoria: 'Básico', sideId: null, sideNombre: null, creditCost: 1, notas: null },
+  ],
+  cancellable: true,
+  modifiable: true,
+  pickupTimeChangeable: true,
+  paidWithMercadoPago: false,
+  creditsFromBalance: 0,
+};
+
+function renderCard(props: Partial<React.ComponentProps<typeof OrderCard>> = {}) {
+  const handlers = {
+    onRequestCancel: vi.fn(),
+    onRequestChangePickupTime: vi.fn(),
+    onRequestPayNow: vi.fn(),
+    onOpen: vi.fn(),
+  };
+  render(
+    <ul>
+      <OrderCard order={order} now={NOW} {...handlers} {...props} />
+    </ul>,
+  );
+  return handlers;
+}
+
+describe('OrderCard — open the comanda (F20)', () => {
+  it('offers no "open" control when onOpen is not passed (the card stays as before)', () => {
+    renderCard({ onOpen: undefined });
+
+    expect(screen.queryByRole('button', { name: /ver la comanda/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the comanda from a keyboard-reachable control named after the order', () => {
+    const { onOpen } = renderCard();
+
+    const open = screen.getByRole('button', { name: /ver la comanda del pedido del hoy.*24 de septiembre, retiro 13:00, programado/i });
+    fireEvent.click(open);
+
+    expect(onOpen).toHaveBeenCalledWith(order);
+    // Anillo de foco visible en la tarjeta entera (el área táctil cubre la tarjeta).
+    expect(open.className).toMatch(/focus-visible:/);
+  });
+
+  it('keeps the card actions on separate hit areas: they never open the comanda', () => {
+    const { onOpen, onRequestCancel, onRequestChangePickupTime } = renderCard();
+
+    fireEvent.click(screen.getByRole('button', { name: /^cancelar pedido$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /cambiar el horario de retiro/i }));
+
+    expect(onRequestCancel).toHaveBeenCalled();
+    expect(onRequestChangePickupTime).toHaveBeenCalledWith(order);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('"Pagar ahora" never opens the comanda either', () => {
+    const { onOpen, onRequestPayNow } = renderCard({
+      order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /pagar ahora/i }));
+
+    expect(onRequestPayNow).toHaveBeenCalled();
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+});
+
+describe('OrderCard — partial balance payment (F23)', () => {
+  const partial: OrderV2 = { ...order, creditTotal: 2, creditsFromBalance: 1, paidWithMercadoPago: true };
+
+  it('shows the balance part and the Mercado Pago part once paid', () => {
+    renderCard({ order: { ...partial, estado: 'CONFIRMADO' } });
+
+    expect(screen.getByText('1 de tu saldo · 1 con Mercado Pago')).toBeInTheDocument();
+  });
+
+  it('shows what is still to pay while the payment is pending', () => {
+    renderCard({ order: { ...partial, estado: 'PENDIENTE_PAGO' } });
+
+    expect(screen.getByText('1 de tu saldo · 1 a pagar')).toBeInTheDocument();
+  });
+
+  it('says the reserved lunches came back, without a number, once the order is cancelled', () => {
+    renderCard({ order: { ...partial, estado: 'CANCELADO', cancellable: false } });
+
+    expect(screen.getByText('Almuerzos reservados devueltos')).toBeInTheDocument();
+  });
+
+  it('does not use the partial labels unless Mercado Pago is involved', () => {
+    renderCard({ order: { ...partial, paidWithMercadoPago: false, estado: 'PENDIENTE' } });
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
+  });
+
+  it('does not use the partial labels when the balance covers the whole order', () => {
+    renderCard({ order: { ...partial, creditsFromBalance: 2, estado: 'PENDIENTE' } });
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
+  });
+
+  it('keeps showing the total lunches when nothing came from the balance', () => {
+    renderCard({ order: { ...order, creditTotal: 2, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true } });
+
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
+  });
+});
+
+describe('OrderCard — cancelled order paid with Mercado Pago (F26)', () => {
+  const MP_CREDITED = 'Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.';
+
+  it('says what was paid is credited to the balance', () => {
+    renderCard({ order: { ...order, estado: 'CANCELADO', cancellable: false, paidWithMercadoPago: true } });
+
+    expect(screen.getByText(MP_CREDITED)).toBeInTheDocument();
+  });
+
+  it('keeps the partial label without a number and adds the credit line', () => {
+    renderCard({
+      order: {
+        ...order,
+        estado: 'CANCELADO',
+        cancellable: false,
+        creditTotal: 2,
+        creditsFromBalance: 1,
+        paidWithMercadoPago: true,
+      },
+    });
+
+    expect(screen.getByText('Almuerzos reservados devueltos')).toBeInTheDocument();
+    expect(screen.getByText(`Los almuerzos reservados volvieron a tu saldo. ${MP_CREDITED}`)).toBeInTheDocument();
+  });
+
+  it('says the reserved lunches returned when the balance covered the whole total (F27.1)', () => {
+    renderCard({
+      order: { ...order, estado: 'CANCELADO', cancellable: false, creditTotal: 2, creditsFromBalance: 2, paidWithMercadoPago: true },
+    });
+
+    expect(screen.getByText(`Los almuerzos reservados volvieron a tu saldo. ${MP_CREDITED}`)).toBeInTheDocument();
+  });
+
+  it('adds nothing to a cancelled order paid only with lunches', () => {
+    renderCard({ order: { ...order, estado: 'CANCELADO', cancellable: false } });
+
+    expect(screen.queryByText(MP_CREDITED)).not.toBeInTheDocument();
+  });
+});

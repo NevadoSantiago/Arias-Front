@@ -69,18 +69,127 @@ export async function exportCompanyOrders(
 }
 
 // ─── Configuración del restaurant ──────────────────────────────────────
+//
+// Incluye los siete campos B2C de la unidad 8 del backend (migración V20):
+// tiempo de preparación único, vencimiento de almuerzos y ventana de
+// pedidos. El PUT reemplaza el singleton completo — no admite parches
+// parciales, por eso `getRestaurantConfigAdmin` lee todos los campos antes
+// de editar. No confundir con `getRestaurantConfig` de
+// `features/orders/services/ordersApi.ts` (solo expone `horaCorte`, usado
+// por el resto de la app para el corte de pedidos).
+
+/**
+ * Franja de retiro de un día de la semana (B5/F14, migración V24). Reemplaza
+ * a `pickupWindowStart/End` como fuente de verdad; esos dos campos se
+ * mantienen en `RestaurantConfig` (deprecated) solo porque
+ * `UpdateRestaurantConfigRequest` todavía los exige con `@NotNull` — el
+ * formulario ya no los deja editar, pero sigue mandando el valor vigente.
+ */
+export interface PickupScheduleDay {
+  dayOfWeek: number; // ISO 1..7, 1 = lunes
+  open: boolean;
+  windowStart: string | null; // "HH:MM"
+  windowEnd: string | null; // "HH:MM"
+}
+
+interface PickupScheduleDayRawFromApi extends Omit<PickupScheduleDay, 'windowStart' | 'windowEnd'> {
+  windowStart: string | null; // "HH:MM:SS" del back
+  windowEnd: string | null;
+}
+
+function normalizePickupScheduleDay(raw: PickupScheduleDayRawFromApi): PickupScheduleDay {
+  return {
+    dayOfWeek: raw.dayOfWeek,
+    open: raw.open,
+    windowStart: raw.windowStart ? raw.windowStart.substring(0, 5) : null,
+    windowEnd: raw.windowEnd ? raw.windowEnd.substring(0, 5) : null,
+  };
+}
 
 export interface RestaurantConfig {
   horaCorte: string; // HH:MM
   timezone: string;
+  pickupLeadMinutes: number;
+  creditExpiryDays: number;
+  /** @deprecated reemplazado por `pickupSchedule` (B5/F14) — se mantiene por compatibilidad con el PUT. */
+  pickupWindowStart: string; // HH:MM
+  /** @deprecated reemplazado por `pickupSchedule` (B5/F14) — se mantiene por compatibilidad con el PUT. */
+  pickupWindowEnd: string; // HH:MM
+  pickupSlotMinutes: number;
+  dailySummaryTime: string; // HH:MM
+  pickupReminderMinutes: number;
+  /** Franja de retiro por día de la semana (lunes a domingo). Ausente en un backend viejo (tolerancia). */
+  pickupSchedule?: PickupScheduleDay[];
 }
 
-export async function updateRestaurantConfig(horaCorte: string): Promise<RestaurantConfig> {
-  const { data } = await api.put<{ horaCorte: string; timezone: string }>(
-    '/api/v1/restaurant-config',
-    { horaCorte }
+interface RestaurantConfigRawFromApi extends Omit<
+  RestaurantConfig,
+  'horaCorte' | 'pickupWindowStart' | 'pickupWindowEnd' | 'dailySummaryTime' | 'pickupSchedule'
+> {
+  horaCorte: string; // "HH:MM:SS" del back
+  pickupWindowStart: string;
+  pickupWindowEnd: string;
+  dailySummaryTime: string;
+  pickupSchedule?: PickupScheduleDayRawFromApi[] | null;
+}
+
+function normalizeRestaurantConfig(raw: RestaurantConfigRawFromApi): RestaurantConfig {
+  return {
+    ...raw,
+    horaCorte: raw.horaCorte.substring(0, 5),
+    pickupWindowStart: raw.pickupWindowStart.substring(0, 5),
+    pickupWindowEnd: raw.pickupWindowEnd.substring(0, 5),
+    dailySummaryTime: raw.dailySummaryTime.substring(0, 5),
+    pickupSchedule: raw.pickupSchedule?.map(normalizePickupScheduleDay) ?? undefined,
+  };
+}
+
+/** Lectura completa del singleton — usada por la pantalla de configuración del admin. */
+export async function getRestaurantConfigAdmin(): Promise<RestaurantConfig> {
+  const { data } = await api.get<RestaurantConfigRawFromApi>('/api/v1/restaurant-config');
+  return normalizeRestaurantConfig(data);
+}
+
+export interface UpdateRestaurantConfigPayload {
+  horaCorte: string; // HH:MM
+  pickupLeadMinutes: number;
+  creditExpiryDays: number;
+  pickupWindowStart: string; // HH:MM
+  pickupWindowEnd: string; // HH:MM
+  pickupSlotMinutes: number;
+  dailySummaryTime: string; // HH:MM
+  pickupReminderMinutes: number;
+}
+
+export async function updateRestaurantConfig(
+  payload: UpdateRestaurantConfigPayload,
+): Promise<RestaurantConfig> {
+  const { data } = await api.put<RestaurantConfigRawFromApi>('/api/v1/restaurant-config', payload);
+  return normalizeRestaurantConfig(data);
+}
+
+export interface UpdatePickupScheduleDayPayload {
+  dayOfWeek: number;
+  open: boolean;
+  windowStart: string | null; // "HH:MM"
+  windowEnd: string | null; // "HH:MM"
+}
+
+/**
+ * Reemplaza los 7 días de la franja de retiro (SUPER_ADMIN). El body es un
+ * array JSON pelado (no un objeto envolvente) — así lo espera
+ * `PUT /api/v1/restaurant-config/pickup-schedule`. El backend rechaza con
+ * 400 `invalid-pickup-schedule` si falta algún día, hay uno duplicado, o un
+ * día abierto no tiene ambos horarios con cierre después de apertura.
+ */
+export async function updatePickupSchedule(
+  schedule: UpdatePickupScheduleDayPayload[],
+): Promise<PickupScheduleDay[]> {
+  const { data } = await api.put<PickupScheduleDayRawFromApi[]>(
+    '/api/v1/restaurant-config/pickup-schedule',
+    schedule,
   );
-  return { ...data, horaCorte: data.horaCorte.substring(0, 5) };
+  return data.map(normalizePickupScheduleDay);
 }
 
 // ─── Fechas deshabilitadas ────────────────────────────────────────────
@@ -330,7 +439,7 @@ export interface AdminDish {
   nombre: string;
   descripcion: string | null;
   fotoUrl: string | null;
-  category: { id: number; nombre: string; parentId: number | null };
+  category: { id: number; nombre: string; parentId: number | null; creditCost: number };
   menuSection: { id: number; nombre: string; ordenDisplay: number };
   sideType: SideType | null;
   allowedSides: { id: number; nombre: string; tipo: SideType }[];
@@ -451,4 +560,113 @@ export async function presignDishPhotoUpload(
     contentType,
   });
   return data;
+}
+
+// ─── Pedidos agrupados por horario de retiro (unidad 13, admin-order-fulfillment) ──
+//
+// Fuente distinta de `getOrdersByDate` de arriba: esta vista lee `orders`
+// (pedidos B2C con retiro directo), no `daily_choice` (pedidos por empresa).
+// Ambas conviven sin mezclarse — ver `AdminOrderController` en el backend.
+
+export interface PickupOrderItem {
+  dishNombre: string;
+  sideNombre: string | null;
+  creditCost: number;
+}
+
+export interface PickupOrder {
+  id: number;
+  customerNickname: string;
+  items: PickupOrderItem[];
+  notas: string | null;
+}
+
+export interface PickupGroup {
+  pickupTime: string; // HH:MM
+  orders: PickupOrder[];
+}
+
+interface PickupGroupRawFromApi extends Omit<PickupGroup, 'pickupTime'> {
+  pickupTime: string; // "HH:MM:SS" del back
+}
+
+export async function getOrdersByPickup(fecha?: string): Promise<PickupGroup[]> {
+  const params = fecha ? { fecha } : {};
+  const { data } = await api.get<PickupGroupRawFromApi[]>(`${BASE}/orders/by-pickup`, { params });
+  return data.map((g) => ({ ...g, pickupTime: g.pickupTime.substring(0, 5) }));
+}
+
+/** Descarga el .xlsx de pedidos agrupados por horario de retiro. Sin side effect de estado. */
+export async function exportOrdersByPickup(fecha: string): Promise<void> {
+  const response = await api.get(`${BASE}/orders/export/by-pickup`, {
+    params: { fecha },
+    responseType: 'blob',
+  });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', `pedidos-retiro-${fecha}.xlsx`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+// ─── Paquetes de almuerzos — CRUD (unidad 11, SUPER_ADMIN) ────────────
+//
+// `priceCents` es el valor autoritativo cobrado; `discountPercent` es solo
+// presentacional para el cliente, nunca se usa para calcular el precio.
+
+export interface AdminCreditPack {
+  id: number;
+  code: string;
+  nombre: string;
+  creditAmount: number;
+  priceCents: number;
+  discountPercent: number;
+  ordenDisplay: number;
+  enabled: boolean;
+}
+
+export interface CreateCreditPackPayload {
+  code: string;
+  nombre: string;
+  creditAmount: number;
+  priceCents: number;
+  discountPercent: number;
+  ordenDisplay: number;
+}
+
+export interface UpdateCreditPackPayload {
+  nombre: string;
+  creditAmount: number;
+  priceCents: number;
+  discountPercent: number;
+  ordenDisplay: number;
+  enabled: boolean;
+}
+
+const CREDIT_PACKS_BASE = '/api/v1/admin/credit-packs';
+
+export async function listCreditPacksAdmin(): Promise<AdminCreditPack[]> {
+  const { data } = await api.get<AdminCreditPack[]>(CREDIT_PACKS_BASE);
+  return data;
+}
+
+export async function createCreditPack(payload: CreateCreditPackPayload): Promise<AdminCreditPack> {
+  const { data } = await api.post<AdminCreditPack>(CREDIT_PACKS_BASE, payload);
+  return data;
+}
+
+export async function updateCreditPack(
+  id: number,
+  payload: UpdateCreditPackPayload,
+): Promise<AdminCreditPack> {
+  const { data } = await api.put<AdminCreditPack>(`${CREDIT_PACKS_BASE}/${id}`, payload);
+  return data;
+}
+
+/** Soft delete del backend — el paquete deja de listarse; compras ya hechas no se ven afectadas. */
+export async function deleteCreditPack(id: number): Promise<void> {
+  await api.delete(`${CREDIT_PACKS_BASE}/${id}`);
 }

@@ -1,0 +1,76 @@
+change: b2c-credits-pivot
+title: B2C Credits Pivot
+created: 2026-09-17
+artifact_store: openspec
+pace: interactive
+delivery_strategy: single-pr
+review_budget_lines: 400
+strict_tdd: false
+
+phases:
+  explore: done
+  research: done
+  propose: done
+  spec: done
+  design: done
+  tasks: done
+  apply: pending
+  verify: pending
+  archive: pending
+
+artifacts:
+  proposal: openspec/changes/b2c-credits-pivot/proposal.md
+
+external_context:
+  # Explore and research ran before the store switched to openspec; they live in Engram.
+  explore: "engram:sdd/b2c-credits-pivot/explore"
+  research: "engram:sdd/b2c-credits-pivot/research"
+  research_cerocoma: "engram:sdd/b2c-credits-pivot/research-cerocoma"
+  project_init: "engram:sdd-init/arias"
+  testing_capabilities: "engram:sdd/arias/testing-capabilities"
+  client_meeting: "engram:sdd/b2c-credits-pivot/client-meeting"
+  corrections: "engram:sdd/b2c-credits-pivot/corrections"
+
+next_recommended:
+  - sdd-apply
+
+notes: |
+  Comandos de test: el frontend no tiene test runner todavía — este cambio
+  agrega Vitest en su unidad de trabajo 1. Hasta que esa unidad se aplique,
+  las verificaciones de frontend son `npm run lint` y `tsc -b`; después,
+  `npm test` (`vitest run`).
+
+  2026-09-21: este change es la mitad FRONTEND de un cambio SDD originalmente
+  planificado como uno solo en C:\Arias\openspec\changes\b2c-credits-pivot,
+  que quedó bloqueado (blocked(cross_common_dir_runtime_target)) porque la
+  planificación y el runtime viven en directorios comunes de Git distintos
+  (C:\Arias, sin commits, vs. C:\Arias\backend y C:\Arias\frontend, dos
+  repositorios independientes). Se dividió en dos changes autocontenidos, uno
+  por repositorio, manteniendo el mismo nombre `b2c-credits-pivot`:
+
+    - backend (mitad hermana, debe implementarse primero): C:\Arias\backend\openspec\changes\b2c-credits-pivot\
+    - frontend (este archivo): C:\Arias\frontend\openspec\changes\b2c-credits-pivot\
+
+  La copia combinada original en C:\Arias\openspec\changes\b2c-credits-pivot
+  se conserva intacta como referencia de las dos mitades juntas; no se
+  modificó ni se borró nada de ese directorio.
+
+  Dependencia cruzada: este frontend consume la API que expone el backend
+  hermano (autorregistro, libro mayor de créditos, pedidos, checkout de
+  Mercado Pago, horarios de retiro, administración). NINGUNA unidad de
+  trabajo de este change debe iniciarse antes de que el backend esté
+  implementado, testeado (./mvnw test en verde) y desplegado. No hay forma
+  automática de expresar esta dependencia entre dos repositorios/changes de
+  SDD independientes; queda documentada aquí y en proposal.md/design.md de
+  ambas mitades. `next_recommended: sdd-apply` asume que esa precondición ya
+  se cumplió; si no es así, no ejecutar apply todavía.
+
+  Proposal, specs, design y tasks fueron reescritos para este repositorio a
+  partir del contenido original (units 14-18 de tasks.md, renumeradas 1-5;
+  capacidad public-landing completa; los requisitos de flujo de UI de
+  self-registration; y una capacidad nueva, credits-ui, creada para cubrir la
+  contraparte de interfaz de credit-ledger/credit-pack-purchase sin duplicar
+  sus requisitos de dominio). Ningún requisito de negocio fue alterado en la
+  división, solo redistribuido por repositorio. Ver engram
+  `sdd/b2c-credits-pivot/corrections` y `.../client-meeting` para el
+  historial previo al split.

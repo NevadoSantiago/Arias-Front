@@ -3,12 +3,31 @@ import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const DAY_LABELS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi'] as const;
+const WEEKEND_LABELS: Record<number, string> = { 0: 'Dom', 6: 'Sáb' };
 
 interface Props {
   selectedDate: string;
   onSelect: (date: string) => void;
   orderedDates: Set<string>;
   disabledDates?: Set<string>;
+  /**
+   * B2C only (F13): cuando hoy es sábado o domingo, antepone un chip de hoy
+   * antes del lunes a viernes de la semana próxima (la semana ya pasada —
+   * lunes a viernes anteriores a hoy — se omite: no aporta nada pedible). El
+   * backend ya admite pedir cualquier día de la semana actual y la próxima
+   * (`PickupSlotService.isWithinSchedulableWeeks`, lunes-domingo); esto solo
+   * expone el fin de semana en el selector. Default `false`: `CompanyOrderPage`
+   * (B2B) no lo pasa y su salida queda idéntica (ver test de caracterización).
+   */
+  includeWeekendToday?: boolean;
+  /**
+   * B2C en escritorio (F22a): la columna del menú es más angosta que la
+   * pantalla (el panel "Tu pedido" ocupa el resto), así que las fichas de
+   * `lg:` bajan a 64px y la tira scrollea si aún no entra, en vez de
+   * desbordar hacia el panel. Default `false`: `CompanyOrderPage` (B2B) no lo
+   * pasa y su salida queda idéntica.
+   */
+  fitColumn?: boolean;
 }
 
 function getWeekdays(mondayDate: Date): string[] {
@@ -28,7 +47,14 @@ function getMondayOf(date: string): Date {
   return monday;
 }
 
-export function WeekDaySelector({ selectedDate, onSelect, orderedDates, disabledDates }: Props) {
+export function WeekDaySelector({
+  selectedDate,
+  onSelect,
+  orderedDates,
+  disabledDates,
+  includeWeekendToday = false,
+  fitColumn = false,
+}: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const week1Ref = useRef<HTMLDivElement>(null);
   const week2Ref = useRef<HTMLDivElement>(null);
@@ -47,6 +73,15 @@ export function WeekDaySelector({ selectedDate, onSelect, orderedDates, disabled
   const currentWeek = useMemo(() => getWeekdays(currentMonday), [currentMonday]);
   const nextWeek = useMemo(() => getWeekdays(nextMonday), [nextMonday]);
 
+  /**
+   * `today` ya es el string de fecha LOCAL (misma construcción de arriba,
+   * sin `toISOString`); el chip de hoy en fin de semana lo reusa tal cual
+   * para no reintroducir el corrimiento de huso horario que sí tendría
+   * `new Date().toISOString()` después de las 21:00 en Argentina (UTC-3).
+   */
+  const todayWeekendLabel = WEEKEND_LABELS[new Date(today + 'T12:00:00').getDay()] as string | undefined;
+  const showWeekendToday = includeWeekendToday && todayWeekendLabel !== undefined;
+
   const nextWeekStart = nextWeek[0];
   const isInWeek2 = selectedDate >= nextWeekStart;
 
@@ -58,7 +93,7 @@ export function WeekDaySelector({ selectedDate, onSelect, orderedDates, disabled
     }
   }, [isInWeek2]);
 
-  const renderDay = (date: string, i: number) => {
+  const renderDay = (date: string, label: string) => {
     const dayNum = new Date(date + 'T12:00:00').getDate();
     const isPast = date < today;
     const isToday = date === today;
@@ -74,7 +109,8 @@ export function WeekDaySelector({ selectedDate, onSelect, orderedDates, disabled
         disabled={isDisabled}
         onClick={() => onSelect(date)}
         className={cn(
-          'relative flex flex-col items-center justify-center w-12 h-14 lg:w-20 lg:h-16 rounded-lg text-xs transition-all shrink-0',
+          'relative flex flex-col items-center justify-center w-12 h-14 rounded-lg text-xs transition-all shrink-0',
+          fitColumn ? 'lg:w-16 lg:h-16' : 'lg:w-20 lg:h-16',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           isSelected
             ? 'bg-primary text-primary-foreground shadow-md'
@@ -86,7 +122,7 @@ export function WeekDaySelector({ selectedDate, onSelect, orderedDates, disabled
         )}
       >
         <span className="uppercase tracking-brand font-medium text-[10px] sm:text-[11px] leading-none">
-          {DAY_LABELS[i]}
+          {label}
         </span>
         <span className={cn(
           'font-semibold text-sm sm:text-base leading-none mt-0.5',
@@ -111,19 +147,28 @@ export function WeekDaySelector({ selectedDate, onSelect, orderedDates, disabled
       ref={scrollRef}
       className={cn(
         'flex overflow-x-auto snap-x snap-mandatory',
-        'lg:overflow-visible lg:snap-none lg:justify-center',
+        fitColumn ? 'lg:snap-none' : 'lg:overflow-visible lg:snap-none lg:justify-center',
         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       )}
     >
-      <div ref={week1Ref} className="flex gap-1.5 sm:gap-2 px-4 lg:px-0 shrink-0 snap-start w-full justify-center lg:w-auto">
-        {currentWeek.map((d, i) => renderDay(d, i))}
-      </div>
-      <div className="hidden lg:flex items-center px-3" aria-hidden="true">
-        <div className="w-px h-10 bg-border" />
-      </div>
-      <div ref={week2Ref} className="flex gap-1.5 sm:gap-2 px-4 lg:px-0 shrink-0 snap-start w-full justify-center lg:w-auto">
-        {nextWeek.map((d, i) => renderDay(d, i))}
-      </div>
+      {showWeekendToday ? (
+        <div ref={week1Ref} className="flex gap-1.5 sm:gap-2 px-4 lg:px-0 shrink-0 snap-start w-full justify-center lg:w-auto">
+          {renderDay(today, todayWeekendLabel!)}
+          {nextWeek.map((d, i) => renderDay(d, DAY_LABELS[i]))}
+        </div>
+      ) : (
+        <>
+          <div ref={week1Ref} className="flex gap-1.5 sm:gap-2 px-4 lg:px-0 shrink-0 snap-start w-full justify-center lg:w-auto">
+            {currentWeek.map((d, i) => renderDay(d, DAY_LABELS[i]))}
+          </div>
+          <div className="hidden lg:flex items-center px-3" aria-hidden="true">
+            <div className="w-px h-10 bg-border" />
+          </div>
+          <div ref={week2Ref} className="flex gap-1.5 sm:gap-2 px-4 lg:px-0 shrink-0 snap-start w-full justify-center lg:w-auto">
+            {nextWeek.map((d, i) => renderDay(d, DAY_LABELS[i]))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

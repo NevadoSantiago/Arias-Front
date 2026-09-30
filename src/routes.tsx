@@ -5,11 +5,20 @@ import { AdminLayout } from '@/layouts/AdminLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { RegisterPage } from '@/pages/RegisterPage';
+import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
+import { CompleteProfilePage } from '@/pages/CompleteProfilePage';
 import { UnsubscribeReminderPage } from '@/pages/UnsubscribeReminderPage';
 import { TodayOrderPage } from '@/pages/employee/TodayOrderPage';
 import { OrderSummaryPage } from '@/pages/employee/OrderSummaryPage';
+import { MyOrdersPage } from '@/pages/orders/MyOrdersPage';
+import { CreditsWalletPage } from '@/pages/credits/CreditsWalletPage';
+import { CreditsPacksPage } from '@/pages/credits/CreditsPacksPage';
+import { CreditsCheckoutReturnPage } from '@/pages/credits/CreditsCheckoutReturnPage';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 import { AdminConfigPage } from '@/pages/admin/AdminConfigPage';
+import { AdminOrdersByPickupPage } from '@/pages/admin/AdminOrdersByPickupPage';
+import { AdminCreditPacksPage } from '@/pages/admin/AdminCreditPacksPage';
 import { AdminCompaniesPage } from '@/pages/admin/AdminCompaniesPage';
 import { AdminSectionsPage } from '@/pages/admin/AdminSectionsPage';
 import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage';
@@ -24,6 +33,7 @@ import { CompanyAdminMetricsPage } from '@/pages/companyAdmin/CompanyAdminMetric
 import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute';
 import { PublicRoute } from '@/features/auth/components/PublicRoute';
 import { LandingRoute } from '@/features/landing/components/LandingRoute';
+import { CorporatePage } from '@/pages/CorporatePage';
 
 export const router = createBrowserRouter([
   // ─── Rutas públicas (no requieren sesión) ─────────────────────────────
@@ -37,7 +47,27 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/register', element: <RegisterPage /> },
     ],
+  },
+
+  // ─── Verificación de correo (autorregistro) ────────────────────────────
+  // Sin PublicRoute a propósito: el link del mail puede establecer sesión a
+  // mitad de la pantalla (verify-email emite sesión), y un guard de
+  // "ya autenticado → afuera" pisaría esa navegación en pleno vuelo.
+  {
+    element: <AuthLayout />,
+    children: [{ path: '/verify-email', element: <VerifyEmailPage /> }],
+  },
+
+  // ─── Completar perfil (alta con Google sin teléfono/apodo) ─────────────
+  {
+    element: (
+      <ProtectedRoute>
+        <AuthLayout />
+      </ProtectedRoute>
+    ),
+    children: [{ path: '/complete-profile', element: <CompleteProfilePage /> }],
   },
 
   // ─── Rutas de empleado ────────────────────────────────────────────────
@@ -50,6 +80,30 @@ export const router = createBrowserRouter([
     children: [
       { path: '/orders/today', element: <TodayOrderPage /> },
       { path: '/orders/today/summary', element: <OrderSummaryPage /> },
+      // "Mis pedidos" del camino nuevo por créditos — reachable por cualquier
+      // Role.EMPLOYEE (incluye empleados de empresa), pero el link de
+      // navegación en AppLayout solo se muestra a clientes B2C
+      // (`companyId == null`); CompanyOrderPage y el camino v1 no cambian.
+      { path: '/orders/mine', element: <MyOrdersPage /> },
+    ],
+  },
+
+  // ─── Billetera de almuerzos (créditos) ─────────────────────────────────
+  // Sin restricción de rol: el backend expone estos endpoints con
+  // isAuthenticated() únicamente (ver CreditController/CreditPurchaseController).
+  {
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { path: '/credits', element: <CreditsWalletPage /> },
+      { path: '/credits/packs', element: <CreditsPacksPage /> },
+      { path: '/compras/:purchaseId/procesando', element: <CreditsCheckoutReturnPage /> },
+      { path: '/credits/checkout/exito', element: <CreditsCheckoutReturnPage /> },
+      { path: '/credits/checkout/pendiente', element: <CreditsCheckoutReturnPage /> },
+      { path: '/credits/checkout/error', element: <CreditsCheckoutReturnPage /> },
     ],
   },
 
@@ -72,6 +126,8 @@ export const router = createBrowserRouter([
       { path: '/admin/categories', element: <AdminCategoriesPage /> },
       { path: '/admin/sides', element: <AdminSidesPage /> },
       { path: '/admin/config', element: <AdminConfigPage /> },
+      { path: '/admin/orders-by-pickup', element: <AdminOrdersByPickupPage /> },
+      { path: '/admin/credit-packs', element: <AdminCreditPacksPage /> },
     ],
   },
 
@@ -95,7 +151,10 @@ export const router = createBrowserRouter([
   // Página pública del link "no quiero más recordatorios" del mail
   { path: '/unsubscribe-reminder', element: <UnsubscribeReminderPage /> },
 
-  // Raíz pública: landing de marketing (con sesión → home del rol vía LandingRoute)
+  // Contenido corporativo (B2B) — trasladado desde la raíz, sin autenticación
+  { path: '/corporate', element: <CorporatePage /> },
+
+  // Raíz pública: landing B2C (con sesión → home del rol vía LandingRoute)
   { path: '/', element: <LandingRoute /> },
   { path: '*', element: <Navigate to="/" replace /> },
 ]);

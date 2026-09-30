@@ -39,6 +39,33 @@ Vite levanta en `http://localhost:5173` y proxea `/api` hacia `http://localhost:
 
 En producción, `VITE_API_URL` apunta al dominio del backend.
 
+## Variables de entorno
+
+Ver [`.env.example`](.env.example). Vite las incorpora **en el build**, así que hay que
+definirlas antes de `npm run build` / `npm run deploy` (`wrangler.jsonc` no define
+ninguna).
+
+| Variable | Uso |
+| --- | --- |
+| `VITE_API_URL` | Dominio del backend (vacío en dev, usa el proxy de Vite). |
+| `VITE_WHATSAPP_NUMBER` | Número de contacto por WhatsApp. |
+| `VITE_GOOGLE_CLIENT_ID` | Client ID de Google para "Continuar con Google". |
+
+En local van en `.env.local` (ignorado por git). En producción se cargan en el entorno
+de build de Cloudflare (variables de build del proyecto, o en el shell que corre
+`npm run deploy`).
+
+### Login con Google
+
+- `VITE_GOOGLE_CLIENT_ID` tiene que ser el mismo valor que `GOOGLE_CLIENT_ID` del
+  backend: el backend valida el ID token contra ese client id.
+- En Google Cloud Console, el cliente OAuth "Web application" necesita como **orígenes
+  de JavaScript autorizados** el origen de dev (por ejemplo `http://localhost:5174`, el
+  puerto en que corre el front en local) y el dominio de producción.
+- Sin `VITE_GOOGLE_CLIENT_ID` el botón y su separador no se muestran.
+- Solo los clientes B2C pueden entrar con Google; las cuentas de empresa y de
+  administración reciben un aviso y siguen por email.
+
 ## Despliegue
 
 Cloudflare Pages, vía Wrangler:

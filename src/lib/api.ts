@@ -58,7 +58,11 @@ function isAuthEndpoint(url: string | undefined): boolean {
       || url.includes('/api/v1/auth/refresh')
       || url.includes('/api/v1/auth/first-login')
       || url.includes('/api/v1/auth/check-email')
-      || url.includes('/api/v1/auth/logout');
+      || url.includes('/api/v1/auth/logout')
+      || url.includes('/api/v1/auth/register')
+      || url.includes('/api/v1/auth/verify-email')
+      || url.includes('/api/v1/auth/resend-verification')
+      || url.includes('/api/v1/auth/google');
 }
 
 api.interceptors.response.use(
