@@ -11,7 +11,7 @@
 const RESTAURANT_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
 /** Fecha calendario "AAAA-MM-DD" del instante en la zona del restaurante. */
-function restaurantDateKey(date: Date): string {
+export function restaurantDateKey(date: Date): string {
   return date.toLocaleDateString('en-CA', { timeZone: RESTAURANT_TIME_ZONE });
 }
 
