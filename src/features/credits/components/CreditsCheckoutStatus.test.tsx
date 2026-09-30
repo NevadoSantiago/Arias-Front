@@ -3,11 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreditsCheckoutStatus } from './CreditsCheckoutStatus';
-import { getPurchase } from '../services/creditsApi';
+import { confirmPurchase, getPurchase } from '../services/creditsApi';
 import type { CreditPurchase } from '../types';
 
 vi.mock('../services/creditsApi', () => ({
   getPurchase: vi.fn(),
+  confirmPurchase: vi.fn(),
 }));
 
 // F7: los estados ahora incluyen enlaces de navegación (`Link`), por eso el
@@ -40,6 +41,8 @@ const pendingPurchase: CreditPurchase = {
 describe('CreditsCheckoutStatus', () => {
   beforeEach(() => {
     vi.mocked(getPurchase).mockReset();
+    // Default: the confirm endpoint is unavailable, so polling falls back to the plain GET.
+    vi.mocked(confirmPurchase).mockReset().mockRejectedValue(new Error('confirm unavailable'));
     vi.useFakeTimers();
   });
 
@@ -96,6 +99,92 @@ describe('CreditsCheckoutStatus', () => {
 
     expect(screen.getByText(/te avisamos por correo/i)).toBeInTheDocument();
     expect(getPurchase).toHaveBeenCalledTimes(11);
+  });
+
+  describe('confirming the pending purchase with the server', () => {
+    const approved = { ...pendingPurchase, status: 'APPROVED' as const, creditedAt: '2026-01-01T00:05:00Z' };
+
+    it('calls confirmPurchase on each polling attempt and renders APPROVED from its response', async () => {
+      vi.mocked(getPurchase).mockResolvedValue(pendingPurchase);
+      vi.mocked(confirmPurchase).mockResolvedValue(approved);
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(getPurchase).toHaveBeenCalledTimes(1);
+      expect(confirmPurchase).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+
+      expect(confirmPurchase).toHaveBeenCalledTimes(1);
+      expect(confirmPurchase).toHaveBeenCalledWith('p1');
+      expect(getPurchase).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(/se acreditaron 10 almuerzos/i)).toBeInTheDocument();
+    });
+
+    it('falls back to getPurchase when confirmPurchase fails and keeps polling', async () => {
+      vi.mocked(getPurchase)
+        .mockResolvedValueOnce(pendingPurchase)
+        .mockResolvedValueOnce(pendingPurchase)
+        .mockResolvedValueOnce(approved);
+      vi.mocked(confirmPurchase).mockRejectedValue(new Error('500'));
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+      expect(confirmPurchase).toHaveBeenCalledTimes(1);
+      expect(getPurchase).toHaveBeenCalledTimes(2);
+      expect(screen.getByText(/estamos procesando tu pago/i)).toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+
+      expect(confirmPurchase).toHaveBeenCalledTimes(2);
+      expect(getPurchase).toHaveBeenCalledTimes(3);
+      expect(screen.getByText(/se acreditaron 10 almuerzos/i)).toBeInTheDocument();
+    });
+
+    it('never calls confirmPurchase when the initial state is not PENDING', async () => {
+      vi.mocked(getPurchase).mockResolvedValue(approved);
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30000);
+      });
+
+      expect(confirmPurchase).not.toHaveBeenCalled();
+      expect(getPurchase).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the 10-attempt bound while confirmPurchase keeps returning PENDING', async () => {
+      vi.mocked(getPurchase).mockResolvedValue(pendingPurchase);
+      vi.mocked(confirmPurchase).mockResolvedValue(pendingPurchase);
+
+      renderWithClient('p1');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      for (let i = 0; i < 12; i++) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(3000);
+        });
+      }
+
+      expect(confirmPurchase).toHaveBeenCalledTimes(10);
+      expect(getPurchase).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(/te avisamos por correo/i)).toBeInTheDocument();
+    });
   });
 
   it('shows an error without polling when no purchase id can be resolved from the URL', () => {

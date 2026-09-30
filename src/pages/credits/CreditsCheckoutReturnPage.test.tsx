@@ -3,10 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreditsCheckoutReturnPage } from './CreditsCheckoutReturnPage';
-import { getPurchase } from '@/features/credits/services/creditsApi';
+import { confirmPurchase, getPurchase } from '@/features/credits/services/creditsApi';
 import { mockMatchMedia } from '@/test/matchMedia';
 
-vi.mock('@/features/credits/services/creditsApi', () => ({ getPurchase: vi.fn() }));
+vi.mock('@/features/credits/services/creditsApi', () => ({ getPurchase: vi.fn(), confirmPurchase: vi.fn() }));
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -25,6 +25,8 @@ describe('CreditsCheckoutReturnPage layout (F22d)', () => {
   let media: ReturnType<typeof mockMatchMedia>;
   beforeEach(() => {
     vi.useFakeTimers();
+    // The confirm endpoint is unavailable here, so polling falls back to the plain GET.
+    vi.mocked(confirmPurchase).mockRejectedValue(new Error('confirm unavailable'));
     vi.mocked(getPurchase).mockResolvedValue({
       id: 'p1', type: 'PACK', creditAmount: 5, amountCents: 700000, currency: 'ARS', status: 'APPROVED',
       createdAt: '2026-01-01T00:00:00Z', creditedAt: '2026-01-01T00:01:00Z', reversedAt: null,

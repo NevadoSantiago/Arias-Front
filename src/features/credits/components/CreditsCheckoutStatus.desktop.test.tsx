@@ -3,12 +3,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreditsCheckoutStatus } from './CreditsCheckoutStatus';
-import { getPurchase } from '../services/creditsApi';
+import { confirmPurchase, getPurchase } from '../services/creditsApi';
 import { mockMatchMedia } from '@/test/matchMedia';
 import type { CreditPurchase } from '../types';
 
 vi.mock('../services/creditsApi', () => ({
   getPurchase: vi.fn(),
+  confirmPurchase: vi.fn(),
 }));
 
 function renderStatus(purchaseId: string | null = 'p1') {
@@ -48,6 +49,7 @@ describe('CreditsCheckoutStatus on desktop (F22d)', () => {
   let media: ReturnType<typeof mockMatchMedia>;
   beforeEach(() => {
     vi.mocked(getPurchase).mockReset();
+    vi.mocked(confirmPurchase).mockReset().mockRejectedValue(new Error('confirm unavailable'));
     vi.useFakeTimers();
     media = mockMatchMedia(true);
   });
@@ -78,6 +80,22 @@ describe('CreditsCheckoutStatus on desktop (F22d)', () => {
     fireEvent.click(left.getByRole('button', { name: 'Actualizar estado' }));
     await settle();
     expect(getPurchase).toHaveBeenCalledTimes(2);
+  });
+
+  it('"Actualizar estado" confirms with the server and shows the approved result', async () => {
+    vi.mocked(getPurchase).mockResolvedValue(purchase);
+    vi.mocked(confirmPurchase).mockResolvedValue({ ...purchase, status: 'APPROVED', creditedAt: '2026-01-01T00:05:00Z' });
+    renderStatus();
+    await settle();
+
+    fireEvent.click(within(statusColumn()).getByRole('button', { name: 'Actualizar estado' }));
+    await settle();
+
+    expect(confirmPurchase).toHaveBeenCalledWith('p1');
+    expect(getPurchase).toHaveBeenCalledTimes(1);
+    expect(
+      within(statusColumn()).getByRole('heading', { level: 1, name: '¡Listo! Sumaste 10 almuerzos' }),
+    ).toBeInTheDocument();
   });
 
   it('APPROVED (pack): title, credited line and CTAs on the left, the receipt on the right, no steps', async () => {
@@ -224,6 +242,7 @@ describe('CreditsCheckoutStatus on mobile (F22d)', () => {
   let media: ReturnType<typeof mockMatchMedia>;
   beforeEach(() => {
     vi.mocked(getPurchase).mockReset();
+    vi.mocked(confirmPurchase).mockReset().mockRejectedValue(new Error('confirm unavailable'));
     vi.useFakeTimers();
     media = mockMatchMedia(false);
   });

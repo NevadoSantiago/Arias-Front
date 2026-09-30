@@ -49,6 +49,16 @@ export async function getPurchase(id: string): Promise<CreditPurchase> {
 }
 
 /**
+ * Le pide al servidor que confirme la compra pendiente con Mercado Pago y
+ * devuelve su estado actual (el mismo DTO que `getPurchase`). Si el pago está
+ * aprobado, el backend acredita la compra. 404 si la compra no es del usuario.
+ */
+export async function confirmPurchase(id: string): Promise<CreditPurchase> {
+  const { data } = await api.post<CreditPurchase>(`${BASE}/purchases/${id}/confirm`);
+  return data;
+}
+
+/**
  * Pagos de Mercado Pago que todavía no se confirmaron (D6, backend B14): solo
  * las compras `PENDING` del usuario dentro de las últimas 24 h, la más nueva
  * primero. Las de tipo `DIRECT` traen el pedido (`orderId`, `orderEstado`);

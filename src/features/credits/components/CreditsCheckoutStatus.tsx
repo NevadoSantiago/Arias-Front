@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsDesktop } from '@/lib/useMediaQuery';
 import { PENDING_PURCHASES_KEY } from '../hooks/usePendingPurchases';
-import { getPurchase } from '../services/creditsApi';
+import { confirmPurchase, getPurchase } from '../services/creditsApi';
 import type { CreditPurchase, CreditPurchaseStatus } from '../types';
 import { PurchaseResultDesktop } from './PurchaseResultDesktop';
 
@@ -350,9 +350,20 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
   const gaveUp = attempts >= MAX_POLL_ATTEMPTS;
   const wide = useIsDesktop();
 
+  const queryClient = useQueryClient();
+  const queryKey = ['creditPurchase', purchaseId];
+
   const { data: purchase, isLoading, isError, isFetching, refetch } = useQuery({
-    queryKey: ['creditPurchase', purchaseId],
-    queryFn: () => getPurchase(purchaseId as string),
+    queryKey,
+    queryFn: () => {
+      const id = purchaseId as string;
+      // The first load is a plain read. While the cached purchase is still
+      // PENDING, every refetch (polling or "Actualizar estado") asks the server
+      // to confirm it with Mercado Pago; if that fails, read the current state.
+      const cached = queryClient.getQueryData<CreditPurchase>(queryKey);
+      if (cached?.status !== 'PENDING') return getPurchase(id);
+      return confirmPurchase(id).catch(() => getPurchase(id));
+    },
     enabled: Boolean(purchaseId),
     refetchInterval: false,
   });
@@ -360,7 +371,6 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
   const status = purchase?.status;
 
   // D6: en cuanto la compra deja de estar pendiente, el aviso de "Mis almuerzos" ya no debe listarla.
-  const queryClient = useQueryClient();
   useEffect(() => {
     if (status && status !== 'PENDING') {
       void queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
