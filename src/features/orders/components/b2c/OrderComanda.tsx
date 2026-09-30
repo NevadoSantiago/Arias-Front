@@ -45,7 +45,7 @@ interface Props {
    * (recibe la posición del plato). La página lo pasa solo si el pedido es
    * modificable; sin él la comanda queda igual que antes.
    */
-  onRemoveItem?: (index: number) => void;
+  onRemoveItem?: (itemId: number) => void;
 }
 
 function Label({ children }: { children: ReactNode }) {
@@ -168,7 +168,7 @@ export function OrderComanda({
                 {onRemoveItem && (
                   <button
                     type="button"
-                    onClick={() => onRemoveItem(i)}
+                    onClick={() => onRemoveItem(item.id)}
                     aria-label={`Quitar ${item.name} del pedido`}
                     className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-destructive"
                   >

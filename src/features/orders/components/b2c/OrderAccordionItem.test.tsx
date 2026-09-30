@@ -116,6 +116,40 @@ describe('OrderAccordionItem — header', () => {
 });
 
 describe('OrderAccordionItem — keyboard', () => {
+  it('keeps the arrows, Home and End inside the list of the focused header', () => {
+    const upcoming = [scheduled, { ...scheduled, id: 203, pickupAt: '2026-09-25T14:00:00-03:00' }];
+    const previous = [
+      { ...scheduled, id: 301, pickupAt: '2026-09-20T13:00:00-03:00' },
+      { ...scheduled, id: 302, pickupAt: '2026-09-20T14:00:00-03:00' },
+    ];
+    render(
+      <MemoryRouter>
+        {[upcoming, previous].map((list, n) => (
+          <ul key={n} aria-label={n === 0 ? 'Próximos' : 'Anteriores'}>
+            {list.map((o) => (
+              <OrderAccordionItem key={o.id} order={o} now={NOW} callName="Sofi" walletAvailable={8} open={false} showDate={n === 1} onToggle={() => {}} />
+            ))}
+          </ul>
+        ))}
+      </MemoryRouter>,
+    );
+    const first = within(screen.getByRole('list', { name: 'Próximos' })).getAllByRole('button');
+    const second = within(screen.getByRole('list', { name: 'Anteriores' })).getAllByRole('button');
+
+    first[1].focus();
+    fireEvent.keyDown(first[1], { key: 'ArrowDown' });
+    expect(first[0]).toHaveFocus();
+    fireEvent.keyDown(first[0], { key: 'ArrowUp' });
+    expect(first[1]).toHaveFocus();
+    fireEvent.keyDown(first[1], { key: 'Home' });
+    expect(first[0]).toHaveFocus();
+    second[0].focus();
+    fireEvent.keyDown(second[0], { key: 'End' });
+    expect(second[1]).toHaveFocus();
+    fireEvent.keyDown(second[1], { key: 'ArrowDown' });
+    expect(second[0]).toHaveFocus();
+  });
+
   it('moves focus between headers with the arrows, Home and End (wrapping around)', () => {
     const second = { ...scheduled, id: 203, pickupAt: '2026-09-25T14:00:00-03:00' };
     const third = { ...scheduled, id: 204, pickupAt: '2026-09-25T15:00:00-03:00' };
@@ -200,6 +234,13 @@ describe('OrderAccordionItem — panel', () => {
     expect(screen.getByRole('button', { name: /cancelar pedido/i })).toBeInTheDocument();
   });
 
+  it('Pago pendiente: "Pagar ahora" stays even if the order is not cancellable (the backend decides)', () => {
+    renderItem({ ...awaiting, cancellable: false }, { open: true });
+
+    expect(screen.getByRole('button', { name: /pagar ahora/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
+  });
+
   it('Pago pendiente: "Pagar ahora" and cancel, but no change or add', () => {
     const { onRequestPayNow } = renderItem(awaiting, { open: true });
 
@@ -270,6 +311,22 @@ describe('OrderAccordionItem — remove a dish (F29)', () => {
     expect(onRequestRemoveItem).toHaveBeenCalledWith(scheduled, scheduled.items[1]);
   });
 
+  it('removes the dish by its id, even when ids do not follow the display order', () => {
+    const shuffled: OrderV2 = {
+      ...scheduled,
+      items: [
+        { ...scheduled.items[0], id: 90, dishNombre: 'Tarta' },
+        { ...scheduled.items[1], id: 12, dishNombre: 'Empanadas' },
+      ],
+    };
+    const onRequestRemoveItem = vi.fn();
+    renderItem(shuffled, { open: true, onRequestRemoveItem });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar Tarta del pedido' }));
+
+    expect(onRequestRemoveItem).toHaveBeenCalledWith(shuffled, shuffled.items.find((i) => i.id === 90));
+  });
+
   it.each([
     ['not modifiable (after the cutoff)', { ...scheduled, modifiable: false }],
     ['awaiting payment', awaiting],
@@ -289,7 +346,9 @@ describe('OrderAccordionItem — remove a dish (F29)', () => {
 });
 
 describe('OrderAccordionItem — scroll into view', () => {
+  const originalMatchMedia = window.matchMedia;
   afterEach(() => {
+    window.matchMedia = originalMatchMedia;
     delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     vi.restoreAllMocks();
   });
@@ -301,6 +360,19 @@ describe('OrderAccordionItem — scroll into view', () => {
     renderItem(scheduled, { open: true, scrollMode: 'deep' });
 
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['scrolls', { top: -80 }],
+    ['does not scroll', { top: 120 }],
+  ])('always tells the page it handled scrollMode, when it %s', (_name, rect) => {
+    Element.prototype.scrollIntoView = vi.fn();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect as DOMRect);
+    const onScrolled = vi.fn();
+
+    renderItem(scheduled, { open: true, scrollMode: 'keep', onScrolled });
+
+    expect(onScrolled).toHaveBeenCalledTimes(1);
   });
 
   it('brings the header back after opening, when it went out of view', () => {
@@ -326,7 +398,6 @@ describe('OrderAccordionItem — scroll into view', () => {
   it('respects prefers-reduced-motion: jumps instead of animating', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
-    const original = window.matchMedia;
     window.matchMedia = ((query: string) => ({
       matches: query.includes('reduce'),
       media: query,
@@ -336,7 +407,6 @@ describe('OrderAccordionItem — scroll into view', () => {
 
     renderItem(scheduled, { open: true, scrollMode: 'deep' });
 
-    window.matchMedia = original;
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
   });
 });

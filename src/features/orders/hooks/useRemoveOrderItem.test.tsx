@@ -106,6 +106,23 @@ describe('useRemoveOrderItem', () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Quitamos Ensalada'));
   });
 
+  it('omits the refund phrase when the removed dish cost 0 lunches', async () => {
+    const free = makeItem({ id: 2, dishNombre: 'Agua', creditCost: 0 });
+    const order = makeOrder({ items: [makeItem(), free] });
+    vi.mocked(removeOrderItemV2).mockResolvedValueOnce({ ...order, items: [order.items[0]] });
+    const onNotice = vi.fn();
+
+    const { result } = renderHook(() => useRemoveOrderItem({ onNotice }), { wrapper });
+
+    act(() => result.current.requestRemoveItem(order, free));
+    act(() => result.current.confirmRemoveItem());
+
+    await waitFor(() => expect(onNotice).toHaveBeenCalled());
+    const text = onNotice.mock.calls[0][0].text as string;
+    expect(text).toBe('Agua ya no está en tu pedido.');
+    expect(text).not.toMatch(/0 almuerzos|volvi/);
+  });
+
   it('shows the OrderNotModifiableError message inside the sheet, without a toast, and keeps the sheet open', async () => {
     const order = makeOrder();
     const item = makeItem();

@@ -4,8 +4,8 @@ import { OrderComanda } from './OrderComanda';
 import type { ComandaItem } from './comandaModel';
 
 const items: ComandaItem[] = [
-  { name: 'Milanesa napolitana', side: 'c/ papas fritas', note: 'Sin sal, por favor', costLabel: '1 almuerzo', isNew: false },
-  { name: 'Ensalada César', side: null, note: null, costLabel: '1 almuerzo', isNew: true },
+  { id: 71, name: 'Milanesa napolitana', side: 'c/ papas fritas', note: 'Sin sal, por favor', costLabel: '1 almuerzo', isNew: false },
+  { id: 5, name: 'Ensalada César', side: null, note: null, costLabel: '1 almuerzo', isNew: true },
 ];
 
 function renderComanda(props: Partial<React.ComponentProps<typeof OrderComanda>> = {}) {
@@ -90,13 +90,13 @@ describe('OrderComanda — remove a dish (F29)', () => {
     expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
   });
 
-  it('shows a "×" on each item and reports which one was tapped', () => {
+  it('shows a "×" on each item and reports the id of the one tapped (never its position)', () => {
     const onRemoveItem = vi.fn();
     renderComanda({ onRemoveItem });
 
     fireEvent.click(screen.getByRole('button', { name: 'Quitar Ensalada César del pedido' }));
 
     expect(screen.getAllByRole('button', { name: /quitar/i })).toHaveLength(2);
-    expect(onRemoveItem).toHaveBeenCalledWith(1);
+    expect(onRemoveItem).toHaveBeenCalledWith(5);
   });
 });

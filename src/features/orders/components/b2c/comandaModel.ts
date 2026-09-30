@@ -17,6 +17,8 @@ import type { OrderV2 } from '../../services/ordersApi';
 
 /** Un plato de la comanda B2C — ya con los textos listos para mostrar. */
 export interface ComandaItem {
+  /** Id del plato en el pedido (`OrderItemV2.id`): quitar un plato se pide por id, nunca por posición. */
+  id: number;
   name: string;
   /** "c/ papas fritas"; null = sin acompañamiento. */
   side: string | null;
@@ -46,6 +48,7 @@ export function isPaidWithMercadoPago(order: OrderV2): boolean {
 
 export function comandaItems(order: OrderV2, { newItemIds }: { newItemIds?: ReadonlySet<number> } = {}): ComandaItem[] {
   return order.items.map((item) => ({
+    id: item.id,
     name: item.dishNombre,
     side: item.sideNombre ? `c/ ${item.sideNombre.toLowerCase()}` : null,
     note: item.notas,

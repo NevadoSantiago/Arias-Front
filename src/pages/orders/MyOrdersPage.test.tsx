@@ -500,9 +500,17 @@ describe('MyOrdersPage — cancel', () => {
     fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
     await waitFor(() => expect(cancelOrderV2).toHaveBeenCalled());
 
+    // Mientras la primera sigue en curso, se pide cancelar OTRO pedido (la hoja sigue montada).
+    fireEvent.click(screen.getByRole('button', { name: /retiro 14:00 hs/i, hidden: true }));
+    const otherRegion = screen.getByRole('region', { name: /retiro 14:00 hs/i, hidden: true });
+    fireEvent.click(within(otherRegion).getByRole('button', { name: /^cancelar pedido$/i, hidden: true }));
+
     resolveCancel();
 
-    expect(await screen.findByRole('status')).toHaveTextContent('2 almuerzos volvieron a tu saldo');
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent('Pedido cancelado');
+    expect(notice).toHaveTextContent('2 almuerzos volvieron a tu saldo');
+    expect(vi.mocked(cancelOrderV2).mock.calls[0]?.[0]).toBe(202);
   });
 
   it('shows the error and keeps the order and the row when cancelling fails', async () => {

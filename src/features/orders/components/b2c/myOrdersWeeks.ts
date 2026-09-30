@@ -123,25 +123,35 @@ export function buildOrderWeeks({ upcoming, past, now, schedule, disabledDates }
   return definitions.map(({ key, label, monday }): OrderWeek => {
     const sunday = addDays(monday, 6);
     // Un pedido más allá de la semana próxima no se pierde: suma su día a la última semana.
-    const inWeek = (dateKey: string) => dateKey >= monday && (key === 'proxima' ? true : dateKey <= sunday);
+    // Ni uno anterior a esta semana (la primera lo recoge) ni uno posterior a la próxima se pierde.
+    const inWeek = (dateKey: string) => (key === 'proxima' ? dateKey >= monday : dateKey <= sunday);
     const weekKeys = Array.from({ length: 7 }, (_, i) => addDays(monday, i)).filter(isOpen);
     const withOrders = [...ordersByDay.keys()].filter(inWeek);
     // Un día con pedidos se muestra aunque el horario lo dé por cerrado (el pedido ya existe).
     const shown = [...new Set([...weekKeys, ...withOrders])].sort();
 
-    const pastKeys = shown.filter((k) => k < todayKey);
-    const liveKeys = shown.filter((k) => k >= todayKey);
+    // Un día pasado con un pedido próximo (p. ej. esperando pago) no se resume: se muestra y se cuenta.
+    const isLive = (k: string) => k >= todayKey || ordersByDay.has(k);
+    const pastKeys = shown.filter((k) => !isLive(k));
+    const liveKeys = shown.filter(isLive);
     const days = liveKeys.map((k) => dayOf(k, todayKey, ordersByDay.get(k) ?? []));
 
     let pastDays: PastDaysFold | null = null;
     if (pastKeys.length > 0) {
       const first = dayOf(pastKeys[0], todayKey, []);
       const last = dayOf(pastKeys[pastKeys.length - 1], todayKey, []);
+      const contiguous = pastKeys.every((k, i) => i === 0 || parseKey(k) - parseKey(pastKeys[i - 1]) === DAY_MS);
+      const named = (k: string) => {
+        const d = dayOf(k, todayKey, []);
+        return `${d.weekday} ${d.dayNumber}`;
+      };
       pastDays = {
         label:
           pastKeys.length === 1
-            ? `${first.weekday} ${first.dayNumber}`
-            : `${first.weekday} ${first.dayNumber} a ${lowerFirst(last.weekday)} ${last.dayNumber}`,
+            ? named(pastKeys[0])
+            : contiguous
+              ? `${first.weekday} ${first.dayNumber} a ${lowerFirst(last.weekday)} ${last.dayNumber}`
+              : `${pastKeys.slice(0, -1).map(named).join(', ')} y ${lowerFirst(named(pastKeys[pastKeys.length - 1]))}`,
         orderCount: past.filter((o) => pastKeys.includes(orderDateKey(o))).length,
       };
     }

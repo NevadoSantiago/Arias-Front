@@ -38,8 +38,8 @@ describe('isPaidWithMercadoPago', () => {
 describe('comandaItems', () => {
   it('maps dish, side ("c/ …" in lower case), note and lunch cost', () => {
     expect(comandaItems(order())).toEqual([
-      { name: 'Milanesa napolitana', side: 'c/ papas fritas', note: 'Sin sal, por favor', costLabel: '1 almuerzo', isNew: false },
-      { name: 'Ensalada César', side: null, note: null, costLabel: '1 almuerzo', isNew: false },
+      { id: 1, name: 'Milanesa napolitana', side: 'c/ papas fritas', note: 'Sin sal, por favor', costLabel: '1 almuerzo', isNew: false },
+      { id: 2, name: 'Ensalada César', side: null, note: null, costLabel: '1 almuerzo', isNew: false },
     ]);
   });
 

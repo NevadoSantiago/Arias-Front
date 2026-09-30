@@ -55,12 +55,15 @@ interface Props {
 }
 
 const HEADER_ATTR = 'data-order-acc-header';
+/** Próximos y Anteriores son dos grupos: las flechas no saltan de uno al otro. */
+const GROUP_ATTR = 'data-order-acc-group';
 
-/** Flechas, Inicio y Fin mueven el foco entre los encabezados (Enter y Espacio ya los resuelve el botón). */
+/** Flechas, Inicio y Fin mueven el foco entre los encabezados de SU lista (Enter y Espacio ya los resuelve el botón). */
 function moveBetweenHeaders(event: KeyboardEvent<HTMLButtonElement>) {
   const { key } = event;
   if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Home' && key !== 'End') return;
-  const heads = Array.from(document.querySelectorAll<HTMLElement>(`[${HEADER_ATTR}]`));
+  const group = event.currentTarget.getAttribute(GROUP_ATTR);
+  const heads = Array.from(document.querySelectorAll<HTMLElement>(`[${HEADER_ATTR}][${GROUP_ATTR}="${group}"]`));
   const index = heads.indexOf(event.currentTarget);
   if (index < 0) return;
   event.preventDefault();
@@ -110,7 +113,8 @@ export function OrderAccordionItem({
   const cancelled = order.estado === 'CANCELADO';
   const awaiting = order.estado === 'PENDIENTE_PAGO';
   const scheduled = order.estado === 'PENDIENTE';
-  const canPay = awaiting && order.cancellable && !!onRequestPayNow;
+  // El backend decide si el pago se puede reanudar (PENDIENTE_PAGO con una compra pendiente), no `cancellable`.
+  const canPay = awaiting && !!onRequestPayNow;
   const canChange = scheduled && order.pickupTimeChangeable && !!onRequestChangePickupTime;
   const canAdd = scheduled && order.modifiable;
   const canCancel = !cancelled && order.cancellable && !!onRequestCancel;
@@ -207,6 +211,7 @@ export function OrderAccordionItem({
             type="button"
             id={headerId}
             data-order-acc-header=""
+            data-order-acc-group={showDate ? 'past' : 'upcoming'}
             aria-expanded={open}
             aria-controls={panelId}
             aria-label={ariaLabel}
@@ -260,7 +265,14 @@ export function OrderAccordionItem({
                   items={comandaItems(order)}
                   footer={comandaFooter(order, { now, walletAvailable })}
                   muted={cancelled}
-                  onRemoveItem={canRemoveItems ? (index) => onRequestRemoveItem?.(order, order.items[index]) : undefined}
+                  onRemoveItem={
+                    canRemoveItems
+                      ? (itemId) => {
+                          const item = order.items.find((i) => i.id === itemId);
+                          if (item) onRequestRemoveItem?.(order, item);
+                        }
+                      : undefined
+                  }
                 />
                 <div className={cn('flex flex-col gap-3', split && 'pt-2')}>
                   <p className="m-0 text-sm leading-snug text-foreground">{headline}</p>

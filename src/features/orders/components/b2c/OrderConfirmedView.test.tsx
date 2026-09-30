@@ -5,8 +5,8 @@ import { OrderConfirmedView } from './OrderConfirmedView';
 import type { ComandaFooter, ComandaItem } from './comandaModel';
 
 const items: ComandaItem[] = [
-  { name: 'Milanesa napolitana', side: 'c/ papas fritas', note: 'Sin sal, por favor', costLabel: '2 almuerzos', isNew: false },
-  { name: 'Ensalada César', side: null, note: null, costLabel: '1 almuerzo', isNew: false },
+  { id: 1, name: 'Milanesa napolitana', side: 'c/ papas fritas', note: 'Sin sal, por favor', costLabel: '2 almuerzos', isNew: false },
+  { id: 2, name: 'Ensalada César', side: null, note: null, costLabel: '1 almuerzo', isNew: false },
 ];
 
 const lunchFooter: ComandaFooter = {

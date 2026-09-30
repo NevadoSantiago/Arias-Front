@@ -149,6 +149,49 @@ describe('buildOrderWeeks', () => {
     expect(proxima.days.find((d) => d.dayNumber === 29)?.orders.map((o) => o.id)).toEqual([2]);
   });
 
+  it('keeps an order on a Sunday when the schedule is unknown (Monday to Friday fallback)', () => {
+    const [esta, proxima] = build([order(1, '2026-09-27T13:00:00-03:00')], { schedule: undefined });
+
+    expect(esta.days.find((d) => d.dayNumber === 27)?.orders.map((o) => o.id)).toEqual([1]);
+    expect(esta.count).toBe(1);
+    expect(proxima.count).toBe(0);
+  });
+
+  it('keeps and counts an order today on a day that became closed or disabled', () => {
+    const [esta] = build([order(1, '2026-09-24T13:00:00-03:00')], {
+      schedule: weekdaysOpen([1, 2, 3, 5]),
+      disabledDates: new Set(['2026-09-24']),
+    });
+
+    expect(esta.days.find((d) => d.isToday)?.orders.map((o) => o.id)).toEqual([1]);
+    expect(esta.count).toBe(1);
+  });
+
+  it('shows and counts a pending order of a day that already passed, instead of folding it away', () => {
+    const [esta] = build([order(1, '2026-09-22T13:00:00-03:00', { estado: 'PENDIENTE_PAGO' })]);
+
+    expect(esta.days.find((d) => d.dayNumber === 22)?.orders.map((o) => o.id)).toEqual([1]);
+    expect(esta.count).toBe(1);
+    // Los otros días pasados sin pedidos siguen resumidos en la línea.
+    expect(esta.pastDays).toEqual({ label: 'Lunes 21 y miércoles 23', orderCount: 0 });
+  });
+
+  it('does not fold a past day that still has an active order into the past-days line', () => {
+    const past = [order(9, '2026-09-22T12:00:00-03:00', { estado: 'CONFIRMADO' })];
+
+    const [esta] = build([order(1, '2026-09-22T13:00:00-03:00')], { past });
+
+    expect(esta.pastDays?.orderCount).toBe(0);
+    expect(esta.days.map((d) => d.dayNumber)).toContain(22);
+  });
+
+  it('counts an order from before this week on this week instead of dropping it', () => {
+    const [esta] = build([order(1, '2026-09-15T13:00:00-03:00')]);
+
+    expect(esta.count).toBe(1);
+    expect(esta.days.some((d) => d.orders.some((o) => o.id === 1))).toBe(true);
+  });
+
   it('puts an order beyond next week on the last week instead of dropping it', () => {
     const far = order(1, '2026-10-06T13:00:00-03:00');
 

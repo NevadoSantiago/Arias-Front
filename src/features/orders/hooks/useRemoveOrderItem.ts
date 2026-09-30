@@ -34,11 +34,12 @@ export function useRemoveOrderItem({
       if (onNotice) {
         // F29: "Mis pedidos" muestra el aviso en la fila (o arriba, si el pedido se canceló), no un toast.
         const cost = target.item.creditCost;
-        const returned = `${formatLunches(cost)} ${cost === 1 ? 'volvió' : 'volvieron'} a tu saldo.`;
+        // Un plato de 0 almuerzos no devuelve nada: no se dice "0 almuerzos volvieron".
+        const returned = cost > 0 ? ` ${formatLunches(cost)} ${cost === 1 ? 'volvió' : 'volvieron'} a tu saldo.` : '';
         onNotice(
           orderCancelled
-            ? { title: 'Pedido cancelado', text: `Quitaste el único plato y se canceló el pedido. ${returned}` }
-            : { title: 'Plato quitado', text: `${target.item.dishNombre} ya no está en tu pedido. ${returned}` },
+            ? { title: 'Pedido cancelado', text: `Quitaste el único plato y se canceló el pedido.${returned}` }
+            : { title: 'Plato quitado', text: `${target.item.dishNombre} ya no está en tu pedido.${returned}` },
           { order: target.order, orderCancelled },
         );
       } else if (orderCancelled) {
