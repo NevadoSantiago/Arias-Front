@@ -259,6 +259,35 @@ describe('OrderAccordionItem — panel', () => {
   });
 });
 
+describe('OrderAccordionItem — remove a dish (F29)', () => {
+  it('offers a "×" on each dish of a scheduled, modifiable order', () => {
+    const onRequestRemoveItem = vi.fn();
+    renderItem(scheduled, { open: true, onRequestRemoveItem });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar Ensalada César del pedido' }));
+
+    expect(screen.getAllByRole('button', { name: /^quitar /i })).toHaveLength(2);
+    expect(onRequestRemoveItem).toHaveBeenCalledWith(scheduled, scheduled.items[1]);
+  });
+
+  it.each([
+    ['not modifiable (after the cutoff)', { ...scheduled, modifiable: false }],
+    ['awaiting payment', awaiting],
+    ['confirmed', readOnly('CONFIRMADO')],
+    ['cancelled', readOnly('CANCELADO')],
+  ])('offers no "×" when the order is %s', (_name, order) => {
+    renderItem(order, { open: true, onRequestRemoveItem: vi.fn() });
+
+    expect(screen.queryByRole('button', { name: /^quitar /i })).not.toBeInTheDocument();
+  });
+
+  it('offers no "×" when the page does not wire it', () => {
+    renderItem(scheduled, { open: true });
+
+    expect(screen.queryByRole('button', { name: /^quitar /i })).not.toBeInTheDocument();
+  });
+});
+
 describe('OrderAccordionItem — scroll into view', () => {
   afterEach(() => {
     delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;

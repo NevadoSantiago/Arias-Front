@@ -26,6 +26,7 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     getPickupSlots: vi.fn(),
     getRestaurantConfig: vi.fn(),
     getDisabledDates: vi.fn(),
+    removeOrderItemV2: vi.fn(),
     resumeDirectCheckoutV2: vi.fn(),
   };
 });
@@ -234,6 +235,18 @@ describe('MyOrdersPage on desktop (F22b, F29)', () => {
     fireEvent.click(within(region).getByRole('button', { name: /^cancelar pedido$/i }));
     const cancel = await screen.findByRole('dialog', { name: '¿Cancelar este pedido?' });
     expect(cancel).toHaveAttribute('data-presentation', 'dialog');
+  });
+
+  it('opens "Quitar plato" as a centered dialog from the "×" of a dish', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /retiro 13:00 hs/i }));
+    const region = await screen.findByRole('region', { name: /retiro 13:00 hs/i });
+    fireEvent.click(within(region).getByRole('button', { name: 'Quitar Milanesa del pedido' }));
+
+    const remove = await screen.findByRole('dialog', { name: '¿Quitar Milanesa de tu pedido?' });
+    expect(remove).toHaveAttribute('data-presentation', 'dialog');
   });
 });
 

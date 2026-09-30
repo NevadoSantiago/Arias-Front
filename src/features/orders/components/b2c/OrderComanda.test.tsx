@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { OrderComanda } from './OrderComanda';
 import type { ComandaItem } from './comandaModel';
 
@@ -80,5 +80,23 @@ describe('OrderComanda', () => {
 
     expect(screen.getByText('Cancelado')).toBeInTheDocument();
     expect(screen.getByTestId('comanda')).toHaveClass('opacity-60');
+  });
+});
+
+describe('OrderComanda — remove a dish (F29)', () => {
+  it('shows no "×" unless the page wires it', () => {
+    renderComanda();
+
+    expect(screen.queryByRole('button', { name: /quitar/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a "×" on each item and reports which one was tapped', () => {
+    const onRemoveItem = vi.fn();
+    renderComanda({ onRemoveItem });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar Ensalada César del pedido' }));
+
+    expect(screen.getAllByRole('button', { name: /quitar/i })).toHaveLength(2);
+    expect(onRemoveItem).toHaveBeenCalledWith(1);
   });
 });

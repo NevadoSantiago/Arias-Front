@@ -13,6 +13,8 @@ interface Props {
   errorMessage: string | null;
   onConfirm: () => void;
   onClose: () => void;
+  /** `sheet` (default): hoja anclada abajo, la móvil. `dialog`: centrada, para escritorio (F29). */
+  presentation?: 'sheet' | 'dialog';
 }
 
 /**
@@ -25,13 +27,20 @@ interface Props {
  * patrón que `CancelOrderSheet`: no se cierra sola (Escape ni overlay)
  * mientras la eliminación está en curso.
  */
-export function RemoveOrderItemSheet({ target, removing, errorMessage, onConfirm, onClose }: Props) {
+export function RemoveOrderItemSheet({
+  target,
+  removing,
+  errorMessage,
+  onConfirm,
+  onClose,
+  presentation = 'sheet',
+}: Props) {
   const open = target !== null;
   const isOnlyItem = target ? target.order.items.length === 1 : false;
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && !removing && onClose()}>
-      <SheetContent aria-label="Quitar plato" className="p-0">
+      <SheetContent aria-label="Quitar plato" className="p-0" variant={presentation}>
         <div className="flex flex-col gap-4 p-4">
           <SheetTitle>{target ? `¿Quitar ${target.item.dishNombre} de tu pedido?` : ''}</SheetTitle>
           <SheetDescription className="sr-only">

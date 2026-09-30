@@ -107,3 +107,14 @@ describe('RemoveOrderItemSheet', () => {
     expect(screen.queryByText(/¿quitar/i)).not.toBeInTheDocument();
   });
 });
+
+describe('RemoveOrderItemSheet — presentation (F29)', () => {
+  it('is bottom-anchored by default and a centered dialog on desktop', () => {
+    const { unmount } = renderSheet();
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-presentation', 'sheet');
+    unmount();
+
+    renderSheet({ presentation: 'dialog' });
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-presentation', 'dialog');
+  });
+});

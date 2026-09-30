@@ -12,7 +12,9 @@ import {
   getOrdersV2,
   getPickupSlots,
   getRestaurantConfig,
+  OrderNotModifiableError,
   PickupTimeChangeError,
+  removeOrderItemV2,
   resumeDirectCheckoutV2,
 } from '@/features/orders/services/ordersApi';
 import { getWallet } from '@/features/credits/services/creditsApi';
@@ -32,6 +34,7 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     getPickupSlots: vi.fn(),
     getRestaurantConfig: vi.fn(),
     getDisabledDates: vi.fn(),
+    removeOrderItemV2: vi.fn(),
     resumeDirectCheckoutV2: vi.fn(),
   };
 });
@@ -613,6 +616,82 @@ describe('MyOrdersPage — "Cambiar horario" (F19)', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('El horario de retiro ya no se puede cambiar.');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+describe('MyOrdersPage — remove a dish (F29)', () => {
+  const single = order(210, '2026-09-25T14:00:00-03:00', { creditTotal: 1, items: [baseOrder.items[0]] });
+
+  it('offers a "×" on each dish of a modifiable order and none on the others', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, todayConfirmed, todayAwaiting]);
+    renderPage();
+
+    const scheduled = await openRow(/retiro 13:00 hs, programado/i);
+    expect(within(scheduled).getAllByRole('button', { name: /^quitar .* del pedido$/i })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: /retiro 12:00 hs/i }));
+    const confirmed = await screen.findByRole('region', { name: /retiro 12:00 hs/i });
+    expect(within(confirmed).queryByRole('button', { name: /^quitar /i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retiro 13:00 hs, pago pendiente/i }));
+    const awaiting = await screen.findByRole('region', { name: /retiro 13:00 hs, pago pendiente/i });
+    expect(within(awaiting).queryByRole('button', { name: /^quitar /i })).not.toBeInTheDocument();
+  });
+
+  it('removes a dish through the confirmation sheet, keeps the row open and tells inside it', async () => {
+    const after = { ...friday, creditTotal: 1, items: [friday.items[0]] };
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([friday]).mockResolvedValue([after]);
+    vi.mocked(removeOrderItemV2).mockResolvedValueOnce(after);
+    const { queryClient } = renderPage();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const region = await openRow(/retiro 13:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: 'Quitar Ensalada del pedido' }));
+    expect(await screen.findByText('¿Quitar Ensalada de tu pedido?')).toBeInTheDocument();
+    expect(screen.getByText('Vuelve 1 almuerzo a tu saldo')).toBeInTheDocument();
+    expect(screen.queryByText(/es el único plato/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /sí, quitar/i }));
+
+    await waitFor(() => expect(removeOrderItemV2).toHaveBeenCalledWith(202, 2));
+    const updated = await screen.findByRole('region', { name: /retiro 13:00 hs/i });
+    await waitFor(() => expect(within(updated).getByRole('status')).toHaveTextContent('Plato quitado'));
+    expect(within(updated).getByRole('status')).toHaveTextContent('Ensalada ya no está en tu pedido');
+    await waitFor(() => expect(within(updated).queryByText('Ensalada')).not.toBeInTheDocument());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('warns that the only dish cancels the order, and on confirming closes the row and tells at the top', async () => {
+    vi.mocked(getOrdersV2)
+      .mockResolvedValueOnce([single])
+      .mockResolvedValue([{ ...single, estado: 'CANCELADO', items: [], ...closed }]);
+    vi.mocked(removeOrderItemV2).mockResolvedValueOnce({ ...single, estado: 'CANCELADO', items: [], ...closed });
+    renderPage();
+
+    const region = await openRow(/retiro 14:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: 'Quitar Milanesa del pedido' }));
+    expect(await screen.findByText('Es el único plato: se cancela el pedido.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /sí, quitar/i }));
+
+    await waitFor(() => expect(removeOrderItemV2).toHaveBeenCalledWith(210, 1));
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent('Pedido cancelado');
+    expect(notice).toHaveTextContent('Quitaste el único plato y se canceló el pedido');
+    await waitFor(() => expect(screen.queryByTestId('comanda')).not.toBeInTheDocument());
+    expect(screen.queryByRole('list', { name: 'Viernes 25' })).not.toBeInTheDocument();
+  });
+
+  it('shows the backend message in the sheet when the order can no longer be changed', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    vi.mocked(removeOrderItemV2).mockRejectedValueOnce(new OrderNotModifiableError());
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: 'Quitar Milanesa del pedido' }));
+    fireEvent.click(await screen.findByRole('button', { name: /sí, quitar/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tu pedido ya no se puede modificar; armá uno nuevo.');
+    expect(screen.getByTestId('comanda')).toBeInTheDocument();
   });
 });
 

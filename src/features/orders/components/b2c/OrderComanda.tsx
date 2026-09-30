@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { CreditCard, UtensilsCrossed } from 'lucide-react';
+import { CreditCard, UtensilsCrossed, X } from 'lucide-react';
 import chefCocinando from '@/assets/illustrations/Chef-Cocinando.svg';
 import { cn } from '@/lib/utils';
 import { OrderStatusBadge } from '../OrderStatusBadge';
@@ -40,6 +40,12 @@ interface Props {
   estado?: OrderEstado;
   /** Aspecto apagado (pedido cancelado). */
   muted?: boolean;
+  /**
+   * Optativo (F29) — cuando se pasa, cada plato lleva una "×" para quitarlo
+   * (recibe la posición del plato). La página lo pasa solo si el pedido es
+   * modificable; sin él la comanda queda igual que antes.
+   */
+  onRemoveItem?: (index: number) => void;
 }
 
 function Label({ children }: { children: ReactNode }) {
@@ -57,7 +63,17 @@ function Divider() {
  * cliente en un recuadro y el pie de pago. Presentacional puro: los textos
  * salen de `comandaModel` y la página decide qué mostrar.
  */
-export function OrderComanda({ orderId, dateLabel, callName, whenLabel, items, footer, estado, muted = false }: Props) {
+export function OrderComanda({
+  orderId,
+  dateLabel,
+  callName,
+  whenLabel,
+  items,
+  footer,
+  estado,
+  muted = false,
+  onRemoveItem,
+}: Props) {
   const number = String(orderId).padStart(4, '0');
   return (
     <div data-testid="comanda" className={cn('flex flex-col', muted && 'opacity-60 grayscale')}>
@@ -124,7 +140,8 @@ export function OrderComanda({ orderId, dateLabel, callName, whenLabel, items, f
           <Label>Pedido</Label>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {items.map((item, i) => (
-              <li key={i} className="flex flex-col gap-[3px]">
+              <li key={i} className="flex items-start justify-between gap-1">
+                <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
                 <span className="flex items-baseline justify-between gap-2.5">
                   <span className="text-[14.5px] font-bold uppercase leading-snug tracking-[0.04em] text-foreground">
                     {item.name}
@@ -146,6 +163,17 @@ export function OrderComanda({ orderId, dateLabel, callName, whenLabel, items, f
                     <span className="text-[9.5px] font-bold uppercase tracking-[0.16em] text-primary/80">Nota</span>
                     <span className="text-[13px] italic text-foreground">{item.note}</span>
                   </span>
+                )}
+                </span>
+                {onRemoveItem && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveItem(i)}
+                    aria-label={`Quitar ${item.name} del pedido`}
+                    className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-[18px] w-[18px]" aria-hidden="true" />
+                  </button>
                 )}
               </li>
             ))}

@@ -11,7 +11,7 @@ import { addPlatesPath, comandaCopy, comandaFooter, comandaItems, comandaWhenLab
 import { OrderNoticeBanner } from './OrderNoticeBanner';
 import { orderAccordionHeader } from './orderAccordionModel';
 import type { OrderNotice } from '../../orderNotice';
-import type { OrderV2 } from '../../services/ordersApi';
+import type { OrderItemV2, OrderV2 } from '../../services/ordersApi';
 
 interface Props {
   order: OrderV2;
@@ -40,6 +40,11 @@ interface Props {
   onRequestChangePickupTime?: (order: OrderV2) => void;
   onRequestCancel?: (order: OrderV2) => void;
   onRequestPayNow?: (order: OrderV2) => void;
+  /**
+   * Quitar un plato ("×" en cada uno). Solo se ofrece en un pedido programado
+   * y `modifiable` (lo decide el backend); sin este callback no hay "×".
+   */
+  onRequestRemoveItem?: (order: OrderV2, item: OrderItemV2) => void;
   /**
    * Cuándo llevar la fila a la vista: `deep` al llegar por `?pedido=` (la sube al
    * tope) y `keep` tras abrir a mano (solo si el encabezado quedó fuera de vista).
@@ -96,6 +101,7 @@ export function OrderAccordionItem({
   onRequestChangePickupTime,
   onRequestCancel,
   onRequestPayNow,
+  onRequestRemoveItem,
   scrollMode = null,
   onScrolled,
 }: Props) {
@@ -108,6 +114,7 @@ export function OrderAccordionItem({
   const canChange = scheduled && order.pickupTimeChangeable && !!onRequestChangePickupTime;
   const canAdd = scheduled && order.modifiable;
   const canCancel = !cancelled && order.cancellable && !!onRequestCancel;
+  const canRemoveItems = scheduled && order.modifiable && !!onRequestRemoveItem;
   const hasActions = canPay || canChange || canAdd || canCancel;
 
   const headerId = `order-acc-${order.id}-h`;
@@ -253,6 +260,7 @@ export function OrderAccordionItem({
                   items={comandaItems(order)}
                   footer={comandaFooter(order, { now, walletAvailable })}
                   muted={cancelled}
+                  onRemoveItem={canRemoveItems ? (index) => onRequestRemoveItem?.(order, order.items[index]) : undefined}
                 />
                 <div className={cn('flex flex-col gap-3', split && 'pt-2')}>
                   <p className="m-0 text-sm leading-snug text-foreground">{headline}</p>

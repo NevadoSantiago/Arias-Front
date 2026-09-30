@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { ChangePickupTimeSheet } from '@/features/orders/components/ChangePickupTimeSheet';
+import { RemoveOrderItemSheet } from '@/features/orders/components/RemoveOrderItemSheet';
 import { MyOrdersSidePanel } from '@/features/orders/components/b2c/MyOrdersSidePanel';
 import { OrderAccordionItem } from '@/features/orders/components/b2c/OrderAccordionItem';
 import { OrderNoticeBanner } from '@/features/orders/components/b2c/OrderNoticeBanner';
@@ -13,6 +14,7 @@ import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
 import { useChangePickupTime } from '@/features/orders/hooks/useChangePickupTime';
 import { useOrders } from '@/features/orders/hooks/useOrders';
 import { usePayNow } from '@/features/orders/hooks/usePayNow';
+import { useRemoveOrderItem } from '@/features/orders/hooks/useRemoveOrderItem';
 import type { OrderNotice } from '@/features/orders/orderNotice';
 import { getDisabledDates, getRestaurantConfig, type OrderV2 } from '@/features/orders/services/ordersApi';
 import { useWallet } from '@/features/credits/hooks/useWallet';
@@ -46,9 +48,11 @@ import { useIsDesktop } from '@/lib/useMediaQuery';
  * comanda a pantalla completa o modal). Se guarda un solo id abierto en toda la
  * página. `?pedido=<id>` (aviso de pago pendiente, D6) abre esa fila, cambia a
  * su semana o abre "Anteriores", y la lleva a la vista; el parámetro se consume
- * recién con datos frescos (F27.1). Tras cambiar el horario el aviso queda en
- * la fila abierta; tras cancelar la fila se cierra (el pedido pasa a
- * "Anteriores") y el aviso va arriba.
+ * recién con datos frescos (F27.1). Tras cambiar el horario o quitar un plato
+ * el aviso queda en la fila abierta; tras cancelar (o quitar el único plato, que
+ * cancela el pedido) la fila se cierra (el pedido pasa a "Anteriores") y el
+ * aviso va arriba. Quitar un plato ("×", solo en pedidos `modifiable`) usa la
+ * misma hoja y el mismo hook que `B2cOrderPage`.
  */
 export function MyOrdersPage() {
   const { data: orders, isLoading, isError, isFetching } = useOrders();
@@ -74,6 +78,20 @@ export function MyOrdersPage() {
       setTopNotice(null);
     },
   });
+  const { removeTarget, removeError, removing, requestRemoveItem, closeRemoveSheet, confirmRemoveItem } =
+    useRemoveOrderItem({
+      onNotice: (notice, { order, orderCancelled }) => {
+        if (orderCancelled) {
+          // Era el único plato: el backend canceló el pedido, que sale de su día. Igual que al cancelar.
+          setOpenId((current) => (current === order.id ? null : current));
+          setRowNotice(null);
+          setTopNotice(notice);
+        } else {
+          setRowNotice({ orderId: order.id, notice });
+          setTopNotice(null);
+        }
+      },
+    });
   const { payingOrderId, payNow } = usePayNow();
   const isDesktop = useIsDesktop();
   // El saldo ("Te quedan N") solo se pide mientras hay una fila abierta; en
@@ -191,6 +209,7 @@ export function MyOrdersPage() {
       onRequestChangePickupTime={requestChange}
       onRequestCancel={requestCancel}
       onRequestPayNow={(o) => payNow(o.id)}
+      onRequestRemoveItem={requestRemoveItem}
       scrollMode={scroll?.id === order.id ? scroll.mode : null}
       onScrolled={() => setScroll(null)}
     />
@@ -297,6 +316,15 @@ export function MyOrdersPage() {
         errorMessage={changeError}
         onConfirm={confirmChange}
         onClose={closeChangeSheet}
+        presentation={sheetPresentation}
+      />
+
+      <RemoveOrderItemSheet
+        target={removeTarget}
+        removing={removing}
+        errorMessage={removeError}
+        onConfirm={confirmRemoveItem}
+        onClose={closeRemoveSheet}
         presentation={sheetPresentation}
       />
     </div>

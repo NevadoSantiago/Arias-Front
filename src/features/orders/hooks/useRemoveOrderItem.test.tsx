@@ -138,3 +138,46 @@ describe('useRemoveOrderItem', () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 });
+
+describe('useRemoveOrderItem — inline notice (F29)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('tells a removed dish to the page, with the lunch that went back, instead of a toast', async () => {
+    const order = makeOrder({ items: [makeItem(), makeItem({ id: 2, dishNombre: 'Tarta' })] });
+    vi.mocked(removeOrderItemV2).mockResolvedValueOnce({ ...order, items: [order.items[1]] });
+    const onNotice = vi.fn();
+    const { result } = renderHook(() => useRemoveOrderItem({ onNotice }), { wrapper });
+
+    act(() => result.current.requestRemoveItem(order, order.items[0]));
+    act(() => result.current.confirmRemoveItem());
+
+    await waitFor(() => expect(onNotice).toHaveBeenCalled());
+    expect(onNotice).toHaveBeenCalledWith(
+      { title: 'Plato quitado', text: 'Ensalada ya no está en tu pedido. 1 almuerzo volvió a tu saldo.' },
+      { order, orderCancelled: false },
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('tells the page the whole order was cancelled when the last dish goes', async () => {
+    const order = makeOrder({ creditTotal: 2, items: [makeItem({ creditCost: 2 })] });
+    vi.mocked(removeOrderItemV2).mockResolvedValueOnce({ ...order, estado: 'CANCELADO', items: [] });
+    const onNotice = vi.fn();
+    const { result } = renderHook(() => useRemoveOrderItem({ onNotice }), { wrapper });
+
+    act(() => result.current.requestRemoveItem(order, order.items[0]));
+    act(() => result.current.confirmRemoveItem());
+
+    await waitFor(() => expect(onNotice).toHaveBeenCalled());
+    expect(onNotice).toHaveBeenCalledWith(
+      {
+        title: 'Pedido cancelado',
+        text: 'Quitaste el único plato y se canceló el pedido. 2 almuerzos volvieron a tu saldo.',
+      },
+      { order, orderCancelled: true },
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+});
