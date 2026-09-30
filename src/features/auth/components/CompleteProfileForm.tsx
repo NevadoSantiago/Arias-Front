@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthActions } from '../hooks/useAuthActions';
+import { phoneSchema } from '../lib/phone';
 
 const schema = z.object({
-  phone: z.string().min(1, 'Ingresá tu teléfono').max(30),
+  phone: phoneSchema,
   nickname: z
     .string()
     .min(2, 'El apodo tiene que tener al menos 2 caracteres')
@@ -51,13 +52,18 @@ export function CompleteProfileForm() {
         <Input
           id="phone"
           type="tel"
+          inputMode="numeric"
           autoComplete="tel"
           autoFocus
-          placeholder="+54 9 11 1234-5678"
+          placeholder="1159876547"
           aria-invalid={!!errors.phone}
           {...register('phone')}
         />
-        {errors.phone && <p className="text-destructive text-xs mt-1">{errors.phone.message}</p>}
+        {errors.phone ? (
+          <p className="text-destructive text-xs mt-1">{errors.phone.message}</p>
+        ) : (
+          <p className="text-muted-foreground text-xs mt-1">Sin 0 ni 15. Ej: 1159876547</p>
+        )}
       </div>
 
       <div className="space-y-2">
