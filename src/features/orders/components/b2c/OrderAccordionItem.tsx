@@ -1,21 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, ChevronDown, Clock3, CreditCard, Pencil, Plus, X } from 'lucide-react';
+import { ChevronDown, Clock3, CreditCard, Pencil, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatOrderDateLabel } from '../orderDateLabels';
 import { OrderStatusBadge } from '../OrderStatusBadge';
 import { orderStatusLabel } from '../orderStatus';
 import { ChefBackdrop, OrderComanda } from './OrderComanda';
 import { addPlatesPath, comandaCopy, comandaFooter, comandaItems, comandaWhenLabel } from './comandaModel';
+import { OrderNoticeBanner } from './OrderNoticeBanner';
 import { orderAccordionHeader } from './orderAccordionModel';
+import type { OrderNotice } from '../../orderNotice';
 import type { OrderV2 } from '../../services/ordersApi';
-
-/** Aviso dentro de la fila abierta (p. ej. "Horario cambiado"). */
-export interface OrderAccordionNotice {
-  title: string;
-  text: string;
-}
 
 interface Props {
   order: OrderV2;
@@ -39,7 +35,7 @@ interface Props {
   layout?: 'stack' | 'split';
   /** true mientras "Pagar ahora" está en curso para este pedido. */
   payingNow?: boolean;
-  notice?: OrderAccordionNotice | null;
+  notice?: OrderNotice | null;
   onDismissNotice?: () => void;
   onRequestChangePickupTime?: (order: OrderV2) => void;
   onRequestCancel?: (order: OrderV2) => void;
@@ -260,28 +256,7 @@ export function OrderAccordionItem({
                 />
                 <div className={cn('flex flex-col gap-3', split && 'pt-2')}>
                   <p className="m-0 text-sm leading-snug text-foreground">{headline}</p>
-                  {notice && (
-                    <div role="status" className="flex items-start gap-2.5 rounded-md bg-success/15 p-3">
-                      <span
-                        aria-hidden="true"
-                        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
-                      >
-                        <Check className="h-3 w-3" />
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="text-sm font-bold text-foreground">{notice.title}</span>
-                        <span className="text-[13px] leading-snug text-muted-foreground">{notice.text}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={onDismissNotice}
-                        aria-label="Cerrar aviso"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground"
-                      >
-                        <X className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  )}
+                  {notice && <OrderNoticeBanner notice={notice} onDismiss={onDismissNotice} />}
                   {actions}
                 </div>
               </div>

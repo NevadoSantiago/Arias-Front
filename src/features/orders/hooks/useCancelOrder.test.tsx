@@ -83,3 +83,37 @@ describe('useCancelOrder — pending purchases (D6)', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsPendingPurchases'] });
   });
 });
+
+describe('useCancelOrder — inline notice (F29)', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  async function cancelWithNotice(target: OrderV2) {
+    const onNotice = vi.fn();
+    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useCancelOrder({ onNotice }), { wrapper });
+    act(() => result.current.requestCancel(target));
+    act(() => result.current.confirmCancel());
+    await waitFor(() => expect(onNotice).toHaveBeenCalled());
+    return onNotice;
+  }
+
+  it('hands the message to the page instead of showing a toast', async () => {
+    const onNotice = await cancelWithNotice(order);
+
+    expect(onNotice).toHaveBeenCalledWith({ title: 'Pedido cancelado', text: '2 almuerzos volvieron a tu saldo.' }, order);
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('says no lunch was used when nothing was reserved from the balance', async () => {
+    const paid = { ...order, creditTotal: 1, estado: 'PENDIENTE_PAGO' as const, paidWithMercadoPago: true };
+    const onNotice = await cancelWithNotice(paid);
+
+    expect(onNotice.mock.calls[0][0].text).toMatch(/^Si ya pagaste con Mercado Pago/);
+  });
+
+  it('keeps the toast when the page gives no listener', async () => {
+    await cancel(order);
+
+    expect(toast.success).toHaveBeenCalled();
+  });
+});

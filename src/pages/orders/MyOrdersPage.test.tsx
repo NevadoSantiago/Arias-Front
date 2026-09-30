@@ -8,6 +8,7 @@ import {
   cancelOrderV2,
   changeOrderPickupTimeV2,
   DirectCheckoutNotResumableError,
+  getDisabledDates,
   getOrdersV2,
   getPickupSlots,
   getRestaurantConfig,
@@ -30,82 +31,33 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
     changeOrderPickupTimeV2: vi.fn(),
     getPickupSlots: vi.fn(),
     getRestaurantConfig: vi.fn(),
+    getDisabledDates: vi.fn(),
     resumeDirectCheckoutV2: vi.fn(),
   };
 });
 
-// F10: el saldo mostrado en la hoja de cancelación viene de la billetera
-// (`useWallet`/`creditsWallet`), así que hace falta controlarla acá también.
 vi.mock('@/features/credits/services/creditsApi', () => ({
   getWallet: vi.fn(),
 }));
 
-// F10: el aviso de éxito ahora usa `toast.success` con el texto de la
-// decisión del usuario ("Pedido cancelado · N almuerzo(s) volvió/volvieron
-// a tu saldo"); no hay <Toaster/> montado en el test, así que se mockea
-// para poder verificar el mensaje.
+// No hay <Toaster/> montado en los tests: se mockea para poder afirmar que ya no se usa.
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-// Default: la mayoría de los tests no abren la hoja de cancelación, pero
-// dejamos un valor resuelto por si el componente la consulta igual.
-vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
-// F18: "Pago pendiente" necesita `pickupLeadMinutes` para el aviso de corte
-// — valor por defecto para los tests que no lo ejercitan directamente.
-vi.mocked(getRestaurantConfig).mockResolvedValue({
-  horaCorte: '10:00',
-  pickupWindowStart: null,
-  pickupWindowEnd: null,
-  pickupLeadMinutes: 20,
-});
+/** Jueves 24 de septiembre de 2026, 11:40 en Buenos Aires — el "ahora" del tablero de diseño. */
+const NOW = new Date('2026-09-24T11:40:00-03:00');
 
-function renderPage() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
-  });
-  const view = render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <MyOrdersPage />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  return { ...view, queryClient };
-}
-
-const HOUR_MS = 60 * 60 * 1000;
-const futureIso = (hours: number) => new Date(Date.now() + hours * HOUR_MS).toISOString();
-const pastIso = (hours: number) => new Date(Date.now() - hours * HOUR_MS).toISOString();
-
-const cancellableOrder: OrderV2 = {
-  id: 123,
-  fecha: '2026-09-24',
-  pickupAt: futureIso(2),
+const baseOrder: OrderV2 = {
+  id: 0,
+  fecha: '2026-09-25',
+  pickupAt: '2026-09-25T13:00:00-03:00',
   estado: 'PENDIENTE',
-  creditTotal: 4,
+  creditTotal: 2,
   notas: null,
   items: [
-    {
-      id: 1,
-      dishId: 10,
-      dishNombre: 'Milanesa',
-      dishCategoria: 'Premium',
-      sideId: 5,
-      sideNombre: 'Puré',
-      creditCost: 2,
-      notas: null,
-    },
-    {
-      id: 2,
-      dishId: 11,
-      dishNombre: 'Ensalada',
-      dishCategoria: 'Básico',
-      sideId: null,
-      sideNombre: null,
-      creditCost: 2,
-      notas: null,
-    },
+    { id: 1, dishId: 10, dishNombre: 'Milanesa', dishCategoria: 'Premium', sideId: 5, sideNombre: 'Puré', creditCost: 1, notas: null },
+    { id: 2, dishId: 11, dishNombre: 'Ensalada', dishCategoria: 'Básico', sideId: null, sideNombre: null, creditCost: 1, notas: null },
   ],
   cancellable: true,
   modifiable: true,
@@ -114,233 +66,116 @@ const cancellableOrder: OrderV2 = {
   creditsFromBalance: 0,
 };
 
-const nonCancellableOrder: OrderV2 = {
-  ...cancellableOrder,
-  id: 124,
-  estado: 'CONFIRMADO',
-  cancellable: false,
+const order = (id: number, pickupAt: string, extra: Partial<OrderV2> = {}): OrderV2 => ({
+  ...baseOrder,
+  id,
+  fecha: pickupAt.slice(0, 10),
+  pickupAt,
+  ...extra,
+});
+
+const closed: Partial<OrderV2> = { cancellable: false, modifiable: false, pickupTimeChangeable: false };
+
+/** Viernes 25, 13:00, programado y modificable. */
+const friday = order(202, '2026-09-25T13:00:00-03:00');
+/** Hoy 12:00, ya confirmado (en preparación). */
+const todayConfirmed = order(201, '2026-09-24T12:00:00-03:00', { estado: 'CONFIRMADO', ...closed });
+/** Hoy 13:00, esperando el pago de Mercado Pago. */
+const todayAwaiting = order(205, '2026-09-24T13:00:00-03:00', {
+  estado: 'PENDIENTE_PAGO',
+  paidWithMercadoPago: true,
   modifiable: false,
   pickupTimeChangeable: false,
-  paidWithMercadoPago: false,
-  creditsFromBalance: 0,
+});
+const monday = order(206, '2026-09-28T12:30:00-03:00', { creditTotal: 1, items: [baseOrder.items[0]] });
+const tuesday = order(203, '2026-09-29T12:30:00-03:00', { creditTotal: 1, items: [baseOrder.items[1]] });
+const pastConfirmed = order(198, '2026-09-22T13:10:00-03:00', { estado: 'CONFIRMADO', ...closed });
+const pastCancelled = order(195, '2026-09-18T12:00:00-03:00', { estado: 'CANCELADO', ...closed });
+
+const MON_TO_FRI_SCHEDULE = [1, 2, 3, 4, 5, 6, 7].map((dayOfWeek) => ({
+  dayOfWeek,
+  open: dayOfWeek <= 5,
+  windowStart: dayOfWeek <= 5 ? '11:00' : null,
+  windowEnd: dayOfWeek <= 5 ? '23:00' : null,
+}));
+
+function arrangeConfig(schedule = MON_TO_FRI_SCHEDULE) {
+  vi.mocked(getRestaurantConfig).mockResolvedValue({
+    horaCorte: '10:00',
+    pickupWindowStart: null,
+    pickupWindowEnd: null,
+    pickupLeadMinutes: 20,
+    pickupSchedule: schedule,
+  });
+}
+
+function renderAt(entry = '/orders/mine', queryClient?: QueryClient) {
+  const client =
+    queryClient ?? new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[entry]}>
+        <MyOrdersPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  return { ...view, queryClient: client };
+}
+
+const renderPage = () => renderAt();
+
+/** El encabezado de la fila de un pedido, por su hora de retiro. */
+const rowHeader = async (pattern: RegExp) => screen.findByRole('button', { name: pattern });
+const openRow = async (pattern: RegExp) => {
+  const head = await rowHeader(pattern);
+  if (head.getAttribute('aria-expanded') !== 'true') fireEvent.click(head);
+  return screen.findByRole('region', { name: pattern });
 };
 
-const cancelledOrder: OrderV2 = {
-  ...cancellableOrder,
-  id: 125,
-  estado: 'CANCELADO',
-  cancellable: false,
-  modifiable: false,
-  pickupTimeChangeable: false,
-  paidWithMercadoPago: false,
-  creditsFromBalance: 0,
-};
-
-const pastOrder: OrderV2 = {
-  ...cancellableOrder,
-  id: 190,
-  pickupAt: pastIso(3),
-  estado: 'ENTREGADO',
-  cancellable: false,
-  modifiable: false,
-  pickupTimeChangeable: false,
-  paidWithMercadoPago: false,
-  creditsFromBalance: 0,
-};
-
-describe('MyOrdersPage', () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-    // F17: por si un test que fija el reloj (`vi.useFakeTimers`) falla antes
-    // de restaurarlo — sin esto, el reloj falso quedaría pisando el resto
-    // de la suite. Es un no-op inofensivo cuando no había timers falsos.
-    vi.useRealTimers();
-    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
+  vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+  vi.mocked(getDisabledDates).mockResolvedValue([]);
+  arrangeConfig();
+  useAuthStore.setState({
+    accessToken: 'token',
+    user: {
+      id: 7,
+      email: 'sofi@example.com',
+      firstName: 'Sofía',
+      lastName: null,
+      nickname: 'Sofi',
+      displayName: 'Sofi',
+      role: 'EMPLOYEE',
+      companyId: null,
+      companyName: null,
+      categoryId: null,
+      emailVerified: true,
+      profileComplete: true,
+    },
+    bootstrapping: false,
   });
+});
 
-  it('renders orders with items and the total formatted as "N almuerzos"', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder]);
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.useRealTimers();
+  useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+});
 
-    renderPage();
-
-    expect(await screen.findByText('Milanesa')).toBeInTheDocument();
-    expect(screen.getByText(/puré/i)).toBeInTheDocument();
-    expect(screen.getByText('Ensalada')).toBeInTheDocument();
-    expect(screen.getByText('4 almuerzos')).toBeInTheDocument();
-    expect(screen.queryByText(/créditos?\b/i)).not.toBeInTheDocument();
-  });
-
-  it('offers the cancel action only when the backend reports cancellable: true', async () => {
-    // F17: nonCancellableOrder es CONFIRMADO, que por defecto solo se
-    // muestra si su retiro es hoy — se fija el reloj para que esta
-    // aserción no dependa de la hora real de la corrida (cerca de
-    // medianoche en Buenos Aires, "+2 horas" podría caer al día siguiente).
-    vi.useFakeTimers({ toFake: ['Date'] });
-    const now = new Date('2026-09-27T10:00:00-03:00');
-    vi.setSystemTime(now);
-    const samedayPickup = new Date(now.getTime() + 2 * HOUR_MS).toISOString();
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([
-      { ...cancellableOrder, pickupAt: samedayPickup },
-      { ...nonCancellableOrder, pickupAt: samedayPickup },
-    ]);
-
-    renderPage();
-
-    const cards = await screen.findAllByTestId('order-card');
-    expect(cards).toHaveLength(2);
-    expect(within(cards[0]).getByRole('button', { name: /cancelar pedido/i })).toBeInTheDocument();
-    expect(within(cards[1]).queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
-
-    vi.useRealTimers();
-  });
-
-  // F10: "Cancelar pedido" ahora abre una hoja de confirmación (D1 aprobado)
-  // en vez de un AlertDialog inline; el resumen del pedido y el cálculo
-  // "Pasás de X a Y almuerzos disponibles" (de la billetera) son nuevos.
-  it('cancels the order through the confirmation sheet and refreshes the list and wallet', async () => {
-    vi.mocked(getOrdersV2)
-      .mockResolvedValueOnce([cancellableOrder])
-      .mockResolvedValueOnce([{ ...cancellableOrder, estado: 'CANCELADO', cancellable: false }]);
-    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
-
-    const { queryClient } = renderPage();
-    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
-
-    fireEvent.click(await screen.findByRole('button', { name: /cancelar pedido/i }));
-
-    expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
-    expect(await screen.findByText(/pasás de 8 a 12 almuerzos disponibles/i)).toBeInTheDocument();
-    await waitFor(() => expect(getWallet).toHaveBeenCalledTimes(1));
-
-    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
-
-    // TanStack Query invoca la mutationFn con (variables, context), así que
-    // afirmamos sobre el primer argumento y no sobre la lista completa.
-    await waitFor(() => expect(vi.mocked(cancelOrderV2).mock.calls[0]?.[0]).toBe(123));
-    await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
-    // F17: un pedido CANCELADO queda oculto por defecto (incluso este, que
-    // era el único "próximo" antes de cancelarlo), así que hay que revelar
-    // "Anteriores" para verlo con su nuevo estado.
-    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
-    expect(await screen.findByText('Cancelado')).toBeInTheDocument();
-    expect(toast.success).toHaveBeenCalledWith(
-      expect.stringMatching(/pedido cancelado.*4 almuerzos volvieron a tu saldo/i),
-    );
-    // La billetera también se refresca, no solo la lista de pedidos: se
-    // afirma la invalidación explícita de su clave de caché compartida
-    // (misma clave que usa `useWallet`), igual que ya hace B2cOrderPage.test.
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
-  });
-
-  // Corrección: el conteo del toast de éxito venía de `cancelTarget` (estado
-  // de React) leído en el momento de `onSuccess`, no de las variables de la
-  // mutación. Si `cancelTarget` cambia mientras la cancelación en curso
-  // sigue pendiente (acá, pidiendo cancelar OTRO pedido debajo de la hoja),
-  // el toast terminaba usando el conteo del pedido equivocado.
-  it('shows the toast with the cancelled order real count, even if cancelTarget changes while the mutation is pending', async () => {
-    const orderA: OrderV2 = { ...cancellableOrder, id: 201, creditTotal: 4 };
-    const orderB: OrderV2 = { ...cancellableOrder, id: 202, creditTotal: 2, pickupAt: futureIso(5) };
-    vi.mocked(getOrdersV2).mockResolvedValue([orderA, orderB]);
-    let resolveCancel: () => void = () => {};
-    vi.mocked(cancelOrderV2).mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveCancel = () => resolve(undefined);
-        }),
-    );
-
-    renderPage();
-
-    const cards = await screen.findAllByTestId('order-card');
-    fireEvent.click(within(cards[0]).getByRole('button', { name: /cancelar pedido/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
-    await waitFor(() => expect(cancelOrderV2).toHaveBeenCalled());
-
-    // Mientras la cancelación de orderA sigue pendiente, se pide cancelar
-    // orderB (debajo de la hoja) — esto pisa `cancelTarget` en el estado.
-    // Radix marca el fondo `aria-hidden` mientras la hoja está abierta, así
-    // que se ubica el botón por texto (no por rol) para simular el cambio
-    // de estado sin depender de que sea alcanzable por el usuario.
-    fireEvent.click(within(cards[1]).getByText(/cancelar pedido/i));
-
-    resolveCancel();
-
-    await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/4 almuerzos volvieron a tu saldo/i)),
-    );
-  });
-
-  // F10: un error de cancelación se muestra en la propia hoja y el pedido
-  // sigue como estaba (nunca se lo saca de la lista de forma optimista).
-  it('shows the error and keeps the order when cancelling fails', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([cancellableOrder]);
-    vi.mocked(cancelOrderV2).mockRejectedValueOnce(new Error('network error'));
-
-    renderPage();
-
-    fireEvent.click(await screen.findByRole('button', { name: /cancelar pedido/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/no pudimos cancelar/i);
-    expect(screen.getAllByTestId('order-card')).toHaveLength(1);
-    expect(toast.success).not.toHaveBeenCalled();
-  });
-
-  it('shows a cancelled order as cancelled, without a cancel action', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancelledOrder]);
-
-    renderPage();
-
-    // F17: cancelados quedan ocultos por defecto, incluso si son futuros.
-    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
-    expect(await screen.findByText('Cancelado')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
-  });
-
+describe('MyOrdersPage — empty and error states', () => {
   it('shows an empty state pointing to ordering when there are no orders', async () => {
     vi.mocked(getOrdersV2).mockResolvedValueOnce([]);
 
     renderPage();
 
     expect(await screen.findByText(/todavía no hiciste ningún pedido/i)).toBeInTheDocument();
-    const link = screen.getByRole('link', { name: /hacer mi primer pedido/i });
-    expect(link).toHaveAttribute('href', '/orders/today');
-  });
-
-  // F10: agrupación "Próximos" (retiro >= ahora, ascendente) / "Anteriores"
-  // (retiro < ahora, descendente), cada una con su contador.
-  it('splits orders into "Próximos" and "Anteriores" with a count for each', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder, pastOrder]);
-
-    renderPage();
-
-    // F17: "Anteriores" queda oculta por defecto (pastOrder es ENTREGADO,
-    // fuera de la vista por defecto), hay que revelarla primero.
-    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
-
-    const proximosHeader = (await screen.findByText('Próximos')).closest('header');
-    const anterioresHeader = screen.getByText('Anteriores').closest('header');
-    expect(proximosHeader).not.toBeNull();
-    expect(anterioresHeader).not.toBeNull();
-    expect(within(proximosHeader as HTMLElement).getByText('1')).toBeInTheDocument();
-    expect(within(anterioresHeader as HTMLElement).getByText('1')).toBeInTheDocument();
-  });
-
-  // F10, decisión del usuario (2026-09-26): PENDIENTE se muestra como
-  // "Programado" y ENTREGADO como "Retirado" (aunque v2 no lo produce hoy).
-  it('maps PENDIENTE to "Programado" and ENTREGADO to "Retirado"', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder, pastOrder]);
-
-    renderPage();
-
-    expect(await screen.findByText('Programado')).toBeInTheDocument();
-    // F17: ENTREGADO (pasado) queda oculto por defecto, hay que revelarlo.
-    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
-    expect(await screen.findByText('Retirado')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /hacer mi primer pedido/i })).toHaveAttribute('href', '/orders/today');
   });
 
   it('shows the footer note about the last 30 orders when there is at least one order', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([cancellableOrder]);
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([friday]);
 
     renderPage();
 
@@ -348,79 +183,369 @@ describe('MyOrdersPage', () => {
   });
 });
 
-// F18 (backend B7): "Pago pendiente" — pedido esperando la confirmación de
-// Mercado Pago, cancelable con la misma ventana que uno PENDIENTE, pero no
-// modificable (ver `OrderPlacementService.assertModifiable`).
-describe('MyOrdersPage — PENDIENTE_PAGO ("Pago pendiente")', () => {
-  const pendingPaymentOrder: OrderV2 = {
-    ...cancellableOrder,
-    id: 400,
-    pickupAt: '2026-09-26T13:00:00-03:00',
-    estado: 'PENDIENTE_PAGO',
-    cancellable: true,
-    modifiable: true,
-    pickupTimeChangeable: true,
-    paidWithMercadoPago: false,
-    creditsFromBalance: 0,
-  };
-
-  // Reloj fijo el mismo día del pedido (antes del retiro) para que
-  // `isDefaultUpcoming` lo muestre en "Próximos" sin depender de la fecha
-  // real de la corrida — los tests que necesitan otra fecha la pisan.
-  beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-09-26T10:00:00-03:00'));
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-    vi.useRealTimers();
-    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
-    vi.mocked(getRestaurantConfig).mockResolvedValue({
-      horaCorte: '10:00',
-      pickupWindowStart: null,
-      pickupWindowEnd: null,
-      pickupLeadMinutes: 20,
-    });
-  });
-
-  it('shows the "Pago pendiente" badge and the Mercado Pago confirmation deadline line', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
-
+describe('MyOrdersPage — by week and day (F29)', () => {
+  it('groups the orders of this week under their day, with "Hoy" on today', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, todayConfirmed]);
     renderPage();
 
-    expect(await screen.findByText('Pago pendiente')).toBeInTheDocument();
-    // pickupAt 13:00 − 20 min de antelación = 12:40.
-    expect(
-      await screen.findByText(/si no se confirma antes de las 12:40, se cancela/i),
-    ).toBeInTheDocument();
+    const today = await screen.findByRole('heading', { name: /jueves 24/i });
+    expect(within(today).getByText('Hoy')).toBeInTheDocument();
+    const todayList = screen.getByRole('list', { name: 'Jueves 24' });
+    expect(within(todayList).getByRole('button', { name: /retiro 12:00 hs/i })).toBeInTheDocument();
+    const fridayList = screen.getByRole('list', { name: 'Viernes 25' });
+    expect(within(fridayList).getByRole('button', { name: /retiro 13:00 hs/i })).toBeInTheDocument();
   });
 
-  it('offers "Cancelar pedido" for a cancellable PENDIENTE_PAGO order, same as PENDIENTE', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
-
+  it('shows the switch with each week dates and order count, and the days of the week that is selected', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, todayConfirmed, monday]);
     renderPage();
 
-    expect(await screen.findByRole('button', { name: /cancelar pedido/i })).toBeInTheDocument();
+    const esta = await screen.findByRole('button', { name: /esta semana/i });
+    const proxima = screen.getByRole('button', { name: /semana próxima/i });
+    expect(esta).toHaveAttribute('aria-pressed', 'true');
+    expect(within(esta).getByText('21–25 sep')).toBeInTheDocument();
+    expect(within(esta).getByText('2')).toBeInTheDocument();
+    expect(within(proxima).getByText('28 sep – 2 oct')).toBeInTheDocument();
+    expect(within(proxima).getByText('1')).toBeInTheDocument();
+    // Solo la semana elegida: los días de la próxima no están.
+    expect(screen.queryByRole('heading', { name: /lunes 28/i })).not.toBeInTheDocument();
+  });
+
+  it('switches to next week on mobile', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, monday, tuesday]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /semana próxima/i }));
+
+    expect(screen.getByRole('button', { name: /semana próxima/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('list', { name: 'Lunes 28' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Martes 29' })).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Viernes 25' })).not.toBeInTheDocument();
+  });
+
+  it('shows the days without orders compact, as "Sin pedidos"', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, monday]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /semana próxima/i }));
+
+    const wednesday = screen.getByRole('heading', { name: /miércoles 30/i }).parentElement as HTMLElement;
+    expect(within(wednesday).getByText('Sin pedidos')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Miércoles 30' })).not.toBeInTheDocument();
+  });
+
+  it('shows the empty state with "Hacer un pedido" for a week without orders', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /semana próxima/i }));
+
+    expect(screen.getByText('No tenés pedidos para la semana próxima')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Hacer un pedido' })).toHaveAttribute('href', '/orders/today');
+  });
+
+  it('takes the open weekdays from the restaurant schedule (a closed Tuesday has no day)', async () => {
+    arrangeConfig(MON_TO_FRI_SCHEDULE.map((d) => (d.dayOfWeek === 2 ? { ...d, open: false } : d)));
+    vi.mocked(getOrdersV2).mockResolvedValue([monday]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /semana próxima/i }));
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: /martes 29/i })).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { name: /lunes 28/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /miércoles 30/i })).toBeInTheDocument();
+  });
+
+  it('leaves out the disabled dates', async () => {
+    vi.mocked(getDisabledDates).mockResolvedValue([{ fecha: '2026-09-30', motivo: 'Feriado' }]);
+    vi.mocked(getOrdersV2).mockResolvedValue([monday]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /semana próxima/i }));
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: /miércoles 30/i })).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { name: /martes 29/i })).toBeInTheDocument();
+  });
+
+  it('groups by the Buenos Aires day: an order at 23:30 belongs to that day even though it is already Saturday in UTC', async () => {
+    // 2026-09-26T02:30Z = viernes 25 a las 23:30 en Buenos Aires.
+    vi.mocked(getOrdersV2).mockResolvedValue([order(300, '2026-09-26T02:30:00Z')]);
+    renderPage();
+
+    const fridayList = await screen.findByRole('list', { name: 'Viernes 25' });
+    expect(within(fridayList).getByRole('button', { name: /retiro 23:30 hs/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /sábado 26/i })).not.toBeInTheDocument();
+  });
+
+  it('folds the past days of this week in one line', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    renderPage();
+
+    expect(await screen.findByText('Lunes 21 a miércoles 23')).toBeInTheDocument();
+  });
+});
+
+describe('MyOrdersPage — default view and "Anteriores" (F17)', () => {
+  it('hides the past and cancelled orders behind "Ver pedidos anteriores"', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, pastConfirmed, pastCancelled]);
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /retiro 13:00 hs/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Anteriores' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retiro 13:10 hs/i })).not.toBeInTheDocument();
+  });
+
+  it('reveals "Anteriores" with the date on each row, and hides it again', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, pastConfirmed, pastCancelled]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
+
+    const past = screen.getByRole('heading', { name: 'Anteriores' }).closest('section') as HTMLElement;
+    expect(within(past).getByText('Martes 22')).toBeInTheDocument();
+    expect(within(past).getByText('Viernes 18')).toBeInTheDocument();
+    expect(within(past).getByText('Cancelado')).toBeInTheDocument();
+    expect(within(past).getAllByRole('button', { name: /retiro/i })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: /ocultar pedidos anteriores/i }));
+    expect(screen.queryByRole('heading', { name: 'Anteriores' })).not.toBeInTheDocument();
+  });
+
+  it('reveals "Anteriores" from the past-days line of this week', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, pastConfirmed]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver 1 pedido' }));
+
+    expect(screen.getByRole('heading', { name: 'Anteriores' })).toBeInTheDocument();
+  });
+
+  it('keeps a cancelled order out of its day and in "Anteriores", read-only', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([order(305, '2026-09-25T13:00:00-03:00', { estado: 'CANCELADO', ...closed })]);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
+    const region = await openRow(/retiro 13:00 hs/i);
+
+    expect(within(region).queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Viernes 25' })).not.toBeInTheDocument();
+  });
+
+  it("shows today's confirmed order and a future confirmed one by default", async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([todayConfirmed, order(306, '2026-09-28T13:00:00-03:00', { estado: 'CONFIRMADO', ...closed })]);
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /retiro 12:00 hs/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /semana próxima/i }));
+    expect(screen.getByRole('button', { name: /retiro 13:00 hs/i })).toBeInTheDocument();
+  });
+
+  it("shows today's order awaiting payment even after its pickup time passed", async () => {
+    vi.setSystemTime(new Date('2026-09-24T20:00:00-03:00'));
+    vi.mocked(getOrdersV2).mockResolvedValue([todayAwaiting]);
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /retiro 13:00 hs.*pago pendiente/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ver pedidos anteriores/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('MyOrdersPage — accordion', () => {
+  it('opens one order at a time across the whole page', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, todayConfirmed]);
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+    expect(within(region).getByText('Comanda Nº 0202')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retiro 12:00 hs/i }));
+
+    expect(screen.getByRole('button', { name: /retiro 12:00 hs/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /retiro 13:00 hs/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByTestId('comanda')).toHaveLength(1);
+  });
+
+  it('closes the open order when its header is toggled again', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    renderPage();
+    await openRow(/retiro 13:00 hs/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /retiro 13:00 hs/i }));
+
+    expect(screen.queryByTestId('comanda')).not.toBeInTheDocument();
+  });
+
+  it('moves between headers with the arrow keys', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, todayConfirmed]);
+    renderPage();
+
+    const first = await screen.findByRole('button', { name: /retiro 12:00 hs/i });
+    first.focus();
+    fireEvent.keyDown(first, { key: 'ArrowDown' });
+
+    expect(screen.getByRole('button', { name: /retiro 13:00 hs/i })).toHaveFocus();
+  });
+
+  it('shows the header per state: badge, summary, payment line and note', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([
+      { ...todayAwaiting, creditsFromBalance: 1 },
+      todayConfirmed,
+      { ...friday, pickupTimeChangeable: false },
+    ]);
+    renderPage();
+
+    const awaiting = await rowHeader(/retiro 13:00 hs, pago pendiente/i);
+    expect(within(awaiting).getByText('2 platos · 2 almuerzos')).toBeInTheDocument();
+    expect(within(awaiting).getByText('1 de tu saldo · 1 a pagar, antes de las 12:40')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /retiro 12:00 hs/i })).getByText('Ya lo estamos preparando')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /viernes|retiro 13:00 hs, programado/i })).getByText('Ya no se puede cambiar')).toBeInTheDocument();
+  });
+
+  it('opens the comanda with the name they call, the address and the balance', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+
+    expect(within(region).getByText('Sofi')).toBeInTheDocument();
+    expect(within(region).getByText('11 de Septiembre 4502')).toBeInTheDocument();
+    expect(within(region).getByText('Milanesa')).toBeInTheDocument();
+    expect(await within(region).findByText('Te quedan 8 almuerzos')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/créditos?\b/i);
+  });
+
+  it('falls back to the nickname when the backend does not send displayName', async () => {
+    const user = useAuthStore.getState().user!;
+    useAuthStore.setState({ user: { ...user, displayName: undefined as unknown as string } });
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+
+    expect(within(region).getByText('Sofi')).toBeInTheDocument();
+  });
+
+  it('Programado: "Agregar platos" goes to the order page with the day and the pickup time', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+
+    expect(within(region).getByRole('link', { name: /agregar platos/i })).toHaveAttribute(
+      'href',
+      `/orders/today?fecha=2026-09-25&hora=${encodeURIComponent(friday.pickupAt)}`,
+    );
+  });
+
+  it('offers the actions only when the backend enables them', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, todayConfirmed]);
+    renderPage();
+
+    const scheduled = await openRow(/retiro 13:00 hs/i);
+    expect(within(scheduled).getByRole('button', { name: /^cambiar horario$/i })).toBeInTheDocument();
+    expect(within(scheduled).getByRole('button', { name: /^cancelar pedido$/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /retiro 12:00 hs/i }));
+    const confirmed = await screen.findByRole('region', { name: /retiro 12:00 hs/i });
+    expect(within(confirmed).queryByRole('button', { name: /cancelar pedido|cambiar horario|pagar ahora/i })).not.toBeInTheDocument();
+    expect(within(confirmed).queryByRole('link', { name: /agregar platos/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('MyOrdersPage — cancel', () => {
+  it('cancels through the confirmation sheet: refreshes the list and wallet, closes the row and tells at the top', async () => {
+    vi.mocked(getOrdersV2)
+      .mockResolvedValueOnce([friday])
+      .mockResolvedValue([{ ...friday, estado: 'CANCELADO', cancellable: false, modifiable: false, pickupTimeChangeable: false }]);
+    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+    const { queryClient } = renderPage();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const region = await openRow(/retiro 13:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: /^cancelar pedido$/i }));
+    expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
+    expect(await screen.findByText(/pasás de 8 a 10 almuerzos disponibles/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
+
+    await waitFor(() => expect(vi.mocked(cancelOrderV2).mock.calls[0]?.[0]).toBe(202));
+    const notice = await screen.findByRole('status');
+    expect(notice).toHaveTextContent('Pedido cancelado');
+    expect(notice).toHaveTextContent('2 almuerzos volvieron a tu saldo');
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+    // La fila se cierra y el pedido pasó a "Anteriores".
+    await waitFor(() => expect(screen.queryByTestId('comanda')).not.toBeInTheDocument());
+    expect(screen.queryByRole('list', { name: 'Viernes 25' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
+    expect(await screen.findByText('Cancelado')).toBeInTheDocument();
+  });
+
+  it('shows the real count of the cancelled order even if another cancel is requested while it is pending', async () => {
+    const other = order(207, '2026-09-25T14:00:00-03:00', { creditTotal: 1, items: [baseOrder.items[0]] });
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, other]);
+    let resolveCancel: () => void = () => {};
+    vi.mocked(cancelOrderV2).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCancel = () => resolve(undefined);
+        }),
+    );
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: /^cancelar pedido$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
+    await waitFor(() => expect(cancelOrderV2).toHaveBeenCalled());
+
+    resolveCancel();
+
+    expect(await screen.findByRole('status')).toHaveTextContent('2 almuerzos volvieron a tu saldo');
+  });
+
+  it('shows the error and keeps the order and the row when cancelling fails', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    vi.mocked(cancelOrderV2).mockRejectedValueOnce(new Error('network error'));
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: /^cancelar pedido$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cancelar pedido/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no pudimos cancelar/i);
+    expect(screen.getByTestId('comanda')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+describe('MyOrdersPage — Pago pendiente (F18)', () => {
+  it('shows the Mercado Pago comanda without change actions, and its cancel sheet says "Tu saldo no cambia"', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([todayAwaiting]);
+    renderPage();
+
+    const region = await openRow(/retiro 13:00 hs/i);
+    expect(within(region).getByText('A pagar con Mercado Pago')).toBeInTheDocument();
+    expect(within(region).queryByRole('button', { name: /cambiar horario/i })).not.toBeInTheDocument();
+
+    fireEvent.click(within(region).getByRole('button', { name: /^cancelar pedido$/i }));
+    expect(await screen.findByText('Tu saldo no cambia')).toBeInTheDocument();
   });
 
   it('resumes the payment via "Pagar ahora" and redirects to Mercado Pago', async () => {
-    // Autocontenido: el stub se restaura en el `finally` de este mismo test.
     const originalLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'location')!;
     Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
     try {
-      vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
+      vi.mocked(getOrdersV2).mockResolvedValue([todayAwaiting]);
       vi.mocked(resumeDirectCheckoutV2).mockResolvedValueOnce({
-        orderId: 400,
+        orderId: 205,
         purchaseId: 'p-1',
         initPoint: 'https://mp.example/checkout/p-1',
       });
-
       renderPage();
 
-      fireEvent.click(await screen.findByRole('button', { name: /pagar ahora/i }));
+      const region = await openRow(/retiro 13:00 hs/i);
+      fireEvent.click(within(region).getByRole('button', { name: /pagar ahora/i }));
 
-      await waitFor(() => expect(resumeDirectCheckoutV2).toHaveBeenCalledWith(400));
+      await waitFor(() => expect(resumeDirectCheckoutV2).toHaveBeenCalledWith(205));
       await waitFor(() => expect(window.location.href).toBe('https://mp.example/checkout/p-1'));
     } finally {
       Object.defineProperty(window, 'location', originalLocationDescriptor);
@@ -428,519 +553,134 @@ describe('MyOrdersPage — PENDIENTE_PAGO ("Pago pendiente")', () => {
   });
 
   it('shows "Este pago ya no se puede retomar." and refetches orders on a 409', async () => {
-    vi.mocked(getOrdersV2)
-      .mockResolvedValueOnce([pendingPaymentOrder])
-      .mockResolvedValueOnce([{ ...pendingPaymentOrder, estado: 'CANCELADO', cancellable: false }]);
+    vi.mocked(getOrdersV2).mockResolvedValue([todayAwaiting]);
     vi.mocked(resumeDirectCheckoutV2).mockRejectedValueOnce(new DirectCheckoutNotResumableError());
-
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: /pagar ahora/i }));
+    const region = await openRow(/retiro 13:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: /pagar ahora/i }));
 
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('Este pago ya no se puede retomar.'),
-    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Este pago ya no se puede retomar.'));
     await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
-  });
-
-  it('shows a future PENDIENTE_PAGO order by default, in "Próximos"', async () => {
-    vi.setSystemTime(new Date('2026-09-25T10:00:00-03:00'));
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
-
-    renderPage();
-
-    const proximosHeader = (await screen.findByText('Próximos')).closest('header');
-    expect(proximosHeader).not.toBeNull();
-    expect(screen.getByText('Pago pendiente')).toBeInTheDocument();
-  });
-
-  // F18: cuenta como "próximo" hoy o en el futuro, no solo si el horario de
-  // retiro todavía no pasó — el corte de pago es independiente del retiro.
-  it("shows today's PENDIENTE_PAGO order by default even if its pickup time already passed", async () => {
-    vi.setSystemTime(new Date('2026-09-26T20:00:00-03:00'));
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([pendingPaymentOrder]);
-
-    renderPage();
-
-    expect(await screen.findByText('Pago pendiente')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /ver pedidos anteriores/i })).not.toBeInTheDocument();
-  });
-});
-
-// F17: por defecto "Mis pedidos" solo muestra próximos programados
-// (PENDIENTE con pickupAt >= ahora) y confirmados de HOY (CONFIRMADO cuyo
-// día de retiro es hoy en la zona del restaurante) — todo lo demás
-// (cancelados, pasados, confirmados de otro día) queda oculto detrás de
-// "Ver pedidos anteriores". Reloj fijo para que la agrupación no dependa de
-// la hora real de la corrida.
-describe('MyOrdersPage — F17 default view (only upcoming + today)', () => {
-  const NOW = new Date('2026-09-27T10:00:00-03:00');
-
-  const futurePendiente: OrderV2 = {
-    ...cancellableOrder,
-    id: 301,
-    pickupAt: '2026-09-28T13:00:00-03:00',
-    estado: 'PENDIENTE',
-    cancellable: true,
-    modifiable: true,
-    pickupTimeChangeable: true,
-    paidWithMercadoPago: false,
-    creditsFromBalance: 0,
-    notas: 'Pedido futuro programado',
-  };
-  const todayConfirmado: OrderV2 = {
-    ...cancellableOrder,
-    id: 302,
-    pickupAt: '2026-09-27T08:00:00-03:00',
-    estado: 'CONFIRMADO',
-    cancellable: false,
-    modifiable: false,
-    pickupTimeChangeable: false,
-    paidWithMercadoPago: false,
-    creditsFromBalance: 0,
-    notas: 'Pedido confirmado de hoy',
-  };
-  const pastConfirmado: OrderV2 = {
-    ...cancellableOrder,
-    id: 303,
-    pickupAt: '2026-09-26T13:00:00-03:00',
-    estado: 'CONFIRMADO',
-    cancellable: false,
-    modifiable: false,
-    pickupTimeChangeable: false,
-    paidWithMercadoPago: false,
-    creditsFromBalance: 0,
-    notas: 'Pedido confirmado pasado',
-  };
-  const pastPendiente: OrderV2 = {
-    ...cancellableOrder,
-    id: 304,
-    pickupAt: '2026-09-26T13:00:00-03:00',
-    estado: 'PENDIENTE',
-    cancellable: false,
-    modifiable: false,
-    pickupTimeChangeable: false,
-    paidWithMercadoPago: false,
-    creditsFromBalance: 0,
-    notas: 'Pedido pendiente pasado',
-  };
-  const futureCancelado: OrderV2 = {
-    ...cancellableOrder,
-    id: 305,
-    pickupAt: '2026-09-28T13:00:00-03:00',
-    estado: 'CANCELADO',
-    cancellable: false,
-    modifiable: false,
-    pickupTimeChangeable: false,
-    paidWithMercadoPago: false,
-    creditsFromBalance: 0,
-    notas: 'Pedido cancelado futuro',
-  };
-  // Fix de revisión: un CONFIRMADO con retiro en un día FUTURO (no hoy)
-  // quedaba oculto por defecto porque `isDefaultUpcoming` solo aceptaba
-  // CONFIRMADO de hoy. Debe mostrarse igual que un PENDIENTE futuro.
-  const futureConfirmado: OrderV2 = {
-    ...cancellableOrder,
-    id: 306,
-    pickupAt: '2026-09-28T13:00:00-03:00',
-    estado: 'CONFIRMADO',
-    cancellable: false,
-    modifiable: false,
-    pickupTimeChangeable: false,
-    paidWithMercadoPago: false,
-    creditsFromBalance: 0,
-    notas: 'Pedido confirmado futuro',
-  };
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('shows a future CONFIRMADO (not just today\'s) by default', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(NOW);
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([futureConfirmado, pastConfirmado]);
-
-    renderPage();
-
-    expect(await screen.findByText('Pedido confirmado futuro')).toBeInTheDocument();
-    expect(screen.queryByText('Pedido confirmado pasado')).not.toBeInTheDocument();
-  });
-
-  it('shows only the future PENDIENTE and today\'s CONFIRMADO by default, hiding the rest', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(NOW);
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([
-      futurePendiente,
-      todayConfirmado,
-      pastConfirmado,
-      pastPendiente,
-      futureCancelado,
-    ]);
-
-    renderPage();
-
-    expect(await screen.findByText('Pedido futuro programado')).toBeInTheDocument();
-    expect(screen.getByText('Pedido confirmado de hoy')).toBeInTheDocument();
-    expect(screen.queryByText('Pedido confirmado pasado')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pedido pendiente pasado')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pedido cancelado futuro')).not.toBeInTheDocument();
-  });
-
-  it('reveals the hidden orders when "Ver pedidos anteriores" is clicked', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(NOW);
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([
-      futurePendiente,
-      todayConfirmado,
-      pastConfirmado,
-      pastPendiente,
-      futureCancelado,
-    ]);
-
-    renderPage();
-    await screen.findByText('Pedido futuro programado');
-
-    fireEvent.click(await screen.findByRole('button', { name: /ver pedidos anteriores/i }));
-
-    expect(await screen.findByText('Pedido confirmado pasado')).toBeInTheDocument();
-    expect(screen.getByText('Pedido pendiente pasado')).toBeInTheDocument();
-    expect(screen.getByText('Pedido cancelado futuro')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /ocultar pedidos anteriores/i }),
-    ).toBeInTheDocument();
-  });
-
-  it('shows the "no upcoming orders" empty state, with the toggle still available, when only past orders exist', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(NOW);
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([pastConfirmado, futureCancelado]);
-
-    renderPage();
-
-    expect(await screen.findByText('No tenés pedidos próximos')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /hacer.*pedido/i })).toBeInTheDocument();
-    expect(
-      await screen.findByRole('button', { name: /ver pedidos anteriores/i }),
-    ).toBeInTheDocument();
   });
 });
 
 describe('MyOrdersPage — "Cambiar horario" (F19)', () => {
-  const NOW = new Date('2026-09-26T10:00:00-03:00');
-  const CURRENT = new Date(NOW.getTime() + 3 * HOUR_MS).toISOString();
-  const OTHER = new Date(NOW.getTime() + 3 * HOUR_MS + 30 * 60 * 1000).toISOString();
-  const scheduled: OrderV2 = { ...cancellableOrder, id: 300, pickupAt: CURRENT, pickupTimeChangeable: true };
+  const CURRENT = friday.pickupAt;
+  const OTHER = new Date('2026-09-25T13:10:00-03:00').toISOString();
 
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(NOW);
-    vi.mocked(getPickupSlots).mockResolvedValue([CURRENT, OTHER]);
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-    vi.useRealTimers();
-    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
+    vi.mocked(getPickupSlots).mockResolvedValue([new Date(CURRENT).toISOString(), new Date(OTHER).toISOString()]);
   });
 
   async function pickOtherAndContinue() {
-    fireEvent.click(await screen.findByRole('button', { name: /cambiar el horario de retiro del pedido/i }));
-    const hour = await screen.findByLabelText('Hora de retiro');
-    const target = new Date(OTHER);
-    fireEvent.change(hour, { target: { value: String(target.getHours()) } });
-    fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: String(target.getMinutes()) } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
-  }
-
-  it('offers "Cambiar horario" only on orders whose pickupTimeChangeable is true', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValueOnce([
-      scheduled,
-      { ...nonCancellableOrder, id: 301, pickupAt: CURRENT, pickupTimeChangeable: false },
-      { ...cancellableOrder, id: 302, pickupAt: CURRENT, estado: 'PENDIENTE_PAGO', pickupTimeChangeable: false },
-    ]);
-
-    renderPage();
-
-    const cards = await screen.findAllByTestId('order-card');
-    expect(cards).toHaveLength(3);
-    expect(within(cards[0]).getByRole('button', { name: /cambiar el horario de retiro del pedido/i })).toBeInTheDocument();
-    expect(within(cards[1]).queryByRole('button', { name: /cambiar el horario de retiro del pedido/i })).not.toBeInTheDocument();
-    expect(within(cards[2]).queryByRole('button', { name: /cambiar el horario de retiro del pedido/i })).not.toBeInTheDocument();
-  });
-
-  it('changes the pickup time in two steps, shows the toast and refreshes the orders', async () => {
-    vi.mocked(getOrdersV2)
-      .mockResolvedValueOnce([scheduled])
-      .mockResolvedValueOnce([{ ...scheduled, pickupAt: OTHER }]);
-    vi.mocked(changeOrderPickupTimeV2).mockResolvedValueOnce({ ...scheduled, pickupAt: OTHER });
-
-    renderPage();
-    await pickOtherAndContinue();
-
-    fireEvent.click(await screen.findByRole('button', { name: /sí, cambiar horario/i }));
-
-    await waitFor(() => expect(changeOrderPickupTimeV2).toHaveBeenCalledWith(300, OTHER));
-    await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
-    expect(toast.success).toHaveBeenCalledWith('Horario cambiado', expect.objectContaining({ description: expect.stringContaining(formatOrderTimeLabel(OTHER)) }));
-    await waitFor(() => expect(screen.queryByText('Cambiar horario de retiro')).not.toBeInTheDocument());
-    expect(await screen.findByText(new RegExp(`Retiro ${formatOrderTimeLabel(OTHER)} hs`))).toBeInTheDocument();
-  });
-
-  it('shows the backend message and keeps the sheet open when the change is rejected', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
-    vi.mocked(changeOrderPickupTimeV2).mockRejectedValueOnce(
-      new PickupTimeChangeError('El horario de retiro ya no se puede cambiar.'),
-    );
-
-    renderPage();
-    await pickOtherAndContinue();
-    fireEvent.click(await screen.findByRole('button', { name: /sí, cambiar horario/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('El horario de retiro ya no se puede cambiar.');
-    expect(toast.success).not.toHaveBeenCalled();
-  });
-});
-
-describe('MyOrdersPage — comanda del pedido (F20)', () => {
-  const NOW = new Date('2026-09-26T10:00:00-03:00');
-  const CURRENT = new Date(NOW.getTime() + 3 * HOUR_MS).toISOString();
-  const OTHER = new Date(NOW.getTime() + 3 * HOUR_MS + 30 * 60 * 1000).toISOString();
-  const scheduled: OrderV2 = { ...cancellableOrder, id: 300, fecha: '2026-09-26', pickupAt: CURRENT };
-  const awaiting: OrderV2 = {
-    ...scheduled,
-    id: 301,
-    estado: 'PENDIENTE_PAGO',
-    paidWithMercadoPago: true,
-    creditsFromBalance: 0,
-    modifiable: false,
-    pickupTimeChangeable: false,
-  };
-
-  beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(NOW);
-    vi.mocked(getPickupSlots).mockResolvedValue([CURRENT, OTHER]);
-    useAuthStore.setState({
-      accessToken: 'token',
-      user: {
-        id: 7,
-        email: 'sofi@example.com',
-        firstName: 'Sofía',
-        lastName: null,
-        nickname: 'Sofi',
-        displayName: 'Sofi',
-        role: 'EMPLOYEE',
-        companyId: null,
-        companyName: null,
-        categoryId: null,
-        emailVerified: true,
-        profileComplete: true,
-      },
-      bootstrapping: false,
-    });
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-    vi.useRealTimers();
-    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
-    vi.mocked(getWallet).mockResolvedValue({ available: 8, committed: 4, expiresAt: null });
-  });
-
-  async function openComanda(name = /ver la comanda del pedido/i) {
-    fireEvent.click(await screen.findByRole('button', { name }));
-    return screen.findByRole('dialog', { name: /pedido programado|falta confirmar el pago|ya lo estamos preparando|pedido cancelado/i });
-  }
-
-  it('opens a full-screen comanda with the name they call, and closes it with "‹ Mis pedidos"', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
-    renderPage();
-
-    const dialog = await openComanda();
-
-    expect(within(dialog).getByText('Comanda Nº 0300')).toBeInTheDocument();
-    expect(within(dialog).getByText('Sofi')).toBeInTheDocument();
-    expect(within(dialog).getByText('Programado')).toBeInTheDocument();
-    expect(within(dialog).getByText('Milanesa')).toBeInTheDocument();
-    expect(await within(dialog).findByText('Te quedan 8 almuerzos')).toBeInTheDocument();
-
-    fireEvent.click(within(dialog).getByRole('button', { name: /mis pedidos/i }));
-
-    expect(screen.queryByRole('dialog', { name: /pedido programado/i })).not.toBeInTheDocument();
-  });
-
-  it('falls back to the nickname when the backend does not send displayName', async () => {
-    const user = useAuthStore.getState().user!;
-    useAuthStore.setState({ user: { ...user, displayName: undefined as unknown as string } });
-    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
-    renderPage();
-
-    const dialog = await openComanda();
-
-    expect(within(dialog).getByText('Sofi')).toBeInTheDocument();
-  });
-
-  it('does not open the comanda from the buttons on the card', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
-    renderPage();
-
-    const card = await screen.findByTestId('order-card');
-    fireEvent.click(within(card).getByRole('button', { name: /^cancelar pedido$/i }));
-
-    expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
-    expect(screen.queryByText('Comanda Nº 0300')).not.toBeInTheDocument();
-  });
-
-  it('Programado: "Agregar platos" goes to the order page with the day and the pickup time', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([scheduled]);
-    renderPage();
-
-    const dialog = await openComanda();
-
-    expect(within(dialog).getByRole('link', { name: /agregar platos/i })).toHaveAttribute(
-      'href',
-      `/orders/today?fecha=2026-09-26&hora=${encodeURIComponent(CURRENT)}`,
-    );
-  });
-
-  it('Programado: changing the time from the comanda updates it in place', async () => {
-    vi.mocked(getOrdersV2)
-      .mockResolvedValueOnce([scheduled])
-      .mockResolvedValue([{ ...scheduled, pickupAt: OTHER }]);
-    vi.mocked(changeOrderPickupTimeV2).mockResolvedValueOnce({ ...scheduled, pickupAt: OTHER });
-    renderPage();
-
-    const dialog = await openComanda();
-    fireEvent.click(within(dialog).getByRole('button', { name: /^cambiar horario$/i }));
+    const region = await openRow(/retiro 13:00 hs/i);
+    fireEvent.click(within(region).getByRole('button', { name: /^cambiar horario$/i }));
     const target = new Date(OTHER);
     fireEvent.change(await screen.findByLabelText('Hora de retiro'), { target: { value: String(target.getHours()) } });
     fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: String(target.getMinutes()) } });
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+  }
+
+  it('changes the pickup time in two steps, keeps the row open with an in-row message and refreshes the orders', async () => {
+    const changed = { ...friday, pickupAt: OTHER };
+    vi.mocked(getOrdersV2).mockResolvedValueOnce([friday]).mockResolvedValue([changed]);
+    vi.mocked(changeOrderPickupTimeV2).mockResolvedValueOnce(changed);
+    renderPage();
+
+    await pickOtherAndContinue();
     fireEvent.click(await screen.findByRole('button', { name: /sí, cambiar horario/i }));
 
-    await waitFor(() => expect(changeOrderPickupTimeV2).toHaveBeenCalledWith(300, OTHER));
-    const updated = await screen.findByRole('dialog', { name: /pedido programado/i });
-    expect(await within(updated).findByText(new RegExp(`· ${formatOrderTimeLabel(OTHER)} hs`))).toBeInTheDocument();
+    await waitFor(() => expect(changeOrderPickupTimeV2).toHaveBeenCalledWith(202, OTHER));
+    await waitFor(() => expect(getOrdersV2).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText('Cambiar horario de retiro')).not.toBeInTheDocument());
+    const region = await screen.findByRole('region', { name: new RegExp(`retiro ${formatOrderTimeLabel(OTHER)} hs`, 'i') });
+    expect(within(region).getByRole('status')).toHaveTextContent('Horario cambiado');
+    expect(within(region).getByRole('status')).toHaveTextContent(`a las ${formatOrderTimeLabel(OTHER)} hs`);
+    expect(within(region).getByText(new RegExp(`· ${formatOrderTimeLabel(OTHER)} hs`))).toBeInTheDocument();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('Programado: cancelling from the comanda leaves it open, cancelled and read-only', async () => {
-    vi.mocked(getOrdersV2)
-      .mockResolvedValueOnce([scheduled])
-      .mockResolvedValue([{ ...scheduled, estado: 'CANCELADO', cancellable: false, modifiable: false, pickupTimeChangeable: false }]);
-    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+  it('shows the backend message and keeps the sheet open when the change is rejected', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    vi.mocked(changeOrderPickupTimeV2).mockRejectedValueOnce(
+      new PickupTimeChangeError('El horario de retiro ya no se puede cambiar.'),
+    );
     renderPage();
 
-    const dialog = await openComanda();
-    fireEvent.click(within(dialog).getByRole('button', { name: /^cancelar pedido$/i }));
-    expect(await screen.findByText('Tus 4 almuerzos vuelven a tu saldo')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /sí, cancelar pedido/i }));
+    await pickOtherAndContinue();
+    fireEvent.click(await screen.findByRole('button', { name: /sí, cambiar horario/i }));
 
-    await waitFor(() => expect(cancelOrderV2).toHaveBeenCalledWith(300));
-    const cancelled = await screen.findByRole('dialog', { name: 'Pedido cancelado' });
-    expect(within(cancelled).getByText('Cancelado')).toBeInTheDocument();
-    expect(within(cancelled).queryByRole('button', { name: /cancelar pedido|cambiar horario/i })).not.toBeInTheDocument();
-  });
-
-  it('Pago pendiente: shows the Mercado Pago comanda without change actions and pays now from it', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([awaiting]);
-    vi.mocked(resumeDirectCheckoutV2).mockResolvedValue({ orderId: 301, purchaseId: 'p', initPoint: 'https://mp.test/pay' });
-    renderPage();
-
-    const dialog = await openComanda();
-    expect(within(dialog).getByText('A pagar con Mercado Pago')).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: /cambiar horario/i })).not.toBeInTheDocument();
-
-    fireEvent.click(within(dialog).getByRole('button', { name: /pagar ahora/i }));
-    await waitFor(() => expect(resumeDirectCheckoutV2).toHaveBeenCalledWith(301));
-  });
-
-  it('Pago pendiente: the cancel sheet opened from the comanda says "Tu saldo no cambia"', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([awaiting]);
-    renderPage();
-
-    const dialog = await openComanda();
-    fireEvent.click(within(dialog).getByRole('button', { name: /^cancelar pedido$/i }));
-
-    expect(await screen.findByText('Tu saldo no cambia')).toBeInTheDocument();
-    expect(screen.queryByText(/vuelve/i)).not.toBeInTheDocument();
-  });
-
-  it('Confirmado: read-only, no actions', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([
-      { ...scheduled, estado: 'CONFIRMADO', cancellable: false, modifiable: false, pickupTimeChangeable: false },
-    ]);
-    renderPage();
-
-    const dialog = await openComanda();
-
-    expect(within(dialog).getByText('Confirmado')).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: /cancelar pedido|cambiar horario|pagar ahora/i })).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole('link', { name: /agregar platos/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('El horario de retiro ya no se puede cambiar.');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
 
-describe('MyOrdersPage — deep link ?pedido= (D6)', () => {
-  const linked: OrderV2 = { ...cancellableOrder, id: 300 };
-  const other: OrderV2 = { ...cancellableOrder, id: 301 };
+describe('MyOrdersPage — deep link ?pedido= (D6, F27.1)', () => {
+  const scrollIntoView = vi.fn();
 
-  afterEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = scrollIntoView;
+  });
 
-  function renderAt(entry: string) {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
-    });
-    return render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[entry]}>
-          <MyOrdersPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-  }
+  afterEach(() => {
+    scrollIntoView.mockClear();
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
 
-  it('opens the comanda of the order in the query string once the orders load', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([other, linked]);
-    renderAt('/orders/mine?pedido=300');
+  it('opens the linked order once the orders load, and scrolls to it', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([tuesday, friday]);
+    renderAt('/orders/mine?pedido=202');
 
-    const dialog = await screen.findByRole('dialog', { name: /pedido programado/i });
-    expect(within(dialog).getByText('Comanda Nº 0300')).toBeInTheDocument();
+    const region = await screen.findByRole('region', { name: /retiro 13:00 hs/i });
+    expect(within(region).getByText('Comanda Nº 0202')).toBeInTheDocument();
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+  });
+
+  it('switches to the week of the linked order', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, tuesday]);
+    renderAt('/orders/mine?pedido=203');
+
+    const region = await screen.findByRole('region', { name: /retiro 12:30 hs/i });
+    expect(within(region).getByText('Comanda Nº 0203')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /semana próxima/i })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('opens "Anteriores" for a linked past order', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday, pastCancelled]);
+    renderAt('/orders/mine?pedido=195');
+
+    const region = await screen.findByRole('region', { name: /retiro 12:00 hs/i });
+    expect(within(region).getByText('Comanda Nº 0195')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Anteriores' })).toBeInTheDocument();
   });
 
   it('closes normally and does not reopen by itself', async () => {
-    vi.mocked(getOrdersV2).mockResolvedValue([linked]);
-    renderAt('/orders/mine?pedido=300');
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
+    renderAt('/orders/mine?pedido=202');
 
-    const dialog = await screen.findByRole('dialog', { name: /pedido programado/i });
-    fireEvent.click(within(dialog).getByRole('button', { name: /mis pedidos/i }));
+    const header = await screen.findByRole('button', { name: /retiro 13:00 hs/i });
+    await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'true'));
+    fireEvent.click(header);
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: /pedido programado/i })).not.toBeInTheDocument());
+    expect(header).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('waits for the refetch when the cache is stale and still opens the linked order (F27.1)', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
-    });
-    // Datos viejos en caché, sin el pedido enlazado: el refetch lo trae.
-    queryClient.setQueryData(['ordersV2'], [other]);
-    vi.mocked(getOrdersV2).mockResolvedValue([other, linked]);
-    render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/orders/mine?pedido=300']}>
-          <MyOrdersPage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } });
+    queryClient.setQueryData(['ordersV2'], [tuesday]);
+    vi.mocked(getOrdersV2).mockResolvedValue([tuesday, friday]);
+    renderAt('/orders/mine?pedido=202', queryClient);
 
-    const dialog = await screen.findByRole('dialog', { name: /pedido programado/i });
-    expect(within(dialog).getByText('Comanda Nº 0300')).toBeInTheDocument();
+    const region = await screen.findByRole('region', { name: /retiro 13:00 hs/i });
+    expect(within(region).getByText('Comanda Nº 0202')).toBeInTheDocument();
   });
 
-  it.each(['999', 'abc', ''])('ignores an unknown pedido (%j) and shows the list', async (value) => {
-    vi.mocked(getOrdersV2).mockResolvedValue([linked]);
+  it.each(['999', 'abc', ''])('ignores an unknown pedido (%j) and shows the list closed', async (value) => {
+    vi.mocked(getOrdersV2).mockResolvedValue([friday]);
     renderAt(`/orders/mine?pedido=${value}`);
 
-    expect(await screen.findByRole('button', { name: /ver la comanda del pedido/i })).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /retiro 13:00 hs/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('comanda')).not.toBeInTheDocument();
   });
 });

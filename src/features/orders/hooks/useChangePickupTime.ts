@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { changeOrderPickupTimeV2, PickupTimeChangeError } from '../services/ordersApi';
 import { formatOrderDayLabel, formatOrderTimeLabel } from '../components/orderDateLabels';
 import type { OrderV2 } from '../services/ordersApi';
+import type { OrderNotice } from '../orderNotice';
 
 /**
  * Cambiar el horario de retiro de un pedido programado (F19) — abre la hoja
@@ -11,8 +12,9 @@ import type { OrderV2 } from '../services/ordersApi';
  * pedidos. Mismo patrón que `useCancelOrder`: la hoja se mantiene abierta
  * mientras la mutación está en curso y, si el backend rechaza el cambio,
  * muestra su mensaje. No toca la billetera: los almuerzos no cambian.
+ * Con `onNotice` (F29) el aviso de éxito lo muestra la página en lugar del toast.
  */
-export function useChangePickupTime() {
+export function useChangePickupTime({ onNotice }: { onNotice?: (notice: OrderNotice, order: OrderV2) => void } = {}) {
   const queryClient = useQueryClient();
   const [changeTarget, setChangeTarget] = useState<OrderV2 | null>(null);
   const [changeError, setChangeError] = useState<string | null>(null);
@@ -24,9 +26,10 @@ export function useChangePickupTime() {
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       const day = formatOrderDayLabel(updated.pickupAt, new Date()).toLowerCase();
       const when = day.startsWith('hoy') ? 'hoy' : `el ${day}`;
-      toast.success('Horario cambiado', {
-        description: `Retirás tu pedido ${when} a las ${formatOrderTimeLabel(updated.pickupAt)} hs.`,
-      });
+      const text = `Retirás tu pedido ${when} a las ${formatOrderTimeLabel(updated.pickupAt)} hs.`;
+      // F29: "Mis pedidos" muestra el aviso dentro de la fila del pedido, no un toast.
+      if (onNotice) onNotice({ title: 'Horario cambiado', text }, updated);
+      else toast.success('Horario cambiado', { description: text });
       setChangeTarget(null);
       setChangeError(null);
     },

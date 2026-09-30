@@ -5,6 +5,7 @@ import { PENDING_PURCHASES_KEY } from '@/features/credits/hooks/usePendingPurcha
 import { cancelOrderV2 } from '../services/ordersApi';
 import { balancePartOf, formatLunches, PENDING_PAYMENT_CREDITED_TOAST } from '../lunches';
 import type { OrderV2 } from '../services/ordersApi';
+import type { OrderNotice } from '../orderNotice';
 
 /**
  * Cancelar un pedido v2 — mismo aviso de éxito e invalidaciones que ya
@@ -13,8 +14,11 @@ import type { OrderV2 } from '../services/ordersApi';
  * `['creditsWallet']`). Se extrae acá (F15) para que `B2cOrderPage`
  * ("Tu pedido para <día>") lo reutilice sin duplicar la lógica; `MyOrdersPage`
  * pasa a usar este mismo hook.
+ *
+ * F29: con `onNotice`, "Mis pedidos" recibe el aviso de éxito (en vez del
+ * toast) para mostrarlo en la página; sin él, todo queda como antes.
  */
-export function useCancelOrder() {
+export function useCancelOrder({ onNotice }: { onNotice?: (notice: OrderNotice, order: OrderV2) => void } = {}) {
   const queryClient = useQueryClient();
   const [cancelTarget, setCancelTarget] = useState<OrderV2 | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -32,12 +36,17 @@ export function useCancelOrder() {
       queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
       // Un pedido esperando pago solo devuelve los almuerzos que reservó del saldo (F23).
       const count = order.estado === 'PENDIENTE_PAGO' ? balancePartOf(order) : order.creditTotal;
-      const base =
-        count === 0
-          ? 'Pedido cancelado'
-          : `Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`;
+      const returned = count === 0 ? null : `${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`;
       // F26: si ya había pagado, Mercado Pago lo confirma después y el pago se acredita al saldo.
-      toast.success(order.estado === 'PENDIENTE_PAGO' ? `${base}. ${PENDING_PAYMENT_CREDITED_TOAST}` : base);
+      const credited = order.estado === 'PENDIENTE_PAGO' ? PENDING_PAYMENT_CREDITED_TOAST : null;
+      if (onNotice) {
+        // F29: "Mis pedidos" muestra el aviso arriba de la página, no un toast.
+        const text = [returned && `${returned}.`, credited].filter(Boolean).join(' ');
+        onNotice({ title: 'Pedido cancelado', text: text || 'No se usó ningún almuerzo de tu saldo.' }, order);
+      } else {
+        const base = returned ? `Pedido cancelado · ${returned}` : 'Pedido cancelado';
+        toast.success(credited ? `${base}. ${credited}` : base);
+      }
       setCancelTarget(null);
       setCancelError(null);
     },
