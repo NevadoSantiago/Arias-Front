@@ -36,6 +36,11 @@ interface Props {
   whenLabel: string;
   items: ComandaItem[];
   footer: ComandaFooter;
+  /**
+   * Muestra el pie de saldo de almuerzos ("Reservaste N… / Te quedan N"). "Mis
+   * pedidos" lo oculta; los pies de pago (Mercado Pago, cancelado, pagado) siempre se ven.
+   */
+  showBalanceFooter?: boolean;
   /** Insignia de estado bajo la fecha (vista de comanda de "Mis pedidos"). */
   estado?: OrderEstado;
   /** Aspecto apagado (pedido cancelado). */
@@ -70,10 +75,12 @@ export function OrderComanda({
   whenLabel,
   items,
   footer,
+  showBalanceFooter = true,
   estado,
   muted = false,
   onRemoveItem,
 }: Props) {
+  const showFooter = showBalanceFooter || !footer.lunchBalance;
   const number = String(orderId).padStart(4, '0');
   return (
     <div data-testid="comanda" className={cn('flex flex-col', muted && 'opacity-60 grayscale')}>
@@ -180,24 +187,28 @@ export function OrderComanda({
           </ul>
         </div>
 
-        <Divider />
+        {showFooter && (
+          <>
+            <Divider />
 
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex flex-col gap-0.5">
-            <span className="text-[12.5px] text-muted-foreground">{footer.label}</span>
-            {footer.value && <span className="text-base font-bold text-foreground">{footer.value}</span>}
-          </span>
-          <span
-            aria-hidden="true"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-primary"
-          >
-            {footer.icon === 'card' ? (
-              <CreditCard className="h-[22px] w-[22px]" aria-hidden="true" />
-            ) : (
-              <UtensilsCrossed className="h-[22px] w-[22px]" aria-hidden="true" />
-            )}
-          </span>
-        </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex flex-col gap-0.5">
+                <span className="text-[12.5px] text-muted-foreground">{footer.label}</span>
+                {footer.value && <span className="text-base font-bold text-foreground">{footer.value}</span>}
+              </span>
+              <span
+                aria-hidden="true"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-primary"
+              >
+                {footer.icon === 'card' ? (
+                  <CreditCard className="h-[22px] w-[22px]" aria-hidden="true" />
+                ) : (
+                  <UtensilsCrossed className="h-[22px] w-[22px]" aria-hidden="true" />
+                )}
+              </span>
+            </div>
+          </>
+        )}
       </article>
     </div>
   );

@@ -16,13 +16,29 @@ function renderComanda(props: Partial<React.ComponentProps<typeof OrderComanda>>
       callName="Sofi"
       whenLabel="Hoy, jueves 24 · 13:00 hs"
       items={items}
-      footer={{ label: 'Reservaste 2 almuerzos para este pedido', value: 'Te quedan 10 almuerzos', icon: 'lunches' }}
+      footer={{ label: 'Reservaste 2 almuerzos para este pedido', value: 'Te quedan 10 almuerzos', icon: 'lunches', lunchBalance: true }}
       {...props}
     />,
   );
 }
 
 describe('OrderComanda', () => {
+  it('hides the lunch-balance footer when showBalanceFooter is false', () => {
+    renderComanda({ showBalanceFooter: false });
+
+    expect(screen.queryByText(/Reservaste/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Te quedan/)).not.toBeInTheDocument();
+  });
+
+  it('keeps a payment footer (Mercado Pago) even when showBalanceFooter is false', () => {
+    renderComanda({
+      showBalanceFooter: false,
+      footer: { label: 'A pagar con Mercado Pago', value: '2 almuerzos', icon: 'card' },
+    });
+
+    expect(screen.getByText('A pagar con Mercado Pago')).toBeInTheDocument();
+  });
+
   it('shows the zero-padded order number, the date and the boxed name the kitchen calls', () => {
     renderComanda();
 

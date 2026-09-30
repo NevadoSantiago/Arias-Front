@@ -205,13 +205,14 @@ describe('MyOrdersPage on desktop (F22b, F29)', () => {
     expect(within(screen.getByRole('list', { name: 'Anteriores' })).getByText('Martes 22')).toBeInTheDocument();
   });
 
-  it('opens the comanda in the row: the ticket on the left, the message and actions on the right; one at a time', async () => {
+  it('opens the comanda in the row: the ticket with the message and actions below it (no side column); one at a time', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([today, scheduled]);
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: /retiro 13:00 hs/i, expanded: false }));
     const region = await screen.findByRole('region', { name: /retiro 13:00 hs/i });
-    expect(region.querySelector('[data-layout="split"]')).not.toBeNull();
+    expect(region.querySelector('[data-layout="split"]')).toBeNull();
+    expect(region.querySelector('[data-testid="order-actions-area"]')).not.toBeNull();
     expect(within(region).getByRole('button', { name: /^cambiar horario$/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /retiro 12:00 hs/i }));

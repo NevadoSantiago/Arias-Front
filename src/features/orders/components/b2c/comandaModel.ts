@@ -35,6 +35,8 @@ export interface ComandaFooter {
   /** null = sin segunda línea (p. ej. saldo todavía desconocido). */
   value: string | null;
   icon: 'lunches' | 'card';
+  /** true = pie de saldo ("Reservaste N… / Te quedan N"); "Mis pedidos" lo oculta. */
+  lunchBalance?: boolean;
 }
 
 /**
@@ -118,6 +120,7 @@ export function comandaFooter(
           : `Reservaste ${formatLunches(addedLunches)} más para este pedido`,
       value: walletAvailable === null ? null : `Te quedan ${formatLunches(walletAvailable)}`,
       icon: 'lunches',
+      lunchBalance: true,
     };
   }
   return { label: 'Pagado con almuerzos', value: formatLunches(order.creditTotal), icon: 'lunches' };

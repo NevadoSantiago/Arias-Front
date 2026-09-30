@@ -70,6 +70,7 @@ describe('comandaFooter', () => {
       label: 'Reservaste 2 almuerzos para este pedido',
       value: 'Te quedan 10 almuerzos',
       icon: 'lunches',
+      lunchBalance: true,
     });
   });
 
@@ -78,6 +79,7 @@ describe('comandaFooter', () => {
       label: 'Reservaste 1 almuerzo más para este pedido',
       value: 'Te quedan 8 almuerzos',
       icon: 'lunches',
+      lunchBalance: true,
     });
   });
 

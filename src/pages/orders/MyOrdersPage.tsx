@@ -197,12 +197,11 @@ export function MyOrdersPage() {
       order={order}
       now={now}
       callName={callName}
-      walletAvailable={wallet?.available ?? null}
       pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
       open={openId === order.id}
       onToggle={() => toggle(order.id)}
       showDate={showDate}
-      layout={isDesktop ? 'split' : 'stack'}
+      layout={isDesktop ? 'wide' : 'stack'}
       payingNow={payingOrderId === order.id}
       notice={rowNotice?.orderId === order.id ? rowNotice.notice : null}
       onDismissNotice={() => setRowNotice(null)}

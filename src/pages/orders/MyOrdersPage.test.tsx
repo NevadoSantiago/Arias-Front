@@ -404,7 +404,7 @@ describe('MyOrdersPage — accordion', () => {
     expect(within(screen.getByRole('button', { name: /viernes|retiro 13:00 hs, programado/i })).getByText('Ya no se puede cambiar')).toBeInTheDocument();
   });
 
-  it('opens the comanda with the name they call, the address and the balance', async () => {
+  it('opens the comanda with the name they call, the address, without the lunch balance', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([friday]);
     renderPage();
 
@@ -413,7 +413,8 @@ describe('MyOrdersPage — accordion', () => {
     expect(within(region).getByText('Sofi')).toBeInTheDocument();
     expect(within(region).getByText('11 de Septiembre 4502')).toBeInTheDocument();
     expect(within(region).getByText('Milanesa')).toBeInTheDocument();
-    expect(await within(region).findByText('Te quedan 8 almuerzos')).toBeInTheDocument();
+    expect(within(region).queryByText(/Te quedan/)).not.toBeInTheDocument();
+    expect(within(region).queryByText(/Reservaste/)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/créditos?\b/i);
   });
 

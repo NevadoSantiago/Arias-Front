@@ -19,8 +19,6 @@ interface Props {
   now: Date;
   /** Nombre con el que la cocina llama al cliente (`resolveCallName`). */
   callName: string;
-  /** Saldo disponible — solo informativo ("Te quedan N"); null mientras no se conoce. */
-  walletAvailable: number | null;
   /** `getRestaurantConfig().pickupLeadMinutes`, para nombrar el corte; null/undefined si no se conoce. */
   pickupLeadMinutes?: number | null;
   open: boolean;
@@ -28,11 +26,11 @@ interface Props {
   /** "Anteriores": el encabezado suma el día del retiro (bajo un día no hace falta). */
   showDate?: boolean;
   /**
-   * `stack` (móvil): la comanda y debajo el mensaje y las acciones.
-   * `split` (escritorio): la comanda a la izquierda y, en una columna angosta a
-   * la derecha, el mensaje, el aviso y las acciones (tablero de escritorio).
+   * Siempre el mismo orden: la comanda y debajo el mensaje, el aviso y las
+   * acciones. `wide` (escritorio) solo limita los anchos y deja las acciones en
+   * una fila que se parte; `stack` (móvil) las apila a todo el ancho.
    */
-  layout?: 'stack' | 'split';
+  layout?: 'stack' | 'wide';
   /** true mientras "Pagar ahora" está en curso para este pedido. */
   payingNow?: boolean;
   notice?: OrderNotice | null;
@@ -92,7 +90,6 @@ export function OrderAccordionItem({
   order,
   now,
   callName,
-  walletAvailable,
   pickupLeadMinutes,
   open,
   onToggle,
@@ -146,23 +143,23 @@ export function OrderAccordionItem({
   }, [open, scrollMode]);
 
   const { headline } = comandaCopy(order, { now, pickupLeadMinutes });
-  const split = layout === 'split';
+  const wide = layout === 'wide';
 
   const actions = hasActions && (
-    <div className="flex flex-col gap-2.5">
+    <div className={cn('flex flex-col gap-2.5', wide && 'items-start')}>
       {canPay && (
         <button
           type="button"
           onClick={() => onRequestPayNow?.(order)}
           disabled={payingNow}
-          className="flex h-[52px] items-center justify-center gap-2 rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground disabled:opacity-60"
+          className={cn('flex h-[52px] items-center justify-center gap-2 rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground disabled:opacity-60', wide && 'w-full')}
         >
           <CreditCard className="h-[18px] w-[18px]" aria-hidden="true" />
           Pagar ahora
         </button>
       )}
       {(canChange || canAdd) && (
-        <div className={cn('flex gap-2.5', split && 'flex-col')}>
+        <div className={cn('flex gap-2.5', wide && 'flex-wrap')}>
           {canChange && (
             <button
               type="button"
@@ -188,7 +185,7 @@ export function OrderAccordionItem({
         <button
           type="button"
           onClick={() => onRequestCancel?.(order)}
-          className="h-11 rounded-md text-[13px] font-bold uppercase tracking-brand text-destructive"
+          className={cn('h-11 rounded-md text-[13px] font-bold uppercase tracking-brand text-destructive', wide && 'self-start')}
         >
           Cancelar pedido
         </button>
@@ -250,31 +247,28 @@ export function OrderAccordionItem({
             className="overflow-hidden rounded-b-[9px] border-t-[1.5px] border-dashed border-border bg-background motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200"
           >
             <ChefBackdrop>
-              <div
-                data-layout={layout}
-                className={cn(
-                  'gap-[18px] p-4',
-                  split ? 'grid grid-cols-[minmax(0,440px)_minmax(0,1fr)] items-start gap-8 p-6' : 'flex flex-col',
-                )}
-              >
-                <OrderComanda
-                  orderId={order.id}
-                  dateLabel={formatOrderDateLabel(order.pickupAt)}
-                  callName={callName}
-                  whenLabel={comandaWhenLabel(order, now)}
-                  items={comandaItems(order)}
-                  footer={comandaFooter(order, { now, walletAvailable })}
-                  muted={cancelled}
-                  onRemoveItem={
-                    canRemoveItems
-                      ? (itemId) => {
-                          const item = order.items.find((i) => i.id === itemId);
-                          if (item) onRequestRemoveItem?.(order, item);
-                        }
-                      : undefined
-                  }
-                />
-                <div className={cn('flex flex-col gap-3', split && 'pt-2')}>
+              <div data-layout={layout} className={cn('flex flex-col gap-[18px] p-4', wide && 'p-6')}>
+                <div className={cn(wide && 'w-full max-w-[440px]')}>
+                  <OrderComanda
+                    orderId={order.id}
+                    dateLabel={formatOrderDateLabel(order.pickupAt)}
+                    callName={callName}
+                    whenLabel={comandaWhenLabel(order, now)}
+                    items={comandaItems(order)}
+                    footer={comandaFooter(order, { now, walletAvailable: null })}
+                    showBalanceFooter={false}
+                    muted={cancelled}
+                    onRemoveItem={
+                      canRemoveItems
+                        ? (itemId) => {
+                            const item = order.items.find((i) => i.id === itemId);
+                            if (item) onRequestRemoveItem?.(order, item);
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+                <div data-testid="order-actions-area" className={cn('flex flex-col gap-3', wide && 'max-w-[640px]')}>
                   <p className="m-0 text-sm leading-snug text-foreground">{headline}</p>
                   {notice && <OrderNoticeBanner notice={notice} onDismiss={onDismissNotice} />}
                   {actions}

@@ -56,7 +56,6 @@ function renderItem(order: OrderV2, props: Props = {}) {
           order={order}
           now={NOW}
           callName="Sofi"
-          walletAvailable={8}
           pickupLeadMinutes={20}
           open={false}
           {...handlers}
@@ -127,7 +126,7 @@ describe('OrderAccordionItem — keyboard', () => {
         {[upcoming, previous].map((list, n) => (
           <ul key={n} aria-label={n === 0 ? 'Próximos' : 'Anteriores'}>
             {list.map((o) => (
-              <OrderAccordionItem key={o.id} order={o} now={NOW} callName="Sofi" walletAvailable={8} open={false} showDate={n === 1} onToggle={() => {}} />
+              <OrderAccordionItem key={o.id} order={o} now={NOW} callName="Sofi" open={false} showDate={n === 1} onToggle={() => {}} />
             ))}
           </ul>
         ))}
@@ -162,7 +161,6 @@ describe('OrderAccordionItem — keyboard', () => {
               order={o}
               now={NOW}
               callName="Sofi"
-              walletAvailable={8}
               open={false}
               onToggle={() => {}}
             />
@@ -208,7 +206,8 @@ describe('OrderAccordionItem — panel', () => {
     expect(within(panel).getByText('Milanesa Napolitana')).toBeInTheDocument();
     expect(within(panel).getByText('c/ papas fritas')).toBeInTheDocument();
     expect(within(panel).getAllByText('1 almuerzo')).toHaveLength(2);
-    expect(within(panel).getByText('Reservaste 2 almuerzos para este pedido')).toBeInTheDocument();
+    expect(within(panel).queryByText(/Reservaste/)).not.toBeInTheDocument();
+    expect(within(panel).queryByText(/Te quedan/)).not.toBeInTheDocument();
     expect(within(panel).getByText(/Podés cambiarlo o cancelarlo hasta 20 minutos antes del retiro/)).toBeInTheDocument();
     expect(within(panel).queryByText(/\$/)).not.toBeInTheDocument();
   });
@@ -286,12 +285,22 @@ describe('OrderAccordionItem — panel', () => {
     expect(onDismissNotice).toHaveBeenCalled();
   });
 
-  it('uses the split layout (ticket left, message and actions right) on desktop', () => {
-    renderItem(scheduled, { open: true, layout: 'split' });
+  it.each(['stack', 'wide'] as const)(
+    'on %s the headline and actions sit below the ticket, with no side column',
+    (layout) => {
+      renderItem(scheduled, { open: true, layout });
 
-    const panel = screen.getByRole('region', { name: /retiro 13:00 hs/i });
-    expect(panel.querySelector('[data-layout="split"]')).not.toBeNull();
-  });
+      const panel = screen.getByRole('region', { name: /retiro 13:00 hs/i });
+      const ticket = within(panel).getByTestId('comanda');
+      const below = panel.querySelector('[data-testid="order-actions-area"]') as HTMLElement | null;
+      expect(below).not.toBeNull();
+      expect(panel.querySelector('[data-layout="split"]')).toBeNull();
+      expect(ticket.compareDocumentPosition(below!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(ticket.contains(below!)).toBe(false);
+      expect(within(below!).getByRole('button', { name: /cambiar horario/i })).toBeInTheDocument();
+      expect(within(below!).getByText(/Podés cambiarlo o cancelarlo/)).toBeInTheDocument();
+    },
+  );
 
   it('never says "créditos"', () => {
     renderItem(scheduled, { open: true });
