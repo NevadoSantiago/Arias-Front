@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { GoogleLoginButton } from './GoogleLoginButton';
 
 vi.mock('@react-oauth/google', () => ({
   GoogleOAuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -14,8 +13,11 @@ describe('GoogleLoginButton', () => {
     vi.resetModules();
   });
 
-  it('renders nothing when VITE_GOOGLE_CLIENT_ID is missing, instead of crashing', () => {
-    const { container } = render(<GoogleLoginButton onSuccess={vi.fn()} />);
+  it('renders nothing when VITE_GOOGLE_CLIENT_ID is missing, instead of crashing', async () => {
+    // Vacío a propósito: un .env.local real no puede filtrarse al test.
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
+    const { GoogleLoginButton: FreshGoogleLoginButton } = await import('./GoogleLoginButton');
+    const { container } = render(<FreshGoogleLoginButton onSuccess={vi.fn()} />);
 
     expect(container).toBeEmptyDOMElement();
   });

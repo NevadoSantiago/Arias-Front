@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,10 +7,9 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuthActions } from '../hooks/useAuthActions';
-import { GoogleLoginButton } from './GoogleLoginButton';
-import { WelcomeLunchScreen } from './WelcomeLunchScreen';
-import { homeForRole } from './ProtectedRoute';
-import type { Role } from '../store/authStore';
+import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
+import { GoogleSignInSection } from './GoogleSignInSection';
+import { GoogleWelcomeScreen } from './GoogleWelcomeScreen';
 
 const schema = z.object({
   firstName: z
@@ -76,9 +74,8 @@ function mapServerFieldErrors(detail: string): Partial<Record<keyof FormData, st
 
 export function RegisterForm() {
   const [serverError, setServerError] = useState<string | null>(null);
-  const [welcome, setWelcome] = useState<{ profileComplete: boolean; role: Role } | null>(null);
-  const navigate = useNavigate();
-  const { performRegister, performGoogleLogin } = useAuthActions();
+  const { performRegister } = useAuthActions();
+  const google = useGoogleSignIn();
 
   const {
     register: registerField,
@@ -106,57 +103,13 @@ export function RegisterForm() {
     }
   };
 
-  /**
-   * Alta/login con Google. Si el backend otorgó el almuerzo de bienvenida en
-   * ESTA llamada (primera validación de la cuenta), muestra la misma
-   * pantalla de felicitación que el flujo de verificación de correo antes de
-   * continuar — gateada por `welcomeLunchGranted`, nunca derivada de `/me`,
-   * y renderizada como máximo una vez porque este estado no se persiste.
-   */
-  const handleGoogleSuccess = async (idToken: string) => {
-    setServerError(null);
-    try {
-      const result = await performGoogleLogin(idToken);
-      if (result.welcomeLunchGranted) {
-        setWelcome(result);
-      } else {
-        navigate(result.profileComplete ? homeForRole(result.role) : '/complete-profile', { replace: true });
-      }
-    } catch {
-      setServerError('No pudimos iniciar sesión con Google. Probá de nuevo.');
-    }
-  };
-
-  if (welcome) {
-    return (
-      <WelcomeLunchScreen
-        description="Iniciaste sesión con Google y te regalamos 1 almuerzo de bienvenida 🎉"
-        onContinue={() =>
-          navigate(welcome.profileComplete ? homeForRole(welcome.role) : '/complete-profile', { replace: true })
-        }
-      />
-    );
+  if (google.welcome) {
+    return <GoogleWelcomeScreen google={google} />;
   }
 
   return (
     <>
-      <div className="mb-6">
-        <GoogleLoginButton
-          onSuccess={handleGoogleSuccess}
-          onError={() => setServerError('No pudimos iniciar sesión con Google. Probá de nuevo.')}
-        />
-      </div>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-border" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-card px-2 text-muted-foreground uppercase tracking-brand">
-            O registrate con tu email
-          </span>
-        </div>
-      </div>
+      <GoogleSignInSection google={google} mode="register" dividerLabel="O registrate con tu email" />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
