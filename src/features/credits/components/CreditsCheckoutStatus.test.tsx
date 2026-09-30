@@ -546,4 +546,24 @@ describe('CreditsCheckoutStatus — pending purchases (D6)', () => {
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsPendingPurchases'] });
   });
+
+  it('refreshes the balance, movements and orders once the purchase is approved', async () => {
+    vi.mocked(getPurchase)
+      .mockResolvedValueOnce(pendingPurchase)
+      .mockResolvedValueOnce({ ...pendingPurchase, status: 'APPROVED', creditedAt: '2026-01-01T00:05:00Z' });
+
+    const invalidate = renderSpying('p1');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditMovements'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['ordersV2'] });
+  });
 });

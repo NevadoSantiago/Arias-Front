@@ -371,9 +371,14 @@ export function CreditsCheckoutStatus({ purchaseId }: CreditsCheckoutStatusProps
   const status = purchase?.status;
 
   // D6: en cuanto la compra deja de estar pendiente, el aviso de "Mis almuerzos" ya no debe listarla.
+  // El saldo, los movimientos y los pedidos (una compra directa confirma su pedido) también
+  // cambiaron: se refrescan para que el header no muestre el saldo viejo hasta recargar.
   useEffect(() => {
     if (status && status !== 'PENDING') {
       void queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
+      void queryClient.invalidateQueries({ queryKey: ['creditMovements'] });
+      void queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
     }
   }, [status, queryClient]);
 
