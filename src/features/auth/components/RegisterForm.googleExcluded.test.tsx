@@ -51,7 +51,7 @@ describe('RegisterForm — Google excluded account', () => {
 
   it('explains that registering is not needed and links to the login with the email', async () => {
     vi.mocked(googleLogin).mockRejectedValueOnce({
-      response: { status: 403, data: { errorCode: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } },
+      response: { status: 403, data: { title: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } },
     });
     await renderRegister();
 

@@ -1,11 +1,11 @@
-/** Código que devuelve `/auth/google` (HTTP 403) cuando la cuenta no es de un cliente B2C. */
+/** Título del ProblemDetail (RFC 7807) que devuelve `/auth/google` con HTTP 403 cuando la cuenta no es de un cliente B2C. */
 export const GOOGLE_ACCOUNT_NOT_ALLOWED = 'GOOGLE_ACCOUNT_NOT_ALLOWED';
 
 /** true si el error de axios es el rechazo específico para cuentas de empresa/admin. */
 export function isGoogleAccountNotAllowed(err: unknown): boolean {
   if (typeof err !== 'object' || err === null || !('response' in err)) return false;
-  const response = (err as { response?: { status?: number; data?: { errorCode?: string } } }).response;
-  return response?.status === 403 && response.data?.errorCode === GOOGLE_ACCOUNT_NOT_ALLOWED;
+  const response = (err as { response?: { status?: number; data?: { title?: string } } }).response;
+  return response?.status === 403 && response.data?.title === GOOGLE_ACCOUNT_NOT_ALLOWED;
 }
 
 /**

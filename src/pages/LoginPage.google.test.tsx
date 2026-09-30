@@ -143,7 +143,7 @@ describe('LoginPage — Google sign-in', () => {
 
   it('shows the company-account notice and pre-fills the email on the excluded 403', async () => {
     vi.mocked(googleLogin).mockRejectedValueOnce({
-      response: { status: 403, data: { errorCode: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } },
+      response: { status: 403, data: { title: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } },
     });
     await renderLogin();
 

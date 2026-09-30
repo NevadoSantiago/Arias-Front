@@ -28,14 +28,14 @@ describe('decodeGoogleCredentialEmail', () => {
 
 describe('isGoogleAccountNotAllowed', () => {
   it('is true for a 403 carrying the GOOGLE_ACCOUNT_NOT_ALLOWED error code', () => {
-    const err = { response: { status: 403, data: { errorCode: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } } };
+    const err = { response: { status: 403, data: { title: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } } };
     expect(isGoogleAccountNotAllowed(err)).toBe(true);
   });
 
   it('is false for any other failure', () => {
     expect(isGoogleAccountNotAllowed({ response: { status: 403, data: {} } })).toBe(false);
     expect(
-      isGoogleAccountNotAllowed({ response: { status: 401, data: { errorCode: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } } }),
+      isGoogleAccountNotAllowed({ response: { status: 401, data: { title: 'GOOGLE_ACCOUNT_NOT_ALLOWED' } } }),
     ).toBe(false);
     expect(isGoogleAccountNotAllowed(new Error('boom'))).toBe(false);
     expect(isGoogleAccountNotAllowed(null)).toBe(false);
