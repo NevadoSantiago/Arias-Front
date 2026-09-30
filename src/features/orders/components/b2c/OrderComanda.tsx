@@ -115,7 +115,7 @@ export function OrderComanda({ orderId, dateLabel, callName, whenLabel, items, f
         <div className="flex flex-col gap-[3px]">
           <Label>Retiro</Label>
           <span className="text-base font-bold text-foreground">{whenLabel}</span>
-          <span className="text-[12.5px] text-muted-foreground">[DIRECCIÓN DEL LOCAL]</span>
+          <span className="text-[12.5px] text-muted-foreground">11 de Septiembre 4502</span>
         </div>
 
         <Divider />

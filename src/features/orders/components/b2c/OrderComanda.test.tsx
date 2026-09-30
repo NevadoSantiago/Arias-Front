@@ -33,11 +33,11 @@ describe('OrderComanda', () => {
     expect(within(paper).getByText('Sofi')).toBeInTheDocument();
   });
 
-  it('shows the pickup time and the visible address placeholder', () => {
+  it('shows the pickup time and the restaurant address', () => {
     renderComanda();
 
     expect(screen.getByText('Hoy, jueves 24 · 13:00 hs')).toBeInTheDocument();
-    expect(screen.getByText('[DIRECCIÓN DEL LOCAL]')).toBeInTheDocument();
+    expect(screen.getByText('11 de Septiembre 4502')).toBeInTheDocument();
   });
 
   it('lists every item with its side, note, cost and the "Nuevo" tag on added ones', () => {

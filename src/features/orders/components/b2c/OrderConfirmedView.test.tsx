@@ -50,7 +50,7 @@ describe('OrderConfirmedView', () => {
     expect(screen.getByText('Te esperamos el lunes 28 de septiembre a las 15:00.')).toBeInTheDocument();
   });
 
-  it('renders the order as a comanda: number, date, the name they call and the pickup time with the address placeholder', () => {
+  it('renders the order as a comanda: number, date, the name they call and the pickup time with the restaurant address', () => {
     renderView();
 
     expect(screen.getByRole('article', { name: /comanda número 0142/i })).toBeInTheDocument();
@@ -58,7 +58,7 @@ describe('OrderConfirmedView', () => {
     expect(screen.getByText('Te vamos a llamar como')).toBeInTheDocument();
     expect(screen.getByText('Sofi')).toBeInTheDocument();
     expect(screen.getByText('Hoy, jueves 24 de septiembre · 15:00 hs')).toBeInTheDocument();
-    expect(screen.getByText('[DIRECCIÓN DEL LOCAL]')).toBeInTheDocument();
+    expect(screen.getByText('11 de Septiembre 4502')).toBeInTheDocument();
   });
 
   it('shows the pickup day and time and each line item with its side, note and cost', () => {
