@@ -179,6 +179,19 @@ describe('MyOrdersPage on desktop (F22b, F29)', () => {
     expect(within(proxima).getByRole('link', { name: 'Hacer un pedido' })).toHaveAttribute('href', '/orders/today');
   });
 
+  it('ends the side panel with a decorative illustration, below the cancellation note', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([scheduled, nextMonday]);
+    renderPage();
+
+    const panel = await screen.findByRole('complementary', { name: 'Resumen' });
+    const art = panel.lastElementChild as HTMLElement;
+    expect(art.tagName).toBe('IMG');
+    expect(art).toHaveAttribute('alt', '');
+    expect(art).toHaveAttribute('aria-hidden', 'true');
+    expect(art.getAttribute('src')).toMatch(/PedidoConfirmado-transparente.*.svg/);
+    expect(art.previousElementSibling).toHaveTextContent(/podés cancelar un pedido/i);
+  });
+
   it('keeps the balance side panel next to the weeks', async () => {
     vi.mocked(getOrdersV2).mockResolvedValue([scheduled, nextMonday]);
     renderPage();
@@ -271,6 +284,7 @@ describe('MyOrdersPage on mobile (F22b, F29)', () => {
 
     expect(await screen.findByRole('button', { name: /esta semana/i })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('complementary', { name: 'Resumen' })).not.toBeInTheDocument();
+    expect(document.querySelector('img[src*="PedidoConfirmado-transparente"]')).toBeNull();
     expect(screen.queryByTestId('day-row')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Semana próxima' })).not.toBeInTheDocument();
   });

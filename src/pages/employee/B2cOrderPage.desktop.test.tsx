@@ -153,6 +153,18 @@ describe('B2cOrderPage — desktop layout (F22a)', () => {
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
   });
 
+  it('shows the daily illustration below the "Tu pedido" panel, decorative and centered', async () => {
+    renderPage();
+
+    const panel = await screen.findByRole('complementary', { name: 'Tu pedido' });
+    const art = screen.getByTestId('daily-illustration');
+    expect(art).toHaveAttribute('alt', '');
+    expect(art).toHaveAttribute('aria-hidden', 'true');
+    expect(art.getAttribute('src')).toMatch(/.svg/);
+    expect(panel.compareDocumentPosition(art) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(panel).not.toContainElement(art);
+  });
+
   it('opens the dish detail as a centered dialog, not a sheet', async () => {
     renderPage();
 

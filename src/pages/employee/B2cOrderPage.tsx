@@ -14,6 +14,7 @@ import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceC
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
 import { comandaFooter, comandaItems, isPaidWithMercadoPago } from '@/features/orders/components/b2c/comandaModel';
 import { OrderPayDirectSheet } from '@/features/orders/components/b2c/OrderPayDirectSheet';
+import { OrderDayIllustration } from '@/features/orders/components/b2c/OrderDayIllustration';
 import { OrderReviewPanel } from '@/features/orders/components/b2c/OrderReviewPanel';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
 import type { OrderReviewProps } from '@/features/orders/components/b2c/orderReviewProps';
@@ -727,7 +728,7 @@ export function B2cOrderPage() {
             </div>
           )}
         </div>
-        {isDesktop && <OrderReviewPanel {...reviewProps} />}
+        {isDesktop && <OrderReviewPanel {...reviewProps} below={<OrderDayIllustration />} />}
       </div>
 
       {!isDesktop && (

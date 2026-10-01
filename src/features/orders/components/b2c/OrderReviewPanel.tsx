@@ -1,7 +1,16 @@
 import { CartSummary } from '../CartSummary';
 import { PickupTimePicker } from './PickupTimePicker';
 import { BalanceBox, PickupNotices, pickupDayLabel } from './OrderReviewParts';
+import type { ReactNode } from 'react';
 import type { OrderReviewProps } from './orderReviewProps';
+
+interface PanelProps extends OrderReviewProps {
+  /**
+   * Contenido decorativo bajo el panel, dentro de la misma columna fija (la
+   * ilustración del día). Sin él el panel se comporta como siempre.
+   */
+  below?: ReactNode;
+}
 
 /**
  * Panel fijo "Tu pedido" del escritorio (F22a, prototipo `DesktopOrder.dc.html`,
@@ -32,14 +41,19 @@ export function OrderReviewPanel({
   submitError,
   insufficientBalance,
   onConfirm,
-}: OrderReviewProps) {
+  below,
+}: PanelProps) {
   const dayLabel = pickupDayLabel(isToday, dayShortLabel);
   const empty = lines.length === 0;
 
-  return (
+  const panel = (
     <aside
       aria-label="Tu pedido"
-      className="sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-xl border border-border bg-card"
+      className={
+        below
+          ? 'flex max-h-[calc(100vh-3rem-300px)] min-h-[360px] flex-col overflow-hidden rounded-xl border border-border bg-card'
+          : 'sticky top-6 flex max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-xl border border-border bg-card'
+      }
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-[22px] pb-4 pt-5">
         <div className="flex flex-col gap-1">
@@ -106,5 +120,13 @@ export function OrderReviewPanel({
         )}
       </div>
     </aside>
+  );
+
+  if (!below) return panel;
+  return (
+    <div className="sticky top-6 flex flex-col gap-5">
+      {panel}
+      {below}
+    </div>
   );
 }

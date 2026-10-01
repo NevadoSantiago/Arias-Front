@@ -148,6 +148,13 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     vi.clearAllMocks();
   });
 
+  it('shows no daily illustration on phones (it is desktop only)', async () => {
+    renderPage();
+
+    await screen.findByRole('button', { name: /milanesa napolitana/i });
+    expect(screen.queryByTestId('daily-illustration')).not.toBeInTheDocument();
+  });
+
   /**
    * F4: el detalle de plato pasa a ser una hoja (`DishSheet`) y el carrito
    * (con el horario de retiro y el botón de confirmar) vive en la hoja de

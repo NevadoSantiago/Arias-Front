@@ -1,5 +1,6 @@
 import { Clock3, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import pedidoConfirmado from '@/assets/illustrations/PedidoConfirmado-transparente.svg';
 import { formatLunches } from '../../lunches';
 
 interface Props {
@@ -74,6 +75,13 @@ export function MyOrdersSidePanel({ available, committed, pickupLeadMinutes }: P
           </span>
         </p>
       )}
+
+      <img
+        src={pedidoConfirmado}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none mt-2 h-auto w-[300px] max-w-full select-none self-center"
+      />
     </aside>
   );
 }
