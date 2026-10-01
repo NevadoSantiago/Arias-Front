@@ -153,7 +153,7 @@ export function buildKitchenBoard(orders: PickupOrder[], ctx: BoardContext): Kit
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** ISO weekday (1 = Monday) of an instant, read in `timezone`. */
-function isoWeekday(instant: Date, timezone: string): number {
+export function isoWeekday(instant: Date, timezone: string): number {
   const name = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(instant);
   return WEEKDAYS.indexOf(name) + 1;
 }

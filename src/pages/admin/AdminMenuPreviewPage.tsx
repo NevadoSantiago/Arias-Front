@@ -1,25 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock } from 'lucide-react';
 import { DishCard } from '@/features/orders/components/DishCard';
 import { DishDetailDialog } from '@/features/orders/components/DishDetailDialog';
 import { FilterPills } from '@/features/orders/components/FilterPills';
 import type { ActiveFilter } from '@/features/orders/components/FilterPills';
-import { getRestaurantConfig, getMenuSections } from '@/features/orders/services/ordersApi';
-import { getDishCalendar, listDishesAdmin } from '@/features/admin/services/adminApi';
+import { getDisabledDates, getMenuSections } from '@/features/orders/services/ordersApi';
+import { getDishCalendar, getRestaurantConfigAdmin, listDishesAdmin } from '@/features/admin/services/adminApi';
+import { buildPickupHours, schedulableRange } from '@/features/admin/menu/pickupHours';
+import { TodayPickupCard, WeekPickupStrip } from '@/features/admin/menu/PickupHoursPanel';
 import type { Dish } from '@/features/orders/types';
 
-function calculateRemaining(cutoffTime: string): string {
-  const [h, m] = cutoffTime.split(':').map(Number);
-  const cutoff = new Date();
-  cutoff.setHours(h, m, 0, 0);
-  const diff = cutoff.getTime() - Date.now();
-  if (diff <= 0) return 'Cerrado';
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
+/** How often the "next available slot" is recomputed against the clock. */
+const CLOCK_TICK_MS = 30_000;
 
 export function AdminMenuPreviewPage() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
@@ -31,7 +23,21 @@ export function AdminMenuPreviewPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, []);
 
-  const { data: config } = useQuery({ queryKey: ['restaurantConfig'], queryFn: getRestaurantConfig });
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  // The admin endpoint is the same URL as the public one but carries pickupSlotMinutes and the timezone.
+  const { data: config } = useQuery({ queryKey: ['restaurantConfigAdmin'], queryFn: getRestaurantConfigAdmin });
+  // Plain strings: the query key only changes when the week does, not on every clock tick.
+  const range = config ? schedulableRange(now, config.timezone) : null;
+  const { data: disabledDates, isLoading: disabledLoading } = useQuery({
+    queryKey: ['disabledDates', range?.from, range?.to],
+    queryFn: () => getDisabledDates(range!.from, range!.to),
+    enabled: !!range,
+  });
   const { data: sections } = useQuery({ queryKey: ['menuSections'], queryFn: getMenuSections });
   const { data: adminDishes, isLoading } = useQuery({ queryKey: ['adminDishes'], queryFn: listDishesAdmin });
   const { data: calendar } = useQuery({
@@ -114,7 +120,7 @@ export function AdminMenuPreviewPage() {
     return () => observer.disconnect();
   }, [groupedBySection]);
 
-  if (isLoading || !config || !sections) {
+  if (isLoading || disabledLoading || !config || !sections) {
     return (
       <div className="p-6 lg:p-10">
         <p className="text-center text-muted-foreground text-sm uppercase tracking-brand">
@@ -124,7 +130,14 @@ export function AdminMenuPreviewPage() {
     );
   }
 
-  const remaining = calculateRemaining(config.horaCorte);
+  const pickupHours = buildPickupHours({
+    now,
+    timezone: config.timezone,
+    leadMinutes: config.pickupLeadMinutes,
+    slotMinutes: config.pickupSlotMinutes,
+    schedule: config.pickupSchedule ?? [],
+    disabledDates: disabledDates ?? [],
+  });
 
   return (
     <div className="p-6 lg:p-10">
@@ -137,21 +150,21 @@ export function AdminMenuPreviewPage() {
             Así ven los empleados el menú de hoy. Solo lectura.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-foreground text-sm">
-          <Clock className="w-4 h-4 text-primary" />
-          <div>
-            <p className="text-[11px] uppercase tracking-brand text-muted-foreground font-medium leading-none mb-1">
-              Cierre de pedidos
-            </p>
-            <p className="font-medium leading-none">
-              {config.horaCorte}{' '}
-              <span className="text-muted-foreground font-normal">
-                ({remaining === 'Cerrado' ? 'cerrado' : `quedan ${remaining}`})
-              </span>
-            </p>
-          </div>
-        </div>
+        <TodayPickupCard
+          hours={pickupHours}
+          now={now}
+          timezone={config.timezone}
+          slotMinutes={config.pickupSlotMinutes}
+        />
       </header>
+
+      <div className="mb-8">
+        <WeekPickupStrip
+          hours={pickupHours}
+          slotMinutes={config.pickupSlotMinutes}
+          leadMinutes={config.pickupLeadMinutes}
+        />
+      </div>
 
       <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
         <FilterPills
