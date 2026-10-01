@@ -182,4 +182,16 @@ describe('LoginPage — Google sign-in', () => {
 
     await waitFor(() => expect(screen.getByLabelText(/^email$/i)).toHaveValue('ana@empresa.com'));
   });
+  it('offers the sign-up link on the email step but not on the password step', async () => {
+    vi.mocked(checkEmail).mockResolvedValueOnce({ requiresFirstLogin: false });
+    await renderLogin();
+
+    expect(await screen.findByRole('link', { name: 'Creá tu cuenta' })).toHaveAttribute('href', '/register');
+
+    fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: 'ana@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /continuar$/i }));
+
+    await screen.findByLabelText(/^contraseña$/i);
+    expect(screen.queryByRole('link', { name: 'Creá tu cuenta' })).not.toBeInTheDocument();
+  });
 });

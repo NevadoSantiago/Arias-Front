@@ -76,7 +76,7 @@ export function LoginPage() {
           />
         </aside>
 
-        <section className="lg:flex-1 lg:flex lg:items-center lg:justify-center lg:px-8 lg:py-8 lg:-mt-[14rem]">
+        <section className="lg:flex-1 lg:flex lg:items-start lg:justify-center lg:px-8 lg:pt-6 lg:pb-8">
           <div className="w-full max-w-md mx-auto">
             <div className="bg-card rounded-lg border border-border p-8 shadow-sm">
               {step.kind === 'resolving' && (

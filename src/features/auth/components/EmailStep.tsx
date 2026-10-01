@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -93,6 +94,19 @@ export function EmailStep({ initialEmail = '', onFirstLogin, onPassword }: Props
           {isSubmitting ? 'Verificando…' : 'Continuar'}
         </Button>
       </form>
+
+      <div className="relative mt-6 mb-4">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <span className="bg-card px-2 text-muted-foreground uppercase tracking-brand">¿No tenés cuenta?</span>
+        </div>
+      </div>
+
+      <Button asChild size="lg" variant="outline" className="w-full uppercase tracking-brand font-medium">
+        <Link to="/register">Creá tu cuenta</Link>
+      </Button>
     </>
   );
 }
