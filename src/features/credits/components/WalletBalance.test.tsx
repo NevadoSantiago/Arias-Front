@@ -42,6 +42,39 @@ describe('WalletBalance', () => {
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
   });
 
+  it('does not print "para pedir" under the number in the ring', async () => {
+    vi.mocked(getWallet).mockResolvedValueOnce({ available: 5, committed: 2, expiresAt: null });
+
+    renderWithClient();
+
+    await screen.findByText('Disponibles');
+    expect(screen.queryByText(/para pedir/i)).not.toBeInTheDocument();
+  });
+
+  it('colors the legend swatches: light red for disponibles, brand red (not orange) for reservados', async () => {
+    vi.mocked(getWallet).mockResolvedValueOnce({ available: 5, committed: 2, expiresAt: null });
+
+    renderWithClient();
+
+    const swatchOf = (label: string) => screen.getByText(label).parentElement!.previousElementSibling as HTMLElement;
+    await screen.findByText('Disponibles');
+    const availableSwatch = swatchOf('Disponibles');
+    expect(availableSwatch.style.backgroundColor).toBe('rgb(244, 181, 182)');
+    const reservedSwatch = swatchOf('Reservados');
+    expect(reservedSwatch).toHaveClass('bg-primary');
+    expect(reservedSwatch).not.toHaveClass('bg-warning');
+  });
+
+  it('uses the soft tablecloth (gingham) background in the available-lunches box', async () => {
+    vi.mocked(getWallet).mockResolvedValueOnce({ available: 5, committed: 2, expiresAt: null });
+
+    renderWithClient();
+
+    const box = await screen.findByText('Disponibles').then((el) => el.closest('div[class*="rounded-xl"]') as HTMLElement);
+    expect(box.style.backgroundColor).toBe('rgb(255, 252, 245)');
+    expect(box.style.backgroundImage).toContain('repeating-linear-gradient');
+  });
+
   it('uses the singular legend for exactly 1 available / 1 committed', async () => {
     vi.mocked(getWallet).mockResolvedValueOnce({
       available: 1,

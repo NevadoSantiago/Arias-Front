@@ -7,6 +7,22 @@ const RADIUS = 64;
 const STROKE = 14;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
+/** Colores de la caja de saldo (tablero v28): caja clara con el mantel de Arias. */
+const PAPER = '#FFFCF5';
+const INK = '#1A110F';
+const AVAILABLE_COLOR = '#F4B5B6';
+
+/** Mantel a cuadros rojo suave: franjas de 12px que se repiten cada 24px, en horizontal y en vertical. */
+const GINGHAM_STYLE = {
+  backgroundColor: PAPER,
+  backgroundImage: [
+    'repeating-linear-gradient(90deg, rgba(220,44,46,0.08) 0 12px, transparent 12px 24px)',
+    'repeating-linear-gradient(0deg, rgba(220,44,46,0.08) 0 12px, transparent 12px 24px)',
+  ].join(', '),
+  borderColor: 'rgba(220,44,46,0.28)',
+  color: INK,
+} as const;
+
 function formatExpiry(expiresAt: string): string {
   return new Date(expiresAt).toLocaleDateString('es-AR', {
     day: 'numeric',
@@ -68,20 +84,20 @@ export function WalletBalance({ variant = 'card' }: Props = {}) {
   const legend = (
     <dl className={cn('m-0 flex min-w-0 flex-1 flex-col', wide ? 'gap-5' : 'gap-4')}>
       <div className="flex items-center gap-2.5">
-        <span aria-hidden="true" className="h-3.5 w-3.5 shrink-0 rounded bg-primary-foreground" />
+        <span aria-hidden="true" className="h-3.5 w-3.5 shrink-0 rounded" style={{ backgroundColor: AVAILABLE_COLOR }} />
         <div className={cn('flex gap-0.5', wide ? 'flex-col' : 'flex-col-reverse')}>
-          <dt className={cn('text-[12.5px] text-primary-foreground/70', wide && 'order-2')}>{availableWord}</dt>
+          <dt className={cn('text-[12.5px] font-semibold text-[#67514C]', wide && 'order-2')}>{availableWord}</dt>
           <dd className={cn('m-0 text-2xl font-bold leading-none', wide && 'order-1')}>{available}</dd>
-          {wide && <dd className="order-3 m-0 text-[12.5px] text-primary-foreground/70">para pedir cuando quieras</dd>}
+          {wide && <dd className="order-3 m-0 text-[12.5px] text-[#67514C]">para pedir cuando quieras</dd>}
         </div>
       </div>
       <div className="flex items-center gap-2.5">
-        <span aria-hidden="true" className="h-3.5 w-3.5 shrink-0 rounded bg-warning" />
+        <span aria-hidden="true" className="h-3.5 w-3.5 shrink-0 rounded bg-primary" />
         <div className={cn('flex gap-0.5', wide ? 'flex-col' : 'flex-col-reverse')}>
-          <dt className={cn('text-[12.5px] text-primary-foreground/70', wide && 'order-2')}>{committedWord}</dt>
+          <dt className={cn('text-[12.5px] font-semibold text-[#67514C]', wide && 'order-2')}>{committedWord}</dt>
           <dd className={cn('m-0 text-2xl font-bold leading-none', wide && 'order-1')}>{committed}</dd>
           {wide && (
-            <dd className="order-3 m-0 text-[12.5px] text-primary-foreground/70">en pedidos que todavía no retiraste</dd>
+            <dd className="order-3 m-0 text-[12.5px] text-[#67514C]">en pedidos que todavía no retiraste</dd>
           )}
         </div>
       </div>
@@ -89,10 +105,10 @@ export function WalletBalance({ variant = 'card' }: Props = {}) {
   );
 
   const expiry = expiresAt && (
-    <p className="m-0 flex items-center gap-2.5 text-[13.5px] text-primary-foreground/70">
-      <CalendarDays className="h-[18px] w-[18px] shrink-0 text-primary-foreground" aria-hidden="true" />
+    <p className="m-0 flex items-center gap-2.5 text-[13.5px] text-[#67514C]">
+      <CalendarDays className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
       <span>
-        Vencen el <strong className="font-bold text-primary-foreground">{formatExpiry(expiresAt)}</strong>
+        Vencen el <strong className="font-bold text-[#1A110F]">{formatExpiry(expiresAt)}</strong>
       </span>
     </p>
   );
@@ -101,17 +117,18 @@ export function WalletBalance({ variant = 'card' }: Props = {}) {
     return (
       <section
         aria-label="Tu saldo"
-        className="flex items-center gap-8 rounded-xl bg-foreground px-7 py-6 text-primary-foreground"
+        className="flex items-center gap-8 rounded-xl border-[1.5px] px-7 py-6 shadow-[0_2px_10px_rgba(26,17,15,0.08)]"
+        style={GINGHAM_STYLE}
       >
         <Ring available={available} ring={ring} size={176} numberClass="text-[60px]" />
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           {legend}
-          <div aria-hidden="true" className="border-t border-dashed border-primary-foreground/25" />
+          <div aria-hidden="true" className="border-t-[1.5px] border-dashed border-[#1A110F]/25" />
           <div className="flex items-center justify-between gap-4">
             {expiry || <span />}
             <Link
               to="/orders/today"
-              className="flex h-11 shrink-0 items-center gap-1.5 rounded-md bg-primary-deep px-4 text-[13px] font-bold uppercase tracking-brand text-primary-foreground no-underline"
+              className="flex h-11 shrink-0 items-center gap-1.5 rounded-md border-[1.5px] border-[#1A110F] bg-[#FFFCF5] px-4 text-[13.5px] font-bold text-[#1A110F] no-underline"
             >
               Pedir un almuerzo
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -123,7 +140,10 @@ export function WalletBalance({ variant = 'card' }: Props = {}) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-foreground p-5 text-primary-foreground">
+    <div
+      className="flex flex-col gap-4 rounded-xl border-[1.5px] p-5 shadow-[0_2px_10px_rgba(26,17,15,0.08)]"
+      style={GINGHAM_STYLE}
+    >
       <div className="flex items-center gap-4">
         <Ring available={available} ring={ring} size={156} numberClass="text-[52px]" />
         {legend}
@@ -131,7 +151,7 @@ export function WalletBalance({ variant = 'card' }: Props = {}) {
 
       {expiry && (
         <>
-          <div aria-hidden="true" className="border-t border-dashed border-primary-foreground/25" />
+          <div aria-hidden="true" className="border-t-[1.5px] border-dashed border-[#1A110F]/25" />
           {expiry}
         </>
       )}
@@ -162,13 +182,14 @@ function Ring({
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg aria-hidden="true" width={size} height={size} viewBox="0 0 156 156" className="absolute left-0 top-0">
-        <circle cx="78" cy="78" r={RADIUS} fill="none" stroke="hsl(var(--foreground) / 0.35)" strokeWidth={STROKE} />
+        <circle cx="78" cy="78" r="56" fill={PAPER} />
+        <circle cx="78" cy="78" r={RADIUS} fill="none" stroke="hsl(var(--primary) / 0.12)" strokeWidth={STROKE} />
         <circle
           cx="78"
           cy="78"
           r={RADIUS}
           fill="none"
-          stroke="hsl(var(--primary-foreground))"
+          stroke={AVAILABLE_COLOR}
           strokeWidth={STROKE}
           strokeDasharray={ring.availableDasharray}
           transform="rotate(-90 78 78)"
@@ -178,16 +199,15 @@ function Ring({
           cy="78"
           r={RADIUS}
           fill="none"
-          stroke="hsl(var(--warning))"
+          stroke="hsl(var(--primary))"
           strokeWidth={STROKE}
           strokeDasharray={ring.committedDasharray}
           strokeDashoffset={ring.committedOffset}
           transform="rotate(-90 78 78)"
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span className={cn('font-display font-black leading-none text-primary-foreground', numberClass)}>{available}</span>
-        <span className="text-[11px] font-semibold uppercase tracking-brand text-primary-foreground/70">para pedir</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={cn('font-display font-black leading-none text-[#1A110F]', numberClass)}>{available}</span>
       </div>
     </div>
   );

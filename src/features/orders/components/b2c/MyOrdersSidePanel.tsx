@@ -43,7 +43,7 @@ export function MyOrdersSidePanel({ available, committed, pickupLeadMinutes }: P
         </div>
         {committed !== null && (
           <div className="flex items-center gap-2.5 text-[13.5px] opacity-90">
-            <span aria-hidden="true" className="h-3 w-3 flex-none rounded-[3px] bg-warning" />
+            <span aria-hidden="true" className="h-3 w-3 flex-none rounded-[3px] bg-primary" />
             <span>
               <strong className="font-bold">{formatLunches(committed)}</strong> reservados en pedidos programados
             </span>

@@ -146,18 +146,12 @@ describe('BuyLunchesAside', () => {
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
   });
 
-  it('states the expiry configured by the restaurant instead of a fixed 90 days (F22c.1)', async () => {
-    vi.mocked(getRestaurantConfig).mockResolvedValue({
-      horaCorte: '10:00',
-      pickupWindowStart: null,
-      pickupWindowEnd: null,
-      creditExpiryDays: 30,
-    });
+  it('no longer repeats the "se suman a tu saldo" and expiry-days notes in the box', async () => {
     renderAside();
     await screen.findByTestId('buy-summary');
 
-    expect(await screen.findByText(/vencen a los 30 días/i)).toBeInTheDocument();
-    expect(screen.queryByText(/90 días/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/se suman a tu saldo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/vencen a los/i)).not.toBeInTheDocument();
   });
 
   it.each([
