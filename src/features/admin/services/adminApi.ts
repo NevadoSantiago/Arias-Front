@@ -574,42 +574,52 @@ export interface PickupOrderItem {
   creditCost: number;
 }
 
+export type KitchenEstado = 'PENDIENTE' | 'CONFIRMADO' | 'COMANDADO' | 'ENTREGADO';
+
 export interface PickupOrder {
   id: number;
   customerNickname: string;
   items: PickupOrderItem[];
   notas: string | null;
+  /** Backend sends the full `OrderEstado`; the board only ever receives the four kitchen states. */
+  estado: KitchenEstado;
+  pickupAt: string; // ISO instant
+  comandadoAt: string | null;
+  deliveredAt: string | null;
 }
 
-export interface PickupGroup {
-  pickupTime: string; // HH:MM
+interface PickupGroupRawFromApi {
+  pickupTime: string;
   orders: PickupOrder[];
 }
 
-interface PickupGroupRawFromApi extends Omit<PickupGroup, 'pickupTime'> {
-  pickupTime: string; // "HH:MM:SS" del back
+/** Today's B2C orders, flattened: the backend groups them by pickup time, the board regroups by state. */
+export async function getOrdersByPickup(): Promise<PickupOrder[]> {
+  const { data } = await api.get<PickupGroupRawFromApi[]>(`${BASE}/orders/by-pickup`);
+  return data.flatMap((g) => g.orders);
 }
 
-export async function getOrdersByPickup(fecha?: string): Promise<PickupGroup[]> {
-  const params = fecha ? { fecha } : {};
-  const { data } = await api.get<PickupGroupRawFromApi[]>(`${BASE}/orders/by-pickup`, { params });
-  return data.map((g) => ({ ...g, pickupTime: g.pickupTime.substring(0, 5) }));
+/** CONFIRMADO -> COMANDADO. One id uses the single endpoint, several use the all-or-nothing batch. */
+export async function markOrdersComandado(ids: number[]): Promise<void> {
+  if (ids.length === 1) {
+    await api.put(`${BASE}/orders/${ids[0]}/comandado`);
+  } else {
+    await api.put(`${BASE}/orders/comandado`, { orderIds: ids });
+  }
 }
 
-/** Descarga el .xlsx de pedidos agrupados por horario de retiro. Sin side effect de estado. */
-export async function exportOrdersByPickup(fecha: string): Promise<void> {
-  const response = await api.get(`${BASE}/orders/export/by-pickup`, {
-    params: { fecha },
-    responseType: 'blob',
-  });
-  const url = window.URL.createObjectURL(new Blob([response.data]));
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', `pedidos-retiro-${fecha}.xlsx`);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+/** COMANDADO -> ENTREGADO. One id uses the single endpoint, several use the all-or-nothing batch. */
+export async function markOrdersEntregado(ids: number[]): Promise<void> {
+  if (ids.length === 1) {
+    await api.put(`${BASE}/orders/${ids[0]}/entregado`);
+  } else {
+    await api.put(`${BASE}/orders/entregado`, { orderIds: ids });
+  }
+}
+
+/** One-step undo: COMANDADO -> CONFIRMADO, ENTREGADO -> COMANDADO. */
+export async function undoOrderKitchenState(id: number): Promise<void> {
+  await api.put(`${BASE}/orders/${id}/undo`);
 }
 
 // ─── Paquetes de almuerzos — CRUD (unidad 11, SUPER_ADMIN) ────────────
