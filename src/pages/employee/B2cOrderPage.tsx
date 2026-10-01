@@ -627,7 +627,7 @@ export function B2cOrderPage() {
       <div className="container flex-1 py-8 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-10 lg:py-12">
         <div className="min-w-0">
           <header className="mb-6 lg:mb-8">
-            <h1 className="font-display text-foreground text-3xl lg:text-5xl font-bold leading-tight mb-1 lg:mb-2">
+            <h1 className="font-display text-foreground text-3xl lg:text-5xl font-bold leading-tight mb-1 lg:mb-2 min-h-[2lh]">
               {isToday ? `¡Buen día, ${user.firstName}!` : `Planificá tu comida del ${formatDayLabel(selectedDate)}`}
             </h1>
             <p className="text-muted-foreground text-sm lg:text-base">

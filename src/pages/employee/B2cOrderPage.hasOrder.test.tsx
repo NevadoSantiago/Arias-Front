@@ -279,3 +279,14 @@ describe('B2cOrderPage — mobile, day with an order', () => {
     expect(await screen.findByText(/tocá un plato para armar tu pedido/i)).toBeInTheDocument();
   });
 });
+
+describe('B2cOrderPage — stable calendar position', () => {
+  it('reserves two lines for the day title so switching days does not move the calendar', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 1 });
+    renderPage();
+
+    const title = await screen.findByRole('heading', { level: 1 });
+    expect(title.className).toContain('min-h-[2lh]');
+  });
+});
