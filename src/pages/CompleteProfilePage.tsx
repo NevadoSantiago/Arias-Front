@@ -26,10 +26,10 @@ export function CompleteProfilePage() {
         </p>
       </header>
 
-      <div className="flex-1 flex items-center justify-center px-6 py-8">
+      <div className="flex-1 flex items-start justify-center px-6 pt-4 pb-8 lg:pt-12">
         <div className="w-full max-w-md">
-          <div className="bg-card rounded-lg border border-border p-8 shadow-sm">
-            <div className="mb-8">
+          <div className="bg-card rounded-lg border border-border p-6 lg:p-8 shadow-sm">
+            <div className="mb-6 lg:mb-8">
               <h2 className="font-display text-foreground text-3xl font-bold mb-2">
                 Completá tu perfil
               </h2>
