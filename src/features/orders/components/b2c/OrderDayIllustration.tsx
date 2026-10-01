@@ -10,6 +10,8 @@ const ILLUSTRATIONS = [panero, conBandeja, esperandoMesa, chef, malabarista];
 interface Props {
   /** El día que decide la ilustración; por defecto hoy. */
   date?: Date;
+  /** `lg` (360px) lo usa el día con pedido, donde reemplaza al panel; `md` (280px) va bajo el panel. */
+  size?: 'md' | 'lg';
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * día entre cinco (`dailyIllustrationIndex`), sin fondo, centrada y de 280px
  * de alto (el ancho sale de su proporción, sin pasar el de la columna).
  */
-export function OrderDayIllustration({ date }: Props) {
+export function OrderDayIllustration({ date, size = 'md' }: Props) {
   const src = ILLUSTRATIONS[dailyIllustrationIndex(date ?? new Date(), ILLUSTRATIONS.length)];
   return (
     <img
@@ -25,7 +27,9 @@ export function OrderDayIllustration({ date }: Props) {
       src={src}
       alt=""
       aria-hidden="true"
-      className="pointer-events-none mx-auto h-[280px] w-auto max-w-full select-none object-contain"
+      className={`pointer-events-none mx-auto w-auto max-w-full select-none object-contain ${
+        size === 'lg' ? 'h-[360px]' : 'h-[280px]'
+      }`}
     />
   );
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
 import { DishCard } from '@/features/orders/components/DishCard';
 import { FilterPills } from '@/features/orders/components/FilterPills';
@@ -56,6 +56,16 @@ function formatDayLabel(date: string): string {
   const d = new Date(date + 'T12:00:00');
   const formatted = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric' });
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+/** "de hoy", "de mañana" o "del jueves": cómo nombrar el día elegido en "Ya tenés tu pedido …". */
+function hasOrderDayWording(date: string, todayStr: string): string {
+  if (date === todayStr) return 'de hoy';
+  const tomorrow = new Date(todayStr + 'T12:00:00');
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  if (date === tomorrowStr) return 'de mañana';
+  return `del ${new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long' })}`;
 }
 
 /** Igual que `formatDayLabel`, con el mes — solo para el ticket de confirmación (F4). */
@@ -246,6 +256,11 @@ export function B2cOrderPage() {
   const { payingOrderId, payNow } = usePayNow();
 
   const isToday = selectedDate === todayStr;
+  // Información de carrito y compra solo en días sin pedido: con pedido y carrito vacío se oculta.
+  const hasOrder = ordersForSelectedDay.length > 0;
+  const cartEmpty = cart.lines.length === 0;
+  const hideCartInfo = hasOrder && cartEmpty;
+  const hasOrderLine = `Ya tenés tu pedido ${hasOrderDayWording(selectedDate, todayStr)}`;
   const dayShortLabel = formatDayLabel(selectedDate).toLowerCase();
   const dayHeadingLabel = isToday ? 'hoy' : dayShortLabel;
 
@@ -620,7 +635,7 @@ export function B2cOrderPage() {
             </p>
           </header>
 
-          {wallet && wallet.available === 0 && (
+          {wallet && wallet.available === 0 && !hasOrder && (
             <div className="mb-6">
               <EmptyBalanceCard />
             </div>
@@ -728,10 +743,23 @@ export function B2cOrderPage() {
             </div>
           )}
         </div>
-        {isDesktop && <OrderReviewPanel {...reviewProps} below={<OrderDayIllustration />} />}
+        {isDesktop &&
+          (hideCartInfo ? (
+            <div className="sticky top-6 flex flex-col items-center gap-5">
+              <p className="m-0 text-center text-sm text-foreground">
+                {hasOrderLine} ·{' '}
+                <Link to="/orders/mine" className="font-semibold text-primary-deep underline">
+                  Ver en Mis pedidos
+                </Link>
+              </p>
+              <OrderDayIllustration size="lg" />
+            </div>
+          ) : (
+            <OrderReviewPanel {...reviewProps} below={<OrderDayIllustration />} />
+          ))}
       </div>
 
-      {!isDesktop && (
+      {!isDesktop && !hideCartInfo && (
         <div className="sticky bottom-0 z-20 bg-background">
           <div className="container max-w-xl px-0">
             <CartBar
