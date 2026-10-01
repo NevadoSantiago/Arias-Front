@@ -154,6 +154,16 @@ describe('B2cOrderPage — "Te quedaste sin almuerzos" banner', () => {
     expect(await screen.findByText(banner)).toBeInTheDocument();
   });
 
+  it('renders below the week calendar so the calendar never moves', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 0 });
+    renderPage();
+
+    const bannerEl = await screen.findByText(banner);
+    const calendarChip = screen.getByText('Menú de hoy');
+    expect(calendarChip.compareDocumentPosition(bannerEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('is hidden when the selected day already has an order', async () => {
     mockMatchMedia(false);
     setup({ balance: 0, orders: [orderOn(TODAY_ISO)] });

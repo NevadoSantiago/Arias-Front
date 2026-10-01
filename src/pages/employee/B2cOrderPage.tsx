@@ -635,12 +635,6 @@ export function B2cOrderPage() {
             </p>
           </header>
 
-          {wallet && wallet.available === 0 && !hasOrder && (
-            <div className="mb-6">
-              <EmptyBalanceCard />
-            </div>
-          )}
-
           <div className="mb-6 space-y-3">
             <WeekDaySelector
               selectedDate={selectedDate}
@@ -687,6 +681,13 @@ export function B2cOrderPage() {
               })()}
             </div>
           </div>
+
+          {/* Debajo del calendario: el cartel no debe correr el calendario de lugar. */}
+          {wallet && wallet.available === 0 && !hasOrder && (
+            <div className="mb-6">
+              <EmptyBalanceCard />
+            </div>
+          )}
 
           <SelectedDayOrders
             orders={ordersForSelectedDay}
