@@ -3,7 +3,6 @@ import { Clock, Smartphone, UtensilsCrossed, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Reveal } from '@/features/landing/components/Reveal';
 import heroChef from '@/assets/illustrations/BienvenidaHermanos.svg';
-import chefOfrece from '@/assets/illustrations/chef-ofrece.svg';
 import fotoFachada from '@/assets/landing/photos/fachada.jpg';
 import fotoSalon from '@/assets/landing/photos/salon.jpg';
 import platoNapolitana from '@/assets/landing/photos/plato-napolitana-tile.jpg';
@@ -243,31 +242,6 @@ export function LandingPage() {
                 </div>
               </Reveal>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── CTA FINAL ────────────────────────────────────────────── */}
-      <section className="py-16 lg:py-24 bg-primary text-primary-foreground overflow-hidden">
-        <div className="container grid lg:grid-cols-2 gap-10 items-center">
-          <Reveal>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold leading-tight mb-4">
-              ¿Le damos de comer?
-            </h2>
-            <p className="text-lg leading-relaxed opacity-95 mb-6">
-              Creá tu cuenta, cargá tus almuerzos y hacé tu primer pedido en minutos.
-            </p>
-            <Button asChild size="lg" variant="secondary" className="uppercase tracking-brand font-medium">
-              <Link to="/register">Creá tu cuenta</Link>
-            </Button>
-          </Reveal>
-
-          <div className="flex justify-center lg:justify-end" aria-hidden="true">
-            <img
-              src={chefOfrece}
-              alt=""
-              className="w-full max-w-xs h-auto select-none pointer-events-none"
-            />
           </div>
         </div>
       </section>

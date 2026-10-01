@@ -23,6 +23,12 @@ describe('LandingPage (B2C root — spec public-landing)', () => {
     expect(screen.getByRole('link', { name: /ya tengo cuenta/i })).toHaveAttribute('href', '/login');
   });
 
+  it('does not show the final red call-to-action block', () => {
+    renderPage();
+
+    expect(screen.queryByRole('heading', { name: /le damos de comer/i })).not.toBeInTheDocument();
+  });
+
   it('does not show corporate (B2B) content directly on the root page', () => {
     renderPage();
 
