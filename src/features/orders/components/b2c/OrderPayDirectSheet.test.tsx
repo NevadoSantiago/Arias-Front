@@ -38,7 +38,7 @@ const lines: CartLine[] = [
 
 const dayPack: CreditPack = {
   id: 1,
-  code: 'DAY',
+  code: 'X-IND', packType: 'INDIVIDUAL',
   nombre: 'Sueltos',
   creditAmount: 1,
   priceCents: 150000, // $1500 por almuerzo
@@ -49,7 +49,7 @@ const dayPack: CreditPack = {
 
 const weekPack: CreditPack = {
   id: 2,
-  code: 'WEEK',
+  code: 'X-SUG', packType: 'SUGERIDO',
   nombre: 'Paquete Semana',
   creditAmount: 5,
   priceCents: 600000, // $1200 por almuerzo — más barato que Sueltos

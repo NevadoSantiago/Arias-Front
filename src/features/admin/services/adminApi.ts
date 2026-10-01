@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import type { PackType } from '@/features/credits/types';
 
 const BASE = '/api/v1/admin';
 
@@ -629,6 +630,7 @@ export async function undoOrderKitchenState(id: number): Promise<void> {
 // presentacional para el cliente, nunca se usa para calcular el precio.
 
 export interface AdminCreditPack {
+  packType: PackType;
   id: number;
   code: string;
   nombre: string;
@@ -640,7 +642,7 @@ export interface AdminCreditPack {
 }
 
 export interface CreateCreditPackPayload {
-  code: string;
+  packType: PackType;
   nombre: string;
   creditAmount: number;
   priceCents: number;

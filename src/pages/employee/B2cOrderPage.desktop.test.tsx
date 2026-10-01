@@ -236,7 +236,7 @@ describe('B2cOrderPage — desktop layout (F22a)', () => {
     vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
     vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
     vi.mocked(getPacks).mockResolvedValue([
-      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+      { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
     ]);
     vi.mocked(startDirectCheckoutV2).mockRejectedValueOnce(new BalanceCoversOrderError());
     renderPage();

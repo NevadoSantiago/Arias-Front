@@ -41,8 +41,8 @@ describe('CreditsWalletPage', () => {
     vi.mocked(getMovements).mockResolvedValue([]);
     vi.mocked(getPendingPurchases).mockResolvedValue([]);
     vi.mocked(getPacks).mockResolvedValue([
-      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
-      { id: 2, code: 'WEEK', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true },
+      { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+      { id: 2, code: 'WEEK', packType: 'SUGERIDO', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true },
     ]);
   });
   afterEach(() => {
@@ -103,8 +103,8 @@ describe('CreditsWalletPage — pending Mercado Pago payments (D6)', () => {
     vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 1, expiresAt: null });
     vi.mocked(getMovements).mockResolvedValue([]);
     vi.mocked(getPacks).mockResolvedValue([
-      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
-      { id: 2, code: 'WEEK', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true },
+      { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+      { id: 2, code: 'WEEK', packType: 'SUGERIDO', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true },
     ]);
   });
   afterEach(() => {

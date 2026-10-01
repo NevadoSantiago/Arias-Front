@@ -3,6 +3,7 @@ import { buildCatalog, DEFAULT_EXPIRY_DAYS, expiryAfterPurchase, planPurchase, r
 import type { CreditPack } from './types';
 
 const pack = (over: Partial<CreditPack> & Pick<CreditPack, 'id' | 'code'>): CreditPack => ({
+  packType: 'OTRO',
   nombre: over.code,
   creditAmount: 1,
   priceCents: 150000,
@@ -12,9 +13,9 @@ const pack = (over: Partial<CreditPack> & Pick<CreditPack, 'id' | 'code'>): Cred
   ...over,
 });
 
-const day = pack({ id: 1, code: 'DAY', nombre: 'Sueltos' });
-const week = pack({ id: 2, code: 'WEEK', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10 });
-const month = pack({ id: 3, code: 'MONTH', nombre: 'Paquete Mes', creditAmount: 20, priceCents: 2400000, discountPercent: 20 });
+const day = pack({ id: 1, code: 'X-IND', packType: 'INDIVIDUAL', nombre: 'Sueltos' });
+const week = pack({ id: 2, code: 'X-SUG', packType: 'SUGERIDO', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10 });
+const month = pack({ id: 3, code: 'MONTH', packType: 'OTRO', nombre: 'Paquete Mes', creditAmount: 20, priceCents: 2400000, discountPercent: 20 });
 
 describe('buildCatalog', () => {
   it('splits DAY from the named packs, drops disabled ones and orders by ordenDisplay', () => {
@@ -25,7 +26,7 @@ describe('buildCatalog', () => {
     expect(catalog.recommended).toBe(month);
   });
 
-  it('finds the Semana pack by code, falling back to the first named pack', () => {
+  it('finds the Semana pack by type, falling back to the first named pack', () => {
     expect(buildCatalog([day, week, month]).weekPack).toBe(week);
     const renamed = pack({ id: 4, code: 'PACK5', creditAmount: 5, ordenDisplay: 1 });
     expect(buildCatalog([day, renamed, month]).weekPack).toBe(renamed);

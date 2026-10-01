@@ -23,6 +23,12 @@ import {
 } from '@/features/admin/services/adminApi';
 import { CreditPackFormDialog } from '@/features/admin/components/CreditPackFormDialog';
 
+const PACK_TYPE_LABEL: Record<AdminCreditPack['packType'], string> = {
+  INDIVIDUAL: 'Individual',
+  SUGERIDO: 'Sugerido',
+  OTRO: 'Otro',
+};
+
 function formatPrice(priceCents: number): string {
   return (priceCents / 100).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 }
@@ -101,7 +107,7 @@ export function AdminCreditPacksPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/30 border-b border-border">
                 <tr>
-                  <Th>Código</Th>
+                  <Th>Tipo</Th>
                   <Th>Nombre</Th>
                   <Th>Almuerzos</Th>
                   <Th>Precio</Th>
@@ -119,7 +125,7 @@ export function AdminCreditPacksPage() {
                       !p.enabled && 'opacity-50'
                     )}
                   >
-                    <Td className="font-medium text-foreground">{p.code}</Td>
+                    <Td className="font-medium text-foreground">{PACK_TYPE_LABEL[p.packType] ?? p.packType}</Td>
                     <Td>{p.nombre}</Td>
                     <Td className="text-muted-foreground">
                       {p.creditAmount} {p.creditAmount === 1 ? 'almuerzo' : 'almuerzos'}
@@ -203,6 +209,7 @@ export function AdminCreditPacksPage() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         editing={editing}
+        existingTypes={(packs ?? []).map((p) => p.packType)}
       />
     </div>
   );

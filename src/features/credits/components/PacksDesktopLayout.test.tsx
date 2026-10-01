@@ -10,7 +10,7 @@ vi.mock('@/features/orders/services/ordersApi', () => ({
   getRestaurantConfig: vi.fn().mockResolvedValue({ horaCorte: '10:00', pickupWindowStart: null, pickupWindowEnd: null }),
 }));
 
-const week: CreditPack = { id: 2, code: 'WEEK', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true };
+const week: CreditPack = { id: 2, code: 'WEEK', packType: 'SUGERIDO', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true };
 
 describe('PacksDesktopLayout', () => {
   it('has no pay button in the fallback aside when there is no valid plan (the selected pack left the catalog)', () => {

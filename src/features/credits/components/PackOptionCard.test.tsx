@@ -5,7 +5,7 @@ import type { CreditPack } from '../types';
 
 const weekPack: CreditPack = {
   id: 2,
-  code: 'WEEK',
+  code: 'WEEK', packType: 'SUGERIDO',
   nombre: 'Paquete Semana',
   creditAmount: 5,
   priceCents: 700000,

@@ -3,10 +3,6 @@ import { formatPrice, perLunchPriceCents, pickRecommended } from './packPricing'
 import type { PackCheckoutSelection } from './components/PackCheckoutSheet';
 import type { CreditPack } from './types';
 
-/** Código del pack "Sueltos": se compra `quantity` veces (1..10). */
-export const DAY_CODE = 'DAY';
-/** Código del pack "Paquete Semana" (el que empuja el aviso de Sueltos). */
-export const WEEK_CODE = 'WEEK';
 /**
  * Plazo de vencimiento mientras la config del restaurante no cargó (o el backend no
  * lo informa): el de la migración inicial. El valor real es
@@ -21,7 +17,7 @@ export interface PackCatalog {
   namedPacks: CreditPack[];
   /** El de mayor descuento (ver `pickRecommended`). */
   recommended: CreditPack | null;
-  /** "Paquete Semana": por código, o el primero con nombre. */
+  /** "Paquete Semana": el de tipo SUGERIDO, o el primero con nombre. */
   weekPack: CreditPack | null;
 }
 
@@ -30,15 +26,15 @@ export type PurchaseSelection = { kind: 'loose' } | { kind: 'pack'; packId: numb
 /** Parte el catálogo de `/packs` en Sueltos + packs con nombre. Sin lógica de precios: eso viene del servidor. */
 export function buildCatalog(allPacks: CreditPack[] | undefined): PackCatalog {
   const all = allPacks ?? [];
-  const dayPack = all.find((p) => p.code === DAY_CODE && p.enabled) ?? null;
+  const dayPack = all.find((p) => p.packType === 'INDIVIDUAL' && p.enabled) ?? null;
   const namedPacks = all
-    .filter((p) => p.code !== DAY_CODE && p.enabled)
+    .filter((p) => p.packType !== 'INDIVIDUAL' && p.enabled)
     .sort((a, b) => a.ordenDisplay - b.ordenDisplay);
   return {
     dayPack,
     namedPacks,
     recommended: pickRecommended(namedPacks),
-    weekPack: namedPacks.find((p) => p.code === WEEK_CODE) ?? namedPacks[0] ?? null,
+    weekPack: namedPacks.find((p) => p.packType === 'SUGERIDO') ?? namedPacks[0] ?? null,
   };
 }
 

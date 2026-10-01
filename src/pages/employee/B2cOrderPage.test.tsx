@@ -269,7 +269,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     try {
       vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
       vi.mocked(getPacks).mockResolvedValue([
-        { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+        { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
       ]);
       vi.mocked(startDirectCheckoutV2).mockResolvedValueOnce({
         orderId: 42,
@@ -312,7 +312,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
     vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
     vi.mocked(getPacks).mockResolvedValue([
-      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+      { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
     ]);
     renderPage();
 
@@ -329,7 +329,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
     vi.mocked(placeOrderV2).mockRejectedValueOnce(new InsufficientCreditsError());
     vi.mocked(getPacks).mockResolvedValue([
-      { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
+      { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true },
     ]);
     vi.mocked(startDirectCheckoutV2).mockRejectedValueOnce(new BalanceCoversOrderError());
     const { queryClient } = renderPage();

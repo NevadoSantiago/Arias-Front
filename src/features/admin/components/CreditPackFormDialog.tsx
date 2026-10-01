@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -19,9 +19,24 @@ import {
   updateCreditPack,
   type AdminCreditPack,
 } from '@/features/admin/services/adminApi';
+import type { PackType } from '@/features/credits/types';
+
+const PACK_TYPES: { value: PackType; label: string; help: string }[] = [
+  {
+    value: 'INDIVIDUAL',
+    label: 'Individual',
+    help: 'Su precio por almuerzo es el que se cobra al pagar un pedido directo. Solo puede haber uno.',
+  },
+  {
+    value: 'SUGERIDO',
+    label: 'Sugerido',
+    help: 'Es el paquete que se sugiere a quien compra almuerzos sueltos. Solo puede haber uno.',
+  },
+  { value: 'OTRO', label: 'Otro', help: 'Sin comportamiento especial.' },
+];
 
 const schema = z.object({
-  code: z.string().min(2, 'Mínimo 2 caracteres').max(20),
+  packType: z.enum(['INDIVIDUAL', 'SUGERIDO', 'OTRO']),
   nombre: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   creditAmount: z.number().int().positive('Debe ser mayor a 0'),
   priceArs: z.number().positive('Debe ser mayor a 0'),
@@ -36,6 +51,8 @@ interface Props {
   onClose: () => void;
   /** Si se pasa, es modo edición. Si null/undefined, es alta. */
   editing?: AdminCreditPack | null;
+  /** Tipos de paquete que ya existen (vivos): INDIVIDUAL y SUGERIDO admiten uno solo. */
+  existingTypes?: PackType[];
 }
 
 /**
@@ -45,12 +62,17 @@ interface Props {
  * sincronizar estado con un `useEffect`), así `useForm` arranca siempre con
  * los `defaultValues` correctos.
  */
-export function CreditPackFormDialog({ open, onClose, editing }: Props) {
+export function CreditPackFormDialog({ open, onClose, editing, existingTypes = [] }: Props) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-md">
         {open && (
-          <CreditPackForm key={editing?.id ?? 'new'} editing={editing ?? null} onClose={onClose} />
+          <CreditPackForm
+            key={editing?.id ?? 'new'}
+            editing={editing ?? null}
+            existingTypes={existingTypes}
+            onClose={onClose}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -64,9 +86,11 @@ export function CreditPackFormDialog({ open, onClose, editing }: Props) {
  */
 function CreditPackForm({
   editing,
+  existingTypes,
   onClose,
 }: {
   editing: AdminCreditPack | null;
+  existingTypes: PackType[];
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -75,13 +99,14 @@ function CreditPackForm({
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: editing
       ? {
-          code: editing.code,
+          packType: editing.packType,
           nombre: editing.nombre,
           creditAmount: editing.creditAmount,
           priceArs: editing.priceCents / 100,
@@ -89,7 +114,7 @@ function CreditPackForm({
           ordenDisplay: editing.ordenDisplay,
         }
       : {
-          code: '',
+          packType: firstFreeType(existingTypes),
           nombre: '',
           creditAmount: 1,
           priceArs: 0,
@@ -112,7 +137,7 @@ function CreditPackForm({
         });
       }
       return createCreditPack({
-        code: data.code,
+        packType: data.packType,
         nombre: data.nombre,
         creditAmount: data.creditAmount,
         priceCents,
@@ -125,9 +150,13 @@ function CreditPackForm({
       onClose();
     },
     onError: (err: unknown) => {
-      setServerError(extractApiError(err) ?? 'Ocurrió un error al guardar');
+      setServerError(describeError(err));
     },
   });
+
+  const watchedType = useWatch({ control, name: 'packType' });
+  const selectedType =
+    PACK_TYPES.find((t) => t.value === watchedType) ?? PACK_TYPES[2];
 
   const onSubmit = handleSubmit((data) => {
     setServerError(null);
@@ -147,12 +176,26 @@ function CreditPackForm({
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
         <Field
-          label="Código"
-          htmlFor="code"
-          error={errors.code?.message}
-          hint={isEditing ? 'No se puede modificar' : undefined}
+          label="Tipo"
+          htmlFor="packType"
+          error={errors.packType?.message}
+          hint={isEditing ? 'No se puede modificar' : selectedType.help}
         >
-          <Input id="code" {...register('code')} disabled={isEditing} autoFocus={!isEditing} />
+          <select
+            id="packType"
+            {...register('packType')}
+            disabled={isEditing}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {PACK_TYPES.map((t) => {
+              const taken = !isEditing && t.value !== 'OTRO' && existingTypes.includes(t.value);
+              return (
+                <option key={t.value} value={t.value} disabled={taken}>
+                  {taken ? `${t.label} · ya existe` : t.label}
+                </option>
+              );
+            })}
+          </select>
         </Field>
 
         <Field label="Nombre" htmlFor="nombre" error={errors.nombre?.message}>
@@ -224,9 +267,22 @@ function Field({
   );
 }
 
-/** Extrae el detail de un problem+json del backend */
-function extractApiError(err: unknown): string | null {
-  if (typeof err !== 'object' || err === null) return null;
-  const e = err as { response?: { data?: { detail?: string } } };
-  return e.response?.data?.detail ?? null;
+/** Primer tipo libre (INDIVIDUAL y SUGERIDO admiten uno solo); OTRO siempre está disponible. */
+function firstFreeType(existing: PackType[]): PackType {
+  return PACK_TYPES.find((t) => t.value === 'OTRO' || !existing.includes(t.value))!.value;
+}
+
+/** Mensaje en español para el error del backend (problem+json). */
+function describeError(err: unknown): string {
+  const e = (typeof err === 'object' && err !== null ? err : {}) as {
+    response?: { status?: number; data?: { type?: string; detail?: string } };
+  };
+  const type = e.response?.data?.type ?? '';
+  if (type.includes('credit-pack-type-duplicate')) {
+    return 'Ya existe un paquete de ese tipo. Editá el existente o elegí otro tipo.';
+  }
+  if (type.includes('credit-pack-code-duplicate')) {
+    return 'Ya existe un paquete con ese código. Probá con otro nombre.';
+  }
+  return e.response?.data?.detail ?? 'Ocurrió un error al guardar';
 }

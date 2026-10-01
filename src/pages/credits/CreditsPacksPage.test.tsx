@@ -16,7 +16,7 @@ vi.mock('@/features/credits/services/creditsApi', () => ({
 
 const dayPack: CreditPack = {
   id: 1,
-  code: 'DAY',
+  code: 'DAY', packType: 'INDIVIDUAL',
   nombre: 'Sueltos',
   creditAmount: 1,
   priceCents: 150000,
@@ -26,7 +26,7 @@ const dayPack: CreditPack = {
 };
 const weekPack: CreditPack = {
   id: 2,
-  code: 'WEEK',
+  code: 'WEEK', packType: 'SUGERIDO',
   nombre: 'Paquete Semana',
   creditAmount: 5,
   priceCents: 700000,
@@ -36,7 +36,7 @@ const weekPack: CreditPack = {
 };
 const monthPack: CreditPack = {
   id: 3,
-  code: 'MONTH',
+  code: 'MONTH', packType: 'OTRO',
   nombre: 'Paquete Mes',
   creditAmount: 20,
   priceCents: 2400000,

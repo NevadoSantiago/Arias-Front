@@ -36,7 +36,10 @@ export interface CreditMovement {
   createdAt: string;
 }
 
+export type PackType = 'INDIVIDUAL' | 'SUGERIDO' | 'OTRO';
+
 export interface CreditPack {
+  packType: PackType;
   id: number;
   code: string;
   nombre: string;

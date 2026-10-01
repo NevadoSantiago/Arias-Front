@@ -17,9 +17,9 @@ vi.mock('@/features/credits/services/creditsApi', () => ({
 vi.mock('@/features/orders/services/ordersApi', () => ({ getRestaurantConfig: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-const dayPack: CreditPack = { id: 1, code: 'DAY', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true };
-const weekPack: CreditPack = { id: 2, code: 'WEEK', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true };
-const monthPack: CreditPack = { id: 3, code: 'MONTH', nombre: 'Paquete Mes', creditAmount: 20, priceCents: 2400000, discountPercent: 20, ordenDisplay: 3, enabled: true };
+const dayPack: CreditPack = { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true };
+const weekPack: CreditPack = { id: 2, code: 'WEEK', packType: 'SUGERIDO', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true };
+const monthPack: CreditPack = { id: 3, code: 'MONTH', packType: 'OTRO', nombre: 'Paquete Mes', creditAmount: 20, priceCents: 2400000, discountPercent: 20, ordenDisplay: 3, enabled: true };
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

@@ -7,8 +7,6 @@ import { formatPrice, perLunchPriceCents, pickRecommended } from '@/features/cre
 import { formatLunches } from '../../lunches';
 import type { CartLine } from '../../hooks/useCart';
 
-const DAY_CODE = 'DAY';
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -58,8 +56,8 @@ export function OrderPayDirectSheet({
     enabled: open,
   });
 
-  const dayPack = packs?.find((p) => p.code === DAY_CODE && p.enabled) ?? null;
-  const namedPacks = (packs ?? []).filter((p) => p.code !== DAY_CODE && p.enabled);
+  const dayPack = packs?.find((p) => p.packType === 'INDIVIDUAL' && p.enabled) ?? null;
+  const namedPacks = (packs ?? []).filter((p) => p.packType !== 'INDIVIDUAL' && p.enabled);
   const recommended = pickRecommended(namedPacks);
 
   // Pago parcial: solo si el saldo cubre una parte (0 < N < total). Con 0 se
