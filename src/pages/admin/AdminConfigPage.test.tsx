@@ -279,9 +279,9 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
       pickupWindowStart: '11:00',
       pickupWindowEnd: '23:00',
       pickupSlotMinutes: 10,
-      dailySummaryTime: '08:00',
       pickupReminderMinutes: 25,
     });
+    expect(vi.mocked(updateRestaurantConfig).mock.calls[0][0]).not.toHaveProperty('dailySummaryTime');
   });
 
   it('no longer shows editable global pickup window inputs in the main form', async () => {
@@ -293,5 +293,99 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
 
     expect(screen.queryByLabelText(/apertura de la ventana de retiro/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/cierre de la ventana de retiro/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('AdminConfigPage — simplified configuration (F3)', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows the cutoff time as read-only, labelled for companies, with its helper text', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    const cutoff = (await screen.findByLabelText('Hora de corte de pedidos (Empresas)')) as HTMLInputElement;
+
+    expect(cutoff).toHaveAttribute('readonly');
+    expect(cutoff.value).toBe('10:00');
+    expect(screen.getByText(/solo aplica a los pedidos de empleados de empresas/i)).toBeInTheDocument();
+  });
+
+  it('groups the fields under "Empresas" and "Retiro en el local (clientes)"', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    await screen.findByLabelText('Hora de corte de pedidos (Empresas)');
+
+    const empresas = screen.getByRole('group', { name: 'Empresas' });
+    const retiro = screen.getByRole('group', { name: 'Retiro en el local (clientes)' });
+    expect(within(empresas).getByLabelText(/hora de corte/i)).toBeInTheDocument();
+    expect(within(retiro).getByLabelText(/tiempo de preparación/i)).toBeInTheDocument();
+    expect(within(retiro).getByLabelText(/intervalo entre horarios/i)).toBeInTheDocument();
+    expect(within(retiro).getByLabelText(/recordatorio de retiro/i)).toBeInTheDocument();
+    expect(within(retiro).getByLabelText(/vencimiento de almuerzos/i)).toBeInTheDocument();
+  });
+
+  it('no longer offers the morning kitchen summary field', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    await screen.findByLabelText('Hora de corte de pedidos (Empresas)');
+
+    expect(screen.queryByLabelText(/resumen matutino/i)).not.toBeInTheDocument();
+  });
+
+  it('drops the "Franja del día" column from the pickup schedule table', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    const region = within(await scheduleRegion());
+
+    expect(region.queryByText('Franja del día')).not.toBeInTheDocument();
+    expect(region.getAllByRole('columnheader').map((h) => h.textContent?.trim())).toEqual([
+      'Día',
+      'Estado',
+      'Desde',
+      'Hasta',
+    ]);
+  });
+
+  it('makes the schedule helper follow the interval being typed and flags it as unsaved', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    const region = within(await scheduleRegion());
+    expect(region.getByText(/cada 10 minutos/i)).toBeInTheDocument();
+    expect(region.queryByText(/sin guardar/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/intervalo entre horarios/i), { target: { value: '15' } });
+
+    expect(region.getByText(/cada 15 minutos/i)).toBeInTheDocument();
+    expect(region.getByText(/\(sin guardar\)/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/intervalo entre horarios/i), { target: { value: '10' } });
+    expect(region.queryByText(/sin guardar/i)).not.toBeInTheDocument();
+  });
+
+  it('clears the unsaved flag once the interval is saved', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(updateRestaurantConfig).mockResolvedValueOnce({ ...baseConfig, pickupSlotMinutes: 15 });
+
+    renderPage();
+    const region = within(await scheduleRegion());
+    const input = screen.getByLabelText(/intervalo entre horarios/i);
+    fireEvent.change(input, { target: { value: '15' } });
+    fireEvent.submit(input.closest('form')!);
+
+    expect(await within(input.closest('form')!).findByText('Guardado')).toBeInTheDocument();
+    expect(region.getByText(/cada 15 minutos/i)).toBeInTheDocument();
+    expect(region.queryByText(/sin guardar/i)).not.toBeInTheDocument();
   });
 });

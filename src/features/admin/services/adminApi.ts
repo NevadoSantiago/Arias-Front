@@ -157,7 +157,8 @@ export interface UpdateRestaurantConfigPayload {
   pickupWindowStart: string; // HH:MM
   pickupWindowEnd: string; // HH:MM
   pickupSlotMinutes: number;
-  dailySummaryTime: string; // HH:MM
+  /** Optional since backend B2: the morning summary is off; when omitted the stored value is kept. */
+  dailySummaryTime?: string; // HH:MM
   pickupReminderMinutes: number;
 }
 

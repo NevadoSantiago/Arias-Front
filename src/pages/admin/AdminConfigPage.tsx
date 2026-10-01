@@ -32,12 +32,13 @@ function toPayload(c: RestaurantConfig): UpdateRestaurantConfigPayload {
     pickupWindowStart: c.pickupWindowStart,
     pickupWindowEnd: c.pickupWindowEnd,
     pickupSlotMinutes: c.pickupSlotMinutes,
-    dailySummaryTime: c.dailySummaryTime,
     pickupReminderMinutes: c.pickupReminderMinutes,
   };
 }
 
 export function AdminConfigPage() {
+  // Interval typed in the main form, not yet saved: the schedule card's helper text follows it.
+  const [draftSlotMinutes, setDraftSlotMinutes] = useState<number | null>(null);
   const { data: config, isLoading } = useQuery({
     queryKey: ['restaurantConfigAdmin'],
     queryFn: getRestaurantConfigAdmin,
@@ -63,9 +64,11 @@ export function AdminConfigPage() {
       {/* `config` recién existe con datos completos — se le pasa como prop
           (no vía effect) para que el form inicialice su estado local una
           sola vez, sin sincronizar estado con un efecto. */}
-      {config && <RestaurantConfigForm config={config} />}
+      {config && <RestaurantConfigForm config={config} onSlotMinutesDraft={setDraftSlotMinutes} />}
 
-      {config && <PickupScheduleCard config={config} />}
+      {config && (
+        <PickupScheduleCard config={config} slotMinutes={draftSlotMinutes ?? config.pickupSlotMinutes} />
+      )}
 
       <DisabledDatesSection />
     </div>
@@ -78,7 +81,13 @@ export function AdminConfigPage() {
  * guardar, sincroniza el estado local con la respuesta del PUT directamente
  * en el `onSuccess` de la mutación (un event handler, no un efecto).
  */
-function RestaurantConfigForm({ config }: { config: RestaurantConfig }) {
+function RestaurantConfigForm({
+  config,
+  onSlotMinutesDraft,
+}: {
+  config: RestaurantConfig;
+  onSlotMinutesDraft: (minutes: number) => void;
+}) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<UpdateRestaurantConfigPayload>(() => toPayload(config));
   const [baseline, setBaseline] = useState<UpdateRestaurantConfigPayload>(() => toPayload(config));
@@ -91,6 +100,7 @@ function RestaurantConfigForm({ config }: { config: RestaurantConfig }) {
       const payload = toPayload(data);
       setForm(payload);
       setBaseline(payload);
+      onSlotMinutesDraft(payload.pickupSlotMinutes);
       setSaved(true);
       // Apagar el feedback "Guardado" después de 2 segundos
       setTimeout(() => setSaved(false), 2000);
@@ -114,112 +124,108 @@ function RestaurantConfigForm({ config }: { config: RestaurantConfig }) {
   const setMinutesField = <K extends 'pickupLeadMinutes' | 'creditExpiryDays' | 'pickupSlotMinutes' | 'pickupReminderMinutes'>(
     key: K,
     raw: string,
-  ) => setField(key, Math.max(1, Math.floor(Number(raw) || 1)));
+  ) => {
+    const value = Math.max(1, Math.floor(Number(raw) || 1));
+    setField(key, value);
+    if (key === 'pickupSlotMinutes') onSlotMinutesDraft(value);
+  };
 
   return (
     <form
       onSubmit={handleSubmit}
       className="bg-card border border-border rounded-lg p-6 lg:p-8 space-y-6"
     >
-      <div>
-        <div className="flex items-center gap-2 mb-2">
+      <fieldset className="space-y-2">
+        <legend className="mb-3 text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
+          Empresas
+        </legend>
+        <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" />
           <Label htmlFor="horaCorte" className="uppercase tracking-brand text-xs">
-            Hora de corte de pedidos
+            Hora de corte de pedidos (Empresas)
           </Label>
         </div>
         <Input
           id="horaCorte"
           type="time"
           value={form.horaCorte}
-          onChange={(e) => setField('horaCorte', e.target.value)}
-          disabled={isSaving}
+          readOnly
+          aria-describedby="horaCorte-help"
           className="max-w-[200px]"
           step={60}
         />
-        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-          Después de este horario, los empleados ya no pueden hacer ni modificar
-          pedidos para el día actual. El cron de cierre cambia automáticamente
-          todos los pedidos pendientes a "Confirmado" cuando llega esta hora.
+        <p id="horaCorte-help" className="text-xs text-muted-foreground leading-relaxed max-w-xl">
+          Solo aplica a los pedidos de empleados de empresas: después de este horario no pueden
+          hacer ni modificar el pedido del día, y los pendientes pasan a confirmados. No afecta a
+          los clientes con retiro en el local.
         </p>
-      </div>
+      </fieldset>
 
-      {/* Campos B2C (unidad 8 del backend): tiempo de preparación, vencimiento
-          de almuerzos y ventana de pedidos. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4 border-t border-border">
-        <div>
-          <Label htmlFor="pickupLeadMinutes" className="uppercase tracking-brand text-xs">
-            Tiempo de preparación (min)
-          </Label>
-          <Input
-            id="pickupLeadMinutes"
-            type="number"
-            min={1}
-            value={form.pickupLeadMinutes}
-            onChange={(e) => setMinutesField('pickupLeadMinutes', e.target.value)}
-            disabled={isSaving}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Retiro más temprano ofrecido y momento en que se consume el almuerzo automáticamente.
-          </p>
-        </div>
+      <fieldset className="pt-4 border-t border-border">
+        <legend className="mb-3 text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
+          Retiro en el local (clientes)
+        </legend>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <Label htmlFor="pickupLeadMinutes" className="uppercase tracking-brand text-xs">
+              Tiempo de preparación (min)
+            </Label>
+            <Input
+              id="pickupLeadMinutes"
+              type="number"
+              min={1}
+              value={form.pickupLeadMinutes}
+              onChange={(e) => setMinutesField('pickupLeadMinutes', e.target.value)}
+              disabled={isSaving}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Retiro más temprano ofrecido y momento en que el pedido pasa a confirmado.
+            </p>
+          </div>
 
-        <div>
-          <Label htmlFor="creditExpiryDays" className="uppercase tracking-brand text-xs">
-            Vencimiento de almuerzos (días)
-          </Label>
-          <Input
-            id="creditExpiryDays"
-            type="number"
-            min={1}
-            value={form.creditExpiryDays}
-            onChange={(e) => setMinutesField('creditExpiryDays', e.target.value)}
-            disabled={isSaving}
-          />
-        </div>
+          <div>
+            <Label htmlFor="pickupSlotMinutes" className="uppercase tracking-brand text-xs">
+              Intervalo entre horarios de retiro (min)
+            </Label>
+            <Input
+              id="pickupSlotMinutes"
+              type="number"
+              min={1}
+              value={form.pickupSlotMinutes}
+              onChange={(e) => setMinutesField('pickupSlotMinutes', e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
 
-        <div>
-          <Label htmlFor="pickupSlotMinutes" className="uppercase tracking-brand text-xs">
-            Intervalo entre horarios de retiro (min)
-          </Label>
-          <Input
-            id="pickupSlotMinutes"
-            type="number"
-            min={1}
-            value={form.pickupSlotMinutes}
-            onChange={(e) => setMinutesField('pickupSlotMinutes', e.target.value)}
-            disabled={isSaving}
-          />
-        </div>
+          <div>
+            <Label htmlFor="pickupReminderMinutes" className="uppercase tracking-brand text-xs">
+              Recordatorio de retiro (min antes)
+            </Label>
+            <Input
+              id="pickupReminderMinutes"
+              type="number"
+              min={1}
+              value={form.pickupReminderMinutes}
+              onChange={(e) => setMinutesField('pickupReminderMinutes', e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
 
-        <div>
-          <Label htmlFor="dailySummaryTime" className="uppercase tracking-brand text-xs">
-            Resumen matutino de cocina
-          </Label>
-          <Input
-            id="dailySummaryTime"
-            type="time"
-            step={60}
-            value={form.dailySummaryTime}
-            onChange={(e) => setField('dailySummaryTime', e.target.value)}
-            disabled={isSaving}
-          />
+          <div>
+            <Label htmlFor="creditExpiryDays" className="uppercase tracking-brand text-xs">
+              Vencimiento de almuerzos (días)
+            </Label>
+            <Input
+              id="creditExpiryDays"
+              type="number"
+              min={1}
+              value={form.creditExpiryDays}
+              onChange={(e) => setMinutesField('creditExpiryDays', e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
         </div>
-
-        <div>
-          <Label htmlFor="pickupReminderMinutes" className="uppercase tracking-brand text-xs">
-            Recordatorio de retiro (min antes)
-          </Label>
-          <Input
-            id="pickupReminderMinutes"
-            type="number"
-            min={1}
-            value={form.pickupReminderMinutes}
-            onChange={(e) => setMinutesField('pickupReminderMinutes', e.target.value)}
-            disabled={isSaving}
-          />
-        </div>
-      </div>
+      </fieldset>
 
       <div className="flex items-center gap-3 pt-2 border-t border-border">
         <Button
@@ -233,7 +239,10 @@ function RestaurantConfigForm({ config }: { config: RestaurantConfig }) {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setForm(baseline)}
+            onClick={() => {
+              setForm(baseline);
+              onSlotMinutesDraft(baseline.pickupSlotMinutes);
+            }}
             className="uppercase tracking-brand text-xs"
           >
             Descartar
@@ -318,16 +327,6 @@ function isDayInvalid(d: PickupScheduleDay): boolean {
   return a === null || b === null || b <= a;
 }
 
-function daySummary(d: PickupScheduleDay, invalid: boolean): string {
-  if (!d.open) return 'Cerrado: no se ofrece para pedir';
-  if (invalid) return 'Franja inválida';
-  const a = toMinutes(d.windowStart)!;
-  const b = toMinutes(d.windowEnd)!;
-  const hours = (b - a) / 60;
-  const hoursLabel = Number.isInteger(hours) ? String(hours) : hours.toFixed(1).replace('.', ',');
-  return `${d.windowStart} a ${d.windowEnd} · ${hoursLabel} h`;
-}
-
 function toSchedulePayload(days: PickupScheduleDay[]): UpdatePickupScheduleDayPayload[] {
   return days.map((d) => ({
     dayOfWeek: d.dayOfWeek,
@@ -337,7 +336,14 @@ function toSchedulePayload(days: PickupScheduleDay[]): UpdatePickupScheduleDayPa
   }));
 }
 
-function PickupScheduleCard({ config }: { config: RestaurantConfig }) {
+function PickupScheduleCard({
+  config,
+  slotMinutes,
+}: {
+  config: RestaurantConfig;
+  /** Interval currently typed in the main form (may differ from the saved one). */
+  slotMinutes: number;
+}) {
   const queryClient = useQueryClient();
   const [days, setDays] = useState<PickupScheduleDay[]>(() => toScheduleForm(config));
   const [baseline, setBaseline] = useState<PickupScheduleDay[]>(() => toScheduleForm(config));
@@ -408,7 +414,11 @@ function PickupScheduleCard({ config }: { config: RestaurantConfig }) {
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed max-w-md">
             Los clientes solo pueden elegir un horario de retiro dentro de la franja de cada día, cada{' '}
-            {config.pickupSlotMinutes} minutos. Los días cerrados no se ofrecen para pedir.
+            {slotMinutes} minutos
+            {slotMinutes !== config.pickupSlotMinutes && (
+              <strong className="font-semibold text-foreground"> (sin guardar)</strong>
+            )}
+            . Los días cerrados no se ofrecen para pedir.
           </p>
         </div>
         <Button
@@ -428,7 +438,7 @@ function PickupScheduleCard({ config }: { config: RestaurantConfig }) {
       )}
 
       <div className="overflow-x-auto -mx-2 px-2">
-        <table className="w-full border-collapse text-sm min-w-[640px]">
+        <table className="w-full border-collapse text-sm min-w-[520px]">
           <caption className="sr-only">Horario de retiro por día</caption>
           <thead>
             <tr className="border-b border-border">
@@ -444,19 +454,12 @@ function PickupScheduleCard({ config }: { config: RestaurantConfig }) {
               <th scope="col" className="py-2 px-3 text-left text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
                 Hasta
               </th>
-              <th scope="col" className="py-2 px-3 text-left text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
-                Franja del día
-              </th>
             </tr>
           </thead>
           <tbody>
             {days.map((d, i) => {
               const invalid = invalidByDay[i];
               const name = WEEKDAY_NAMES[d.dayOfWeek];
-              const a = toMinutes(d.windowStart);
-              const b = toMinutes(d.windowEnd);
-              const left = a !== null ? (a / 1440) * 100 : 0;
-              const width = d.open && !invalid && a !== null && b !== null ? ((b - a) / 1440) * 100 : 0;
               const errId = `pickup-schedule-error-${d.dayOfWeek}`;
 
               return (
@@ -512,15 +515,6 @@ function PickupScheduleCard({ config }: { config: RestaurantConfig }) {
                         &ldquo;Hasta&rdquo; tiene que ser después de &ldquo;Desde&rdquo;.
                       </p>
                     )}
-                  </td>
-                  <td className="py-3 px-3 min-w-[160px]">
-                    <div className="relative h-2.5 rounded-full bg-muted" aria-hidden="true">
-                      <div
-                        className="absolute inset-y-0 rounded-full bg-primary"
-                        style={{ left: `${left}%`, width: `${width}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{daySummary(d, invalid)}</p>
                   </td>
                 </tr>
               );
