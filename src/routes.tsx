@@ -26,6 +26,7 @@ import { AdminSidesPage } from '@/pages/admin/AdminSidesPage';
 import { AdminDishesPage } from '@/pages/admin/AdminDishesPage';
 import { AdminDishCalendarPage } from '@/pages/admin/AdminDishCalendarPage';
 import { AdminMenuPreviewPage } from '@/pages/admin/AdminMenuPreviewPage';
+import { AdminPaymentsPage } from '@/pages/admin/AdminPaymentsPage';
 import { AdminBillingPage } from '@/pages/admin/AdminBillingPage';
 import { CompanyAdminLayout } from '@/layouts/CompanyAdminLayout';
 import { CompanyAdminEmployeesPage } from '@/pages/companyAdmin/CompanyAdminEmployeesPage';
@@ -117,6 +118,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/admin', element: <Navigate to="/admin/dashboard" replace /> },
       { path: '/admin/dashboard', element: <AdminOrdersByPickupPage /> },
+      { path: '/admin/payments', element: <AdminPaymentsPage /> },
       { path: '/admin/companies/dashboard', element: <AdminDashboardPage /> },
       { path: '/admin/menu', element: <AdminMenuPreviewPage /> },
       { path: '/admin/dishes', element: <AdminDishesPage /> },

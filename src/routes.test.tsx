@@ -3,6 +3,7 @@ import { isValidElement } from 'react';
 import { Navigate, type RouteObject } from 'react-router-dom';
 import { router } from './routes';
 import { AdminOrdersByPickupPage } from '@/pages/admin/AdminOrdersByPickupPage';
+import { AdminPaymentsPage } from '@/pages/admin/AdminPaymentsPage';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 
 function flatten(routes: RouteObject[]): RouteObject[] {
@@ -14,6 +15,11 @@ describe('admin routes', () => {
   it('renders the orders board as the dashboard', () => {
     const el = find('/admin/dashboard')?.element;
     expect(isValidElement(el) && el.type).toBe(AdminOrdersByPickupPage);
+  });
+
+  it('renders the payments report at /admin/payments', () => {
+    const el = find('/admin/payments')?.element;
+    expect(isValidElement(el) && el.type).toBe(AdminPaymentsPage);
   });
 
   it('moves the company dashboard to /admin/companies/dashboard', () => {

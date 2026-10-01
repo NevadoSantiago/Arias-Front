@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LogOut, LayoutDashboard, UtensilsCrossed, Building2, Settings, ChevronDown, Menu, X,
+  LogOut, LayoutDashboard, Wallet, UtensilsCrossed, Building2, Settings, ChevronDown, Menu, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,7 @@ type NavEntry = NavLinkEntry | NavGroupEntry;
 
 const NAV: NavEntry[] = [
   { type: 'link', to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { type: 'link', to: '/admin/payments', label: 'Pagos', icon: Wallet },
   {
     type: 'group',
     id: 'dishes',

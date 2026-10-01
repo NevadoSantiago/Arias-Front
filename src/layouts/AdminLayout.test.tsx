@@ -27,6 +27,7 @@ describe('AdminLayout navigation', () => {
     renderLayout('/admin/dashboard');
     const n = within(nav());
     expect(n.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/admin/dashboard');
+    expect(n.getByRole('link', { name: 'Pagos' })).toHaveAttribute('href', '/admin/payments');
     expect(n.getByRole('link', { name: 'Configuración' })).toHaveAttribute('href', '/admin/config');
     expect(n.getByRole('button', { name: 'Administración platos' })).toBeInTheDocument();
     expect(n.getByRole('button', { name: 'Empresas' })).toBeInTheDocument();
@@ -54,6 +55,7 @@ describe('AdminLayout navigation', () => {
     const items = within(nav()).getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')]);
     expect(items).toEqual([
       ['Dashboard', '/admin/dashboard'],
+      ['Pagos', '/admin/payments'],
       ['Ver menú', '/admin/menu'],
       ['Platos', '/admin/dishes'],
       ['Calendario', '/admin/dish-calendar'],
