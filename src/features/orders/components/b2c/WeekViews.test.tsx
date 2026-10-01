@@ -69,6 +69,17 @@ describe('WeekView — mobile', () => {
     expect(within(friday).getByText('Sin pedidos')).toBeInTheDocument();
   });
 
+  it('keeps "Hoy" and "Sin pedidos" apart on an empty today: spread across the row, no wrapping', () => {
+    const [esta] = weeks([order(1, '2026-09-25T12:00:00-03:00')]);
+    renderWeek(esta);
+
+    const today = screen.getByRole('heading', { name: /jueves 24/i });
+    const row = today.parentElement as HTMLElement;
+    expect(row).toHaveClass('justify-between');
+    expect(within(row).getByText('Sin pedidos')).toHaveClass('whitespace-nowrap');
+    expect(within(today).getByText('Hoy')).toBeInTheDocument();
+  });
+
   it('shows the empty state with "Hacer un pedido" when the whole week has no orders', () => {
     const [esta, proxima] = weeks([]);
     renderWeek(proxima);
@@ -125,6 +136,17 @@ describe('WeekView — desktop', () => {
     expect(rows[0]).toHaveAttribute('data-today', 'true');
     expect(rows[1]).toHaveAttribute('data-today', 'false');
     expect(within(rows[1]).getByText('Sin pedidos')).toBeInTheDocument();
+  });
+
+  it('puts "Hoy" next to "Sin pedidos" in the right cell when today has no orders', () => {
+    const [esta] = weeks([order(1, '2026-09-25T12:00:00-03:00')]);
+    renderWeek(esta, { variant: 'desktop' });
+
+    const todayRow = screen.getAllByTestId('day-row')[0];
+    const [left, right] = Array.from(todayRow.children) as HTMLElement[];
+    expect(within(left).queryByText('Hoy')).not.toBeInTheDocument();
+    expect(within(right).getByText('Hoy')).toBeInTheDocument();
+    expect(within(right).getByText('Sin pedidos')).toBeInTheDocument();
   });
 
   it('shows the empty state for a week with no orders', () => {

@@ -109,11 +109,14 @@ function DayGroup({ day, variant, renderOrder }: DayProps) {
           <span className={cn('font-display font-bold leading-none text-foreground', empty ? 'text-xl' : 'text-4xl')}>
             {day.dayNumber}
           </span>
-          {day.isToday && <TodayChip />}
+          {day.isToday && !empty && <TodayChip />}
           {!empty && <span className="text-xs font-bold text-muted-foreground">{pluralOrders(day.orders.length)}</span>}
         </div>
         {empty ? (
-          <span className="text-sm text-muted-foreground">Sin pedidos</span>
+          <span className="flex items-center justify-between gap-3 whitespace-nowrap text-sm text-muted-foreground">
+            {day.isToday && <TodayChip />}
+            <span className="ml-auto">Sin pedidos</span>
+          </span>
         ) : (
           <ul aria-label={label} className="m-0 flex list-none flex-col gap-3 p-0">
             {day.orders.map(renderOrder)}
@@ -125,7 +128,7 @@ function DayGroup({ day, variant, renderOrder }: DayProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="m-0 font-display text-base font-bold text-foreground">
           {label}
           {day.isToday && (
@@ -135,7 +138,7 @@ function DayGroup({ day, variant, renderOrder }: DayProps) {
             </>
           )}
         </h3>
-        <span className="text-xs font-semibold text-muted-foreground">{empty ? 'Sin pedidos' : pluralOrders(day.orders.length)}</span>
+        <span className="whitespace-nowrap text-xs font-semibold text-muted-foreground">{empty ? 'Sin pedidos' : pluralOrders(day.orders.length)}</span>
       </div>
       {!empty && (
         <ul aria-label={label} className="m-0 flex list-none flex-col gap-3 p-0">
