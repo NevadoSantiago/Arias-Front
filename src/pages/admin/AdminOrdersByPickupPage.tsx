@@ -50,7 +50,7 @@ export function AdminOrdersByPickupPage() {
       <header className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-foreground text-3xl lg:text-4xl font-bold leading-tight mb-1">
-            Pedidos por horario de retiro
+            Dashboard
           </h1>
           <p className="text-muted-foreground text-sm">
             Consolidado de cocina para pedidos con retiro directo (clientes B2C).

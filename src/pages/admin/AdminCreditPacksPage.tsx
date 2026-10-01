@@ -62,7 +62,7 @@ export function AdminCreditPacksPage() {
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="font-display text-foreground text-3xl lg:text-4xl font-bold leading-tight mb-1">
-            Paquetes de almuerzos
+            Paquetes
           </h1>
           <p className="text-muted-foreground text-sm">
             Catálogo de compra de almuerzos para clientes B2C. El precio es el valor

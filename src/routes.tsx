@@ -116,7 +116,8 @@ export const router = createBrowserRouter([
     ),
     children: [
       { path: '/admin', element: <Navigate to="/admin/dashboard" replace /> },
-      { path: '/admin/dashboard', element: <AdminDashboardPage /> },
+      { path: '/admin/dashboard', element: <AdminOrdersByPickupPage /> },
+      { path: '/admin/companies/dashboard', element: <AdminDashboardPage /> },
       { path: '/admin/menu', element: <AdminMenuPreviewPage /> },
       { path: '/admin/dishes', element: <AdminDishesPage /> },
       { path: '/admin/dish-calendar', element: <AdminDishCalendarPage /> },
@@ -126,7 +127,7 @@ export const router = createBrowserRouter([
       { path: '/admin/categories', element: <AdminCategoriesPage /> },
       { path: '/admin/sides', element: <AdminSidesPage /> },
       { path: '/admin/config', element: <AdminConfigPage /> },
-      { path: '/admin/orders-by-pickup', element: <AdminOrdersByPickupPage /> },
+      { path: '/admin/orders-by-pickup', element: <Navigate to="/admin/dashboard" replace /> },
       { path: '/admin/credit-packs', element: <AdminCreditPacksPage /> },
     ],
   },
