@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RegisterForm } from './RegisterForm';
 import { register } from '../services/authApi';
 
@@ -19,9 +20,11 @@ vi.mock('../services/authApi', () => ({
 
 function renderForm() {
   return render(
+    <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter>
       <RegisterForm />
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore, type Role } from '../store/authStore';
 import {
   login,
@@ -23,8 +24,15 @@ import { homeForRole } from '../components/ProtectedRoute';
  */
 export function useAuthActions() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const setAuth = useAuthStore((s) => s.setAuth);
   const clear = useAuthStore((s) => s.clear);
+
+  /** El saldo puede haber cambiado en el backend (almuerzo de bienvenida): no esperar al reload. */
+  const refreshWallet = () => {
+    void queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
+    void queryClient.invalidateQueries({ queryKey: ['creditMovements'] });
+  };
 
   /** Login completo: token → me → store → navigate al home según rol. */
   const performLogin = async (payload: LoginPayload) => {
@@ -72,6 +80,7 @@ export function useAuthActions() {
     useAuthStore.getState().setAccessToken(accessToken);
     const user = await me();
     setAuth(accessToken, user);
+    refreshWallet();
     return { profileComplete: user.profileComplete, role: user.role };
   };
 
@@ -90,6 +99,7 @@ export function useAuthActions() {
     useAuthStore.getState().setAccessToken(accessToken);
     const user = await me();
     setAuth(accessToken, user);
+    refreshWallet();
     return { welcomeLunchGranted, profileComplete: user.profileComplete, role: user.role };
   };
 
@@ -97,6 +107,7 @@ export function useAuthActions() {
   const performCompleteProfile = async (payload: CompleteProfilePayload) => {
     const user = await completeProfile(payload);
     useAuthStore.getState().setUser(user);
+    refreshWallet();
     navigate(homeForRole(user.role), { replace: true });
   };
 
@@ -108,6 +119,8 @@ export function useAuthActions() {
       // Si el backend falla, igual limpiamos local — el peor caso es un token huérfano
     }
     clear();
+    // Nada del usuario anterior (saldo, pedidos) debe sobrevivir en la misma pestaña
+    queryClient.clear();
     navigate('/login', { replace: true });
   };
 

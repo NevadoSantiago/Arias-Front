@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { googleLogin } from '../services/authApi';
@@ -36,9 +37,11 @@ async function renderRegister() {
   vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id');
   const { RegisterForm } = await import('./RegisterForm');
   return render(
+    <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter>
       <RegisterForm />
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

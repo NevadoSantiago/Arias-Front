@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { checkEmail, googleLogin, me } from '@/features/auth/services/authApi';
@@ -65,6 +66,7 @@ async function renderLogin(initialEntry = '/login') {
   vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id');
   const { LoginPage } = await import('./LoginPage');
   return render(
+    <QueryClientProvider client={new QueryClient()}>
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -72,7 +74,8 @@ async function renderLogin(initialEntry = '/login') {
         <Route path="/orders/today" element={<p>Home empleado</p>} />
         <Route path="*" element={<p>Otra ruta</p>} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
