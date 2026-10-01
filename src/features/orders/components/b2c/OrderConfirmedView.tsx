@@ -13,7 +13,7 @@ interface Props {
   /** Nombre con el que la cocina llama al cliente (`AuthUser.displayName`). */
   callName: string;
   items: ComandaItem[];
-  footer: ComandaFooter;
+  footer: ComandaFooter | null;
   /** El pedido se pagó con Mercado Pago: cambia el encabezado, la nota y el segundo botón. */
   paidWithMercadoPago?: boolean;
   /** Cantidad de platos SUMADOS a un pedido existente; null/ausente = pedido nuevo. */
@@ -51,17 +51,17 @@ export function OrderConfirmedView({
 
   return (
     <ChefBackdrop>
-      <div className="flex flex-col gap-[18px] px-4 pb-7 pt-[18px] lg:grid lg:grid-cols-[minmax(0,1fr)_480px] lg:grid-rows-[auto_auto_1fr] lg:gap-x-[72px] lg:gap-y-6 lg:px-0 lg:pt-6">
-        <div className="flex items-center gap-3 lg:col-start-1 lg:flex-col lg:items-start lg:gap-[22px]">
+      <div className="flex flex-col gap-3 px-4 pb-4 pt-3 lg:grid lg:grid-cols-[minmax(0,1fr)_480px] lg:grid-rows-[auto_auto_1fr] lg:gap-x-[72px] lg:gap-y-6 lg:px-0 lg:pt-6">
+        <div className="flex items-center gap-2.5 lg:col-start-1 lg:flex-col lg:items-start lg:gap-[22px]">
           <span
             aria-hidden="true"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground lg:h-[72px] lg:w-[72px]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground lg:h-[72px] lg:w-[72px]"
           >
-            <Check className="h-6 w-6 lg:h-9 lg:w-9" strokeWidth={2.6} aria-hidden="true" />
+            <Check className="h-5 w-5 lg:h-9 lg:w-9" strokeWidth={2.6} aria-hidden="true" />
           </span>
-          <span className="flex min-w-0 flex-col gap-[3px] lg:gap-2">
-            <h1 className="m-0 font-display text-[25px] font-bold leading-[1.1] text-foreground lg:text-[46px]">{title}</h1>
-            <span className="text-sm leading-snug text-muted-foreground lg:text-base">{headline}</span>
+          <span className="flex min-w-0 flex-col gap-0.5 lg:gap-2">
+            <h1 className="m-0 font-display text-[21px] font-bold leading-[1.1] text-foreground lg:text-[46px]">{title}</h1>
+            <span className="text-[13px] leading-snug text-muted-foreground lg:text-base">{headline}</span>
           </span>
         </div>
 
@@ -76,20 +76,20 @@ export function OrderConfirmedView({
           />
         </div>
 
-        <ul className="m-0 mt-1.5 flex list-none flex-col gap-2.5 p-0 lg:col-start-1 lg:mt-0">
-          <li className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-foreground">
-            <Bell className="mt-px h-[18px] w-[18px] shrink-0 text-primary" aria-hidden="true" />
+        <ul className="m-0 mt-0.5 flex list-none flex-col gap-1.5 p-0 lg:col-start-1 lg:mt-0">
+          <li className="flex items-start gap-2 text-[13px] leading-snug text-foreground">
+            <Bell className="mt-px h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <span>Te avisamos 25 minutos antes del horario de retiro.</span>
           </li>
           {!paidWithMercadoPago && (
-            <li className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-foreground">
-              <RotateCcw className="mt-px h-[18px] w-[18px] shrink-0 text-primary" aria-hidden="true" />
+            <li className="flex items-start gap-2 text-[13px] leading-snug text-foreground">
+              <RotateCcw className="mt-px h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               <span>Si cancelás el pedido, el almuerzo vuelve a tu saldo.</span>
             </li>
           )}
         </ul>
 
-        <div className="flex flex-col gap-2.5 lg:col-start-1 lg:max-w-sm">
+        <div className="grid grid-cols-2 gap-2 lg:col-start-1 lg:flex lg:max-w-sm lg:flex-col lg:gap-2.5">
           <button
             type="button"
             onClick={onBackToMenu}

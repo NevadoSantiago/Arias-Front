@@ -255,8 +255,7 @@ export function OrderAccordionItem({
                     callName={callName}
                     whenLabel={comandaWhenLabel(order, now)}
                     items={comandaItems(order)}
-                    footer={comandaFooter(order, { now, walletAvailable: null })}
-                    showBalanceFooter={false}
+                    footer={comandaFooter(order, { now })}
                     muted={cancelled}
                     onRemoveItem={
                       canRemoveItems

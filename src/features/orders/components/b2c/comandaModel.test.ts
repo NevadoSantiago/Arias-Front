@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { comandaCopy, comandaFooter, comandaItems, formatComandaWhen, isPaidWithMercadoPago, lowerFirst } from './comandaModel';
+import { comandaCopy, comandaFooter as footerOrNull, comandaItems, formatComandaWhen, isPaidWithMercadoPago, lowerFirst } from './comandaModel';
 import type { OrderV2 } from '../../services/ordersApi';
+
+/** The footer of a case that has one (everything except an upcoming lunch-paid order). */
+const comandaFooter = (...args: Parameters<typeof footerOrNull>) => footerOrNull(...args)!;
 
 const NOW = new Date('2026-09-24T12:00:00Z');
 const FUTURE = '2026-09-24T16:00:00Z';
@@ -65,36 +68,16 @@ describe('comandaItems', () => {
 });
 
 describe('comandaFooter', () => {
-  it('lunch-paid upcoming order: reserved lunches and what is left', () => {
-    expect(comandaFooter(order(), { now: NOW, walletAvailable: 10 })).toEqual({
-      label: 'Reservaste 2 almuerzos para este pedido',
-      value: 'Te quedan 10 almuerzos',
-      icon: 'lunches',
-      lunchBalance: true,
-    });
+  it('lunch-paid upcoming order has no footer: the lunch balance is not shown on the comanda', () => {
+    expect(footerOrNull(order(), { now: NOW })).toBeNull();
   });
 
-  it('for platos added to an order, says how many lunches were reserved on top', () => {
-    expect(comandaFooter(order(), { now: NOW, walletAvailable: 8, addedLunches: 1 })).toEqual({
-      label: 'Reservaste 1 almuerzo más para este pedido',
-      value: 'Te quedan 8 almuerzos',
-      icon: 'lunches',
-      lunchBalance: true,
-    });
-  });
-
-  it('an order just placed always reads as reserved, whatever the clock says', () => {
-    expect(comandaFooter(order({ pickupAt: PAST }), { now: NOW, walletAvailable: 10, justPlaced: true }).label).toBe(
-      'Reservaste 2 almuerzos para este pedido',
-    );
-  });
-
-  it('omits "Te quedan" while the wallet is unknown', () => {
-    expect(comandaFooter(order(), { now: NOW, walletAvailable: null }).value).toBeNull();
+  it('an order just placed with lunches has no footer, whatever the clock says', () => {
+    expect(footerOrNull(order({ pickupAt: PAST }), { now: NOW, justPlaced: true })).toBeNull();
   });
 
   it('lunch-paid past order: "Pagado con almuerzos"', () => {
-    expect(comandaFooter(order({ pickupAt: PAST, estado: 'CONFIRMADO' }), { now: NOW, walletAvailable: 10 })).toEqual({
+    expect(comandaFooter(order({ pickupAt: PAST, estado: 'CONFIRMADO' }), { now: NOW })).toEqual({
       label: 'Pagado con almuerzos',
       value: '2 almuerzos',
       icon: 'lunches',
@@ -103,30 +86,30 @@ describe('comandaFooter', () => {
 
   it('paid with Mercado Pago: label plus the lunches, no money', () => {
     expect(
-      comandaFooter(order({ estado: 'CONFIRMADO', paidWithMercadoPago: true }), { now: NOW, walletAvailable: 10 }),
+      comandaFooter(order({ estado: 'CONFIRMADO', paidWithMercadoPago: true }), { now: NOW }),
     ).toEqual({ label: 'Pagado con Mercado Pago', value: '2 almuerzos', icon: 'card' });
   });
 
   it('awaiting payment: "A pagar con Mercado Pago" even though a DIRECT purchase exists', () => {
     expect(
-      comandaFooter(order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true }), { now: NOW, walletAvailable: 10 }),
+      comandaFooter(order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true }), { now: NOW }),
     ).toEqual({ label: 'A pagar con Mercado Pago', value: '2 almuerzos', icon: 'card' });
   });
 
   it('cancelled lunch-paid order: the lunches went back to the balance', () => {
-    expect(comandaFooter(order({ estado: 'CANCELADO' }), { now: NOW, walletAvailable: 10 })).toEqual({
+    expect(comandaFooter(order({ estado: 'CANCELADO' }), { now: NOW })).toEqual({
       label: 'Pedido cancelado',
       value: '2 almuerzos devueltos a tu saldo',
       icon: 'lunches',
     });
-    expect(comandaFooter(order({ estado: 'CANCELADO', creditTotal: 1 }), { now: NOW, walletAvailable: null }).value).toBe(
+    expect(comandaFooter(order({ estado: 'CANCELADO', creditTotal: 1 }), { now: NOW }).value).toBe(
       '1 almuerzo devuelto a tu saldo',
     );
   });
 
   it('cancelled Mercado Pago order: no claim about the balance', () => {
     expect(
-      comandaFooter(order({ estado: 'CANCELADO', paidWithMercadoPago: true }), { now: NOW, walletAvailable: 10 }),
+      comandaFooter(order({ estado: 'CANCELADO', paidWithMercadoPago: true }), { now: NOW }),
     ).toEqual({
       label: 'Pedido cancelado',
       value: 'Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
@@ -139,7 +122,7 @@ describe('comandaFooter', () => {
 
     it('paid partly, upcoming: "Reservaste N almuerzo de tu saldo" plus what Mercado Pago charged', () => {
       expect(
-        comandaFooter(order({ ...partial, estado: 'PENDIENTE' }), { now: NOW, walletAvailable: 0 }),
+        comandaFooter(order({ ...partial, estado: 'PENDIENTE' }), { now: NOW }),
       ).toEqual({
         label: 'Reservaste 1 almuerzo de tu saldo',
         value: 'Pagado con Mercado Pago: 1 almuerzo',
@@ -151,7 +134,6 @@ describe('comandaFooter', () => {
       expect(
         comandaFooter(order({ ...partial, creditTotal: 4, creditsFromBalance: 3, estado: 'PENDIENTE' }), {
           now: NOW,
-          walletAvailable: 0,
         }),
       ).toEqual({
         label: 'Reservaste 3 almuerzos de tu saldo',
@@ -162,13 +144,13 @@ describe('comandaFooter', () => {
 
     it('paid partly, already picked up: says the lunches were used, not reserved', () => {
       expect(
-        comandaFooter(order({ ...partial, estado: 'ENTREGADO', pickupAt: PAST }), { now: NOW, walletAvailable: 0 }).label,
+        comandaFooter(order({ ...partial, estado: 'ENTREGADO', pickupAt: PAST }), { now: NOW }).label,
       ).toBe('Usaste 1 almuerzo de tu saldo');
     });
 
     it('pending payment: the balance part is reserved and the rest is still to pay', () => {
       expect(
-        comandaFooter(order({ ...partial, estado: 'PENDIENTE_PAGO' }), { now: NOW, walletAvailable: 0 }),
+        comandaFooter(order({ ...partial, estado: 'PENDIENTE_PAGO' }), { now: NOW }),
       ).toEqual({
         label: '1 de tu saldo (reservado)',
         value: 'A pagar con Mercado Pago: 1 almuerzo',
@@ -177,7 +159,6 @@ describe('comandaFooter', () => {
       expect(
         comandaFooter(order({ ...partial, creditTotal: 4, creditsFromBalance: 3, estado: 'PENDIENTE_PAGO' }), {
           now: NOW,
-          walletAvailable: 0,
         }).label,
       ).toBe('3 de tu saldo (reservados)');
     });
@@ -185,7 +166,7 @@ describe('comandaFooter', () => {
     // El DTO no dice si el pago llegó a aprobarse antes de cancelar (el backend devuelve
     // `creditTotal` si se aprobó y solo `creditsFromBalance` si no): sin número.
     it('cancelled while partly reserved: neutral copy, no number that could be wrong', () => {
-      expect(comandaFooter(order({ ...partial, estado: 'CANCELADO' }), { now: NOW, walletAvailable: 10 })).toEqual({
+      expect(comandaFooter(order({ ...partial, estado: 'CANCELADO' }), { now: NOW })).toEqual({
         label: 'Pedido cancelado',
         value: 'Los almuerzos reservados volvieron a tu saldo. Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
         icon: 'lunches',
@@ -198,7 +179,7 @@ describe('comandaFooter', () => {
       const full = { estado: 'CANCELADO' as const, paidWithMercadoPago: true, creditTotal: 2, creditsFromBalance: 2 };
 
       it('the footer says the reserved lunches returned and the payment is credited', () => {
-        expect(comandaFooter(order(full), { now: NOW, walletAvailable: 10 })).toEqual({
+        expect(comandaFooter(order(full), { now: NOW })).toEqual({
           label: 'Pedido cancelado',
           value: 'Los almuerzos reservados volvieron a tu saldo. Si pagaste con Mercado Pago, lo que pagaste se acredita en tu saldo.',
           icon: 'lunches',
@@ -216,7 +197,6 @@ describe('comandaFooter', () => {
       expect(
         comandaFooter(order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, creditsFromBalance: 0 }), {
           now: NOW,
-          walletAvailable: 0,
         }),
       ).toEqual({ label: 'A pagar con Mercado Pago', value: '2 almuerzos', icon: 'card' });
     });
@@ -248,7 +228,7 @@ describe('comandaFooter', () => {
       ];
       const texts = cancelled.flatMap((o) => [
         comandaCopy(o, { now: NOW }).headline,
-        comandaFooter(o, { now: NOW, walletAvailable: 1 }).value ?? '',
+        comandaFooter(o, { now: NOW }).value ?? '',
       ]);
 
       expect(texts.join(' ')).not.toMatch(/no se cobra|no se cobró/i);
@@ -257,8 +237,8 @@ describe('comandaFooter', () => {
 
   it('never says "créditos"', () => {
     const texts = [order(), order({ estado: 'CANCELADO' }), order({ pickupAt: PAST })].flatMap((o) => {
-      const f = comandaFooter(o, { now: NOW, walletAvailable: 3 });
-      return [f.label, f.value ?? ''];
+      const f = footerOrNull(o, { now: NOW });
+      return [f?.label ?? '', f?.value ?? ''];
     });
 
     expect(texts.join(' ')).not.toMatch(/crédito/i);

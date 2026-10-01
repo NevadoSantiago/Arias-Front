@@ -35,8 +35,6 @@ export interface ComandaFooter {
   /** null = sin segunda línea (p. ej. saldo todavía desconocido). */
   value: string | null;
   icon: 'lunches' | 'card';
-  /** true = pie de saldo ("Reservaste N… / Te quedan N"); "Mis pedidos" lo oculta. */
-  lunchBalance?: boolean;
 }
 
 /**
@@ -60,20 +58,17 @@ export function comandaItems(order: OrderV2, { newItemIds }: { newItemIds?: Read
 }
 
 /**
- * `addedLunches`: al sumar platos a un pedido existente, el pie cuenta solo
- * los almuerzos reservados de más ("Reservaste 1 almuerzo más…").
- * `justPlaced`: recién se confirmó el pedido, así que siempre es una reserva
- * (no se depende de qué tan fresco esté `now`).
+ * Un pedido pagado con almuerzos que todavía no se retiró NO lleva pie: la comanda
+ * ya no muestra el saldo ("Reservaste N… / Te quedan N"). `justPlaced`: recién se
+ * confirmó el pedido, así que cuenta como pendiente de retiro sin depender de `now`.
  */
 export function comandaFooter(
   order: OrderV2,
   {
     now,
-    walletAvailable,
-    addedLunches,
     justPlaced = false,
-  }: { now: Date; walletAvailable: number | null; addedLunches?: number; justPlaced?: boolean },
-): ComandaFooter {
+  }: { now: Date; justPlaced?: boolean },
+): ComandaFooter | null {
   const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
     if (hasReservedBalanceWithMercadoPago(order)) {
@@ -112,17 +107,7 @@ export function comandaFooter(
     }
     return { label: 'Pagado con Mercado Pago', value: formatLunches(order.creditTotal), icon: 'card' };
   }
-  if (justPlaced || new Date(order.pickupAt).getTime() >= now.getTime()) {
-    return {
-      label:
-        addedLunches === undefined
-          ? `Reservaste ${formatLunches(order.creditTotal)} para este pedido`
-          : `Reservaste ${formatLunches(addedLunches)} más para este pedido`,
-      value: walletAvailable === null ? null : `Te quedan ${formatLunches(walletAvailable)}`,
-      icon: 'lunches',
-      lunchBalance: true,
-    };
-  }
+  if (justPlaced || new Date(order.pickupAt).getTime() >= now.getTime()) return null;
   return { label: 'Pagado con almuerzos', value: formatLunches(order.creditTotal), icon: 'lunches' };
 }
 

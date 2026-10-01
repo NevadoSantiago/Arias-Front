@@ -225,8 +225,8 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     expect(screen.getByText('Comanda Nº 0099')).toBeInTheDocument();
     expect(screen.getByText('Te vamos a llamar como')).toBeInTheDocument();
     expect(screen.getByText('Sofi')).toBeInTheDocument();
-    expect(screen.getByText('Reservaste 2 almuerzos para este pedido')).toBeInTheDocument();
-    expect(screen.getByText('Te quedan 10 almuerzos')).toBeInTheDocument();
+    expect(screen.queryByText(/Reservaste/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Te quedan 10 almuerzos')).not.toBeInTheDocument();
     expect(placeOrderV2).toHaveBeenCalledWith({
       items: [{ dishId: 10, sideId: null, notas: null }],
       pickupAt: '2026-05-21T15:00:00Z',

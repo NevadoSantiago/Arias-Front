@@ -35,12 +35,8 @@ interface Props {
   /** "Hoy, jueves 24 · 13:00 hs". */
   whenLabel: string;
   items: ComandaItem[];
-  footer: ComandaFooter;
-  /**
-   * Muestra el pie de saldo de almuerzos ("Reservaste N… / Te quedan N"). "Mis
-   * pedidos" lo oculta; los pies de pago (Mercado Pago, cancelado, pagado) siempre se ven.
-   */
-  showBalanceFooter?: boolean;
+  /** Pie de pago (Mercado Pago, cancelado, pagado); null = sin pie. */
+  footer: ComandaFooter | null;
   /** Insignia de estado bajo la fecha (vista de comanda de "Mis pedidos"). */
   estado?: OrderEstado;
   /** Aspecto apagado (pedido cancelado). */
@@ -75,12 +71,10 @@ export function OrderComanda({
   whenLabel,
   items,
   footer,
-  showBalanceFooter = true,
   estado,
   muted = false,
   onRemoveItem,
 }: Props) {
-  const showFooter = showBalanceFooter || !footer.lunchBalance;
   const number = String(orderId).padStart(4, '0');
   return (
     <div data-testid="comanda" className={cn('flex flex-col', muted && 'opacity-60 grayscale')}>
@@ -98,7 +92,7 @@ export function OrderComanda({
 
       <article
         aria-label={`Comanda número ${number}`}
-        className="relative flex flex-col gap-[18px] bg-card px-[22px] pb-6 pt-[26px] shadow-2xl"
+        className="relative flex flex-col gap-2.5 bg-card px-[18px] pb-4 pt-4 shadow-2xl"
         style={{
           transform: 'rotate(-0.5deg)',
           // Renglones rojos sutiles, como papel de comanda (igual que OrderSummary).
@@ -112,7 +106,7 @@ export function OrderComanda({
         }}
       >
         <div className="flex flex-col items-center gap-1 text-center">
-          <span className="font-display text-2xl font-bold uppercase leading-tight tracking-wider text-primary">
+          <span className="font-display text-xl font-bold uppercase leading-tight tracking-wider text-primary">
             Comanda Nº {number}
           </span>
           <span className="text-xs text-muted-foreground">{dateLabel}</span>
@@ -125,9 +119,9 @@ export function OrderComanda({
 
         <Divider />
 
-        <div className="flex flex-col items-center gap-1.5 rounded-md border-[1.5px] border-primary/35 bg-primary/[0.06] px-3 py-3.5 text-center">
+        <div className="flex flex-col items-center gap-0.5 rounded-md border-[1.5px] border-primary/35 bg-primary/[0.06] px-3 py-2 text-center">
           <Label>Te vamos a llamar como</Label>
-          <span className="break-words font-display text-4xl font-black leading-[1.05] text-foreground">{callName}</span>
+          <span className="break-words font-display text-[30px] font-black leading-[1.05] text-foreground">{callName}</span>
           <span className="text-[12.5px] leading-snug text-muted-foreground">
             Cuando esté listo, te llamamos por este nombre en el mostrador.
           </span>
@@ -135,7 +129,7 @@ export function OrderComanda({
 
         <Divider />
 
-        <div className="flex flex-col gap-[3px]">
+        <div className="flex flex-col gap-px">
           <Label>Retiro</Label>
           <span className="text-base font-bold text-foreground">{whenLabel}</span>
           <span className="text-[12.5px] text-muted-foreground">11 de Septiembre 4502</span>
@@ -143,9 +137,9 @@ export function OrderComanda({
 
         <Divider />
 
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-1.5">
           <Label>Pedido</Label>
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {items.map((item, i) => (
               <li key={i} className="flex items-start justify-between gap-1">
                 <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
@@ -187,7 +181,7 @@ export function OrderComanda({
           </ul>
         </div>
 
-        {showFooter && (
+        {footer && (
           <>
             <Divider />
 

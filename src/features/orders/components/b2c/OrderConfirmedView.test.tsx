@@ -9,10 +9,10 @@ const items: ComandaItem[] = [
   { id: 2, name: 'Ensalada César', side: null, note: null, costLabel: '1 almuerzo', isNew: false },
 ];
 
-const lunchFooter: ComandaFooter = {
-  label: 'Reservaste 3 almuerzos para este pedido',
-  value: 'Te quedan 9 almuerzos',
-  icon: 'lunches',
+const mpFooter: ComandaFooter = {
+  label: 'Pagado con Mercado Pago',
+  value: '3 almuerzos',
+  icon: 'card',
 };
 
 function renderView(props: Partial<Parameters<typeof OrderConfirmedView>[0]> = {}) {
@@ -26,7 +26,7 @@ function renderView(props: Partial<Parameters<typeof OrderConfirmedView>[0]> = {
         orderId={142}
         callName="Sofi"
         items={items}
-        footer={lunchFooter}
+        footer={null}
         onBackToMenu={onBackToMenu}
         {...props}
       />
@@ -73,17 +73,17 @@ describe('OrderConfirmedView', () => {
     expect(screen.getByText('1 almuerzo')).toBeInTheDocument();
   });
 
-  it('shows how many lunches were reserved and, when known, what is left', () => {
+  it('does not show the lunch balance (reserved / left) on the comanda', () => {
     renderView();
 
-    expect(screen.getByText('Reservaste 3 almuerzos para este pedido')).toBeInTheDocument();
-    expect(screen.getByText('Te quedan 9 almuerzos')).toBeInTheDocument();
+    expect(screen.queryByText(/Reservaste/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/te quedan/i)).not.toBeInTheDocument();
   });
 
-  it('hides the balance line when the wallet balance is not known', () => {
-    renderView({ footer: { ...lunchFooter, value: null } });
+  it('keeps the payment footer of a Mercado Pago order', () => {
+    renderView({ footer: mpFooter });
 
-    expect(screen.queryByText(/te quedan/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Pagado con Mercado Pago')).toBeInTheDocument();
   });
 
   it('shows the reminder and the cancellation note for a lunch-paid order', () => {
@@ -138,14 +138,13 @@ describe('OrderConfirmedView', () => {
       renderView({
         addedPlates: 1,
         items: addedItems,
-        footer: { label: 'Reservaste 1 almuerzo más para este pedido', value: 'Te quedan 8 almuerzos', icon: 'lunches' },
       });
 
       expect(screen.getByText('¡Sumado a tu pedido!')).toBeInTheDocument();
       expect(screen.getByText('Sumaste 1 plato a tu pedido de hoy a las 15:00.')).toBeInTheDocument();
       expect(screen.getByText('Comanda Nº 0142')).toBeInTheDocument();
       expect(screen.getAllByText('Nuevo')).toHaveLength(1);
-      expect(screen.getByText('Reservaste 1 almuerzo más para este pedido')).toBeInTheDocument();
+      expect(screen.queryByText(/Reservaste/)).not.toBeInTheDocument();
     });
 
     it('pluralises the headline for several plates and names the day for a future order', () => {

@@ -573,12 +573,7 @@ export function B2cOrderPage() {
           orderId={done.order.id}
           callName={resolveCallName(user)}
           items={comandaItems(done.order, { newItemIds: done.newItemIds })}
-          footer={comandaFooter(done.order, {
-            now,
-            walletAvailable: done.walletAvailableAfter,
-            addedLunches: done.addedPlates === null ? undefined : done.reservedLunches,
-            justPlaced: true,
-          })}
+          footer={comandaFooter(done.order, { now, justPlaced: true })}
           paidWithMercadoPago={isPaidWithMercadoPago(done.order)}
           addedPlates={done.addedPlates}
           onBackToMenu={() => setDone(null)}

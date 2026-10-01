@@ -16,23 +16,22 @@ function renderComanda(props: Partial<React.ComponentProps<typeof OrderComanda>>
       callName="Sofi"
       whenLabel="Hoy, jueves 24 · 13:00 hs"
       items={items}
-      footer={{ label: 'Reservaste 2 almuerzos para este pedido', value: 'Te quedan 10 almuerzos', icon: 'lunches', lunchBalance: true }}
+      footer={{ label: 'A pagar con Mercado Pago', value: '2 almuerzos', icon: 'card' }}
       {...props}
     />,
   );
 }
 
 describe('OrderComanda', () => {
-  it('hides the lunch-balance footer when showBalanceFooter is false', () => {
-    renderComanda({ showBalanceFooter: false });
+  it('renders no footer when there is none (no lunch-balance line)', () => {
+    renderComanda({ footer: null });
 
     expect(screen.queryByText(/Reservaste/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Te quedan/)).not.toBeInTheDocument();
   });
 
-  it('keeps a payment footer (Mercado Pago) even when showBalanceFooter is false', () => {
+  it('keeps a payment footer (Mercado Pago)', () => {
     renderComanda({
-      showBalanceFooter: false,
       footer: { label: 'A pagar con Mercado Pago', value: '2 almuerzos', icon: 'card' },
     });
 
@@ -71,8 +70,8 @@ describe('OrderComanda', () => {
   it('shows the footer label and value', () => {
     renderComanda();
 
-    expect(screen.getByText('Reservaste 2 almuerzos para este pedido')).toBeInTheDocument();
-    expect(screen.getByText('Te quedan 10 almuerzos')).toBeInTheDocument();
+    expect(screen.getByText('A pagar con Mercado Pago')).toBeInTheDocument();
+    expect(screen.getByText('2 almuerzos')).toBeInTheDocument();
   });
 
   it('shows the Mercado Pago footer with the lunches', () => {

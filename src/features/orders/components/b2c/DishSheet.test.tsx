@@ -53,6 +53,23 @@ describe('DishSheet', () => {
     vi.clearAllMocks();
   });
 
+  it('does not focus the notes field when it opens, so the keyboard stays closed', async () => {
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    // Without sides the notes field is the first focusable control, which Radix autofocuses.
+    renderSheet({ dish: dishWithoutSides });
+
+    const notes = await screen.findByLabelText(/nota para la cocina/i);
+    expect(notes).not.toHaveFocus();
+  });
+
+  it('uses a 16px notes field so iOS does not zoom when the user taps it', async () => {
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    renderSheet();
+
+    const notes = await screen.findByLabelText(/nota para la cocina/i);
+    expect(notes).toHaveClass('text-base');
+  });
+
   it('shows the photo at its full 4:3 ratio, without a viewport-height cap (the sheet scrolls instead)', async () => {
     vi.mocked(getDishPreference).mockResolvedValue(null);
     renderSheet({ dish: dishWithPhoto });

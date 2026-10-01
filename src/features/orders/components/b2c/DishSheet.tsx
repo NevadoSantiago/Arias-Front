@@ -206,7 +206,7 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
           value={notas}
           onChange={(e) => setNotas(e.target.value)}
           maxLength={200}
-          className="resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+          className="resize-none rounded-md border border-border bg-background px-3 py-2 text-base text-foreground"
         />
         {suggestedNote && notas.trim() !== suggestedNote && (
           <div className="flex items-start gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
@@ -246,6 +246,9 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
       <SheetContent
         aria-label={dish.nombre}
         variant={presentation}
+        // Radix autofocuses the first focusable control, which can be the notes
+        // field and pops the keyboard open on phones. Focus stays on the sheet.
+        onOpenAutoFocus={(e) => e.preventDefault()}
         className={cn('p-0', asDialog && 'max-w-[1060px]')}
       >
         {asDialog ? (
