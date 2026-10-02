@@ -15,42 +15,68 @@ interface KitchenBoardViewProps {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-function Items({ order, className }: { order: BoardOrder; className: string }) {
+/** One numbered row per dish, each with its own note right under it. */
+function Items({
+  order,
+  className,
+  badgeClassName,
+  compact = false,
+}: {
+  order: BoardOrder;
+  className: string;
+  badgeClassName: string;
+  compact?: boolean;
+}) {
   return (
-    <ul className="flex flex-col gap-1">
+    <ol className={cn('flex flex-col', compact && 'mt-1')}>
       {order.items.map((item, i) => (
-        <li key={i} className="flex flex-col gap-0.5">
-          <span className={className}>
-            {item.sideNombre ? `${item.dishNombre} c/ ${item.sideNombre}` : item.dishNombre}
+        <li
+          key={i}
+          className={cn('flex items-start gap-2.5 py-1.5 first:pt-0 last:pb-0', i > 0 && 'border-t border-foreground/15')}
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              'mt-px flex shrink-0 items-center justify-center rounded-full font-bold text-primary-foreground',
+              compact ? 'h-5 w-5 text-[11px]' : 'h-6 w-6 text-xs',
+              badgeClassName,
+            )}
+          >
+            {i + 1}
           </span>
-          <Note notas={item.notas} />
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className={className}>
+              {item.sideNombre ? `${item.dishNombre} c/ ${item.sideNombre}` : item.dishNombre}
+            </span>
+            <Note notas={item.notas} compact={compact} />
+          </div>
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }
 
-function Note({ notas, compact = false }: { notas: string | null; compact?: boolean }) {
+function Note({
+  notas,
+  compact = false,
+  label = 'Nota',
+}: {
+  notas: string | null;
+  compact?: boolean;
+  label?: string;
+}) {
   if (!notas) return null;
   return (
     <p className={compact ? 'text-[13px] leading-snug' : 'text-[15px] leading-snug'}>
-      <strong className="mr-1.5 text-[11px] uppercase tracking-brand text-destructive">Nota</strong>
+      <strong className="mr-1.5 text-[11px] uppercase tracking-brand text-destructive">{label}</strong>
       <span>{notas}</span>
     </p>
   );
 }
 
-/** Every note of an order, for the compact rows: one per dish, then the order-level one. */
-function OrderNotes({ order }: { order: BoardOrder }) {
-  const notes = [...order.items.map((i) => i.notas), order.notas].filter((n): n is string => !!n);
-  if (notes.length === 0) return null;
-  return (
-    <div className="mt-0.5 flex flex-col gap-0.5">
-      {notes.map((n, i) => (
-        <Note key={i} notas={n} compact />
-      ))}
-    </div>
-  );
+/** The note of the whole order, labelled apart from the dish notes. */
+function OrderNote({ notas, compact = false }: { notas: string | null; compact?: boolean }) {
+  return <Note notas={notas} compact={compact} label="Nota del pedido" />;
 }
 
 function CountBadge({ n, className }: { n: number; className: string }) {
@@ -147,8 +173,12 @@ function ConfirmedBox({ board, leadMinutes, slotMinutes, busy, onComandar }: Kit
                   <span className="text-[13px] text-muted-foreground">
                     N° {order.id} · {order.customerNickname}
                   </span>
-                  <Items order={order} className="text-[19px] font-semibold leading-snug" />
-                  <Note notas={order.notas} />
+                  <Items
+                    order={order}
+                    className="text-[19px] font-semibold leading-snug"
+                    badgeClassName="bg-primary-deep"
+                  />
+                  <OrderNote notas={order.notas} />
                   <button
                     type="button"
                     aria-label={`Comandado, pedido N° ${order.id}`}
@@ -227,8 +257,8 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
                   <span className="text-xs font-semibold text-[#4A5566]">{o.rel}</span>
                 </div>
               </div>
-              <Items order={o} className="text-base font-semibold leading-snug" />
-              <Note notas={o.notas} />
+              <Items order={o} className="text-base font-semibold leading-snug" badgeClassName="bg-[#2B5C8F]" />
+              <OrderNote notas={o.notas} />
               <div className="flex items-center justify-end gap-3 pt-1">
                 <button
                   type="button"
@@ -278,9 +308,10 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
                       <strong className="font-semibold">
                         N° {o.id} · {o.customerNickname}
                       </strong>
-                      {` · Retiro ${o.pickupLabel} · ${itemsSummary(o)}`}
+                      {` · Retiro ${o.pickupLabel}`}
                     </span>
-                    <OrderNotes order={o} />
+                    <Items order={o} compact className="text-sm font-medium" badgeClassName="bg-[#2B5C8F]" />
+                    <OrderNote notas={o.notas} compact />
                   </div>
                   <button
                     type="button"
@@ -342,8 +373,8 @@ function ScheduledBox({ board }: KitchenBoardViewProps) {
                 <span className="text-xs text-muted-foreground">
                   N° {o.id} · {o.customerNickname}
                 </span>
-                <Items order={o} className="text-[15px] font-semibold leading-snug" />
-                <Note notas={o.notas} />
+                <Items order={o} className="text-[15px] font-semibold leading-snug" badgeClassName="bg-warning-foreground" />
+                <OrderNote notas={o.notas} />
               </div>
               <span className="whitespace-nowrap text-xs text-muted-foreground">
                 Se confirma {o.confirmAtLabel}
@@ -396,7 +427,8 @@ function DeliveredBox({ board }: KitchenBoardViewProps) {
                 >
                   <span className="min-w-0">
                     <strong className="font-semibold">N° {o.id}</strong> · {o.customerNickname}
-                    <OrderNotes order={o} />
+                    <Items order={o} compact className="font-medium" badgeClassName="bg-success" />
+                    <OrderNote notas={o.notas} compact />
                   </span>
                   <span className="shrink-0 text-muted-foreground">
                     {`Retiro ${o.pickupLabel}`}
@@ -410,12 +442,6 @@ function DeliveredBox({ board }: KitchenBoardViewProps) {
       )}
     </section>
   );
-}
-
-function itemsSummary(order: BoardOrder): string {
-  return order.items
-    .map((i) => (i.sideNombre ? `${i.dishNombre} c/ ${i.sideNombre}` : i.dishNombre))
-    .join(', ');
 }
 
 /** Presentational: the four boxes of the kitchen dashboard. All behavior arrives through props. */

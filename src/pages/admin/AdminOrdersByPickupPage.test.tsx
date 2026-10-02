@@ -252,4 +252,81 @@ describe('AdminOrdersByPickupPage (kitchen dashboard)', () => {
       expect(screen.queryByText(/comandado \d{1,2}:\d{2}/i)).not.toBeInTheDocument();
     });
   });
+
+  describe('one numbered row per dish', () => {
+    const twoDishes = (): PickupOrder['items'] => [
+      { dishNombre: 'Milanesa', sideNombre: 'puré', creditCost: 1, notas: 'sin sal' },
+      { dishNombre: 'Ñoquis', sideNombre: 'salsa rosa', creditCost: 1, notas: 'bien calientes' },
+    ];
+
+    /** Both dishes are separate items of one list, each holding only its own note. */
+    function expectDishRows(scope: HTMLElement) {
+      const row1 = within(scope).getByText('Milanesa c/ puré').closest('li') as HTMLElement;
+      const row2 = within(scope).getByText('Ñoquis c/ salsa rosa').closest('li') as HTMLElement;
+      expect(row1).not.toBe(row2);
+      expect(row1.closest('ol')).not.toBeNull();
+      expect(row1.closest('ol')).toBe(row2.closest('ol'));
+      expect(within(row1.closest('ol') as HTMLElement).getAllByRole('listitem')).toHaveLength(2);
+      expect(within(row1).getByText('sin sal')).toBeInTheDocument();
+      expect(within(row1).queryByText('bien calientes')).not.toBeInTheDocument();
+      expect(within(row2).getByText('bien calientes')).toBeInTheDocument();
+      expect(within(row2).queryByText('sin sal')).not.toBeInTheDocument();
+    }
+
+    it('confirmed box: each note sits in the same item as its dish', async () => {
+      renderPage([order(7, 'CONFIRMADO', '12:20', { items: twoDishes() })]);
+      expectDishRows(await screen.findByRole('region', { name: /pedidos confirmados para comandar/i }));
+    });
+
+    it('commanded box: fresh and stale rows list one item per dish', async () => {
+      renderPage([
+        order(3, 'COMANDADO', '12:30', { comandadoAt: at('12:00'), items: twoDishes() }),
+        order(4, 'COMANDADO', '11:10', { comandadoAt: at('11:00'), items: twoDishes() }),
+      ]);
+      const box = await screen.findByRole('region', { name: /pedidos comandados/i });
+      expectDishRows(within(box).getByRole('article'));
+      fireEvent.click(within(box).getByRole('button', { name: /retiro hace más de/i }));
+      const stale = box.querySelector('#kb-stale-list') as HTMLElement;
+      expectDishRows(stale);
+      expect(within(box).queryByText(/Milanesa c\/ puré, Ñoquis/)).not.toBeInTheDocument();
+    });
+
+    it('scheduled box: each note sits in the same item as its dish', async () => {
+      renderPage([order(9, 'PENDIENTE', '13:10', { items: twoDishes() })]);
+      expectDishRows(await screen.findByRole('region', { name: /pedidos programados/i }));
+    });
+
+    it('delivered box: each note sits in the same item as its dish', async () => {
+      renderPage([order(5, 'ENTREGADO', '11:30', { deliveredAt: at('11:41'), items: twoDishes() })]);
+      fireEvent.click(await screen.findByRole('button', { name: /pedidos entregados/i }));
+      const box = screen.getByRole('region', { name: /pedidos entregados/i });
+      expectDishRows(box);
+      expect(within(box).queryByText(/Milanesa c\/ puré, Ñoquis/)).not.toBeInTheDocument();
+    });
+
+    it('a single dish is also a numbered list item', async () => {
+      renderPage([order(7, 'CONFIRMADO', '12:20')]);
+      const box = await screen.findByRole('region', { name: /pedidos confirmados para comandar/i });
+      const row = within(box).getByText('Milanesa c/ Papas').closest('li') as HTMLElement;
+      expect(row.closest('ol')).not.toBeNull();
+      expect(within(row).getByText('1')).toBeInTheDocument();
+    });
+
+    it('labels the order-level note apart from the dish notes, outside the dish list', async () => {
+      renderPage([order(7, 'CONFIRMADO', '12:20', { notas: 'timbre roto', items: twoDishes() })]);
+      const box = await screen.findByRole('region', { name: /pedidos confirmados para comandar/i });
+      expect(within(box).getByText('Nota del pedido')).toBeInTheDocument();
+      expect(within(box).getByText('timbre roto').closest('li')).toBeNull();
+    });
+
+    it('shows the order-level note once in a compact row', async () => {
+      renderPage([
+        order(4, 'COMANDADO', '11:10', { comandadoAt: at('11:00'), notas: 'timbre roto', items: twoDishes() }),
+      ]);
+      const box = await screen.findByRole('region', { name: /pedidos comandados/i });
+      fireEvent.click(within(box).getByRole('button', { name: /retiro hace más de/i }));
+      expect(within(box).getByText('Nota del pedido')).toBeInTheDocument();
+      expect(within(box).getAllByText('timbre roto')).toHaveLength(1);
+    });
+  });
 });
