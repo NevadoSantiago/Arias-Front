@@ -574,6 +574,8 @@ export interface PickupOrderItem {
   dishNombre: string;
   sideNombre: string | null;
   creditCost: number;
+  /** The customer's note for this dish. */
+  notas: string | null;
 }
 
 export type KitchenEstado = 'PENDIENTE' | 'CONFIRMADO' | 'COMANDADO' | 'ENTREGADO';

@@ -19,21 +19,37 @@ function Items({ order, className }: { order: BoardOrder; className: string }) {
   return (
     <ul className="flex flex-col gap-1">
       {order.items.map((item, i) => (
-        <li key={i} className={className}>
-          {item.sideNombre ? `${item.dishNombre} c/ ${item.sideNombre}` : item.dishNombre}
+        <li key={i} className="flex flex-col gap-0.5">
+          <span className={className}>
+            {item.sideNombre ? `${item.dishNombre} c/ ${item.sideNombre}` : item.dishNombre}
+          </span>
+          <Note notas={item.notas} />
         </li>
       ))}
     </ul>
   );
 }
 
-function Note({ notas }: { notas: string | null }) {
+function Note({ notas, compact = false }: { notas: string | null; compact?: boolean }) {
   if (!notas) return null;
   return (
-    <p className="text-[15px] leading-snug">
+    <p className={compact ? 'text-[13px] leading-snug' : 'text-[15px] leading-snug'}>
       <strong className="mr-1.5 text-[11px] uppercase tracking-brand text-destructive">Nota</strong>
       <span>{notas}</span>
     </p>
+  );
+}
+
+/** Every note of an order, for the compact rows: one per dish, then the order-level one. */
+function OrderNotes({ order }: { order: BoardOrder }) {
+  const notes = [...order.items.map((i) => i.notas), order.notas].filter((n): n is string => !!n);
+  if (notes.length === 0) return null;
+  return (
+    <div className="mt-0.5 flex flex-col gap-0.5">
+      {notes.map((n, i) => (
+        <Note key={i} notas={n} compact />
+      ))}
+    </div>
   );
 }
 
@@ -213,8 +229,7 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
               </div>
               <Items order={o} className="text-base font-semibold leading-snug" />
               <Note notas={o.notas} />
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <span className="text-xs text-[#4A5566]">{o.comandadoLabel ? `Comandado ${o.comandadoLabel}` : 'Comandado'}</span>
+              <div className="flex items-center justify-end gap-3 pt-1">
                 <button
                   type="button"
                   aria-label={`Entregado, pedido N° ${o.id}`}
@@ -258,12 +273,15 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
                   key={o.id}
                   className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-t border-[#D5DEEA] py-2"
                 >
-                  <span className="text-sm">
-                    <strong className="font-semibold">
-                      N° {o.id} · {o.customerNickname}
-                    </strong>
-                    {` · Retiro ${o.pickupLabel} · ${itemsSummary(o)}`}
-                  </span>
+                  <div className="min-w-0">
+                    <span className="text-sm">
+                      <strong className="font-semibold">
+                        N° {o.id} · {o.customerNickname}
+                      </strong>
+                      {` · Retiro ${o.pickupLabel} · ${itemsSummary(o)}`}
+                    </span>
+                    <OrderNotes order={o} />
+                  </div>
                   <button
                     type="button"
                     aria-label={`Entregado, pedido N° ${o.id}`}
@@ -378,6 +396,7 @@ function DeliveredBox({ board }: KitchenBoardViewProps) {
                 >
                   <span className="min-w-0">
                     <strong className="font-semibold">N° {o.id}</strong> · {o.customerNickname}
+                    <OrderNotes order={o} />
                   </span>
                   <span className="shrink-0 text-muted-foreground">
                     {`Retiro ${o.pickupLabel}`}

@@ -28,12 +28,7 @@ function TodayBody({ today, slotMinutes }: { today: TodayPickup; slotMinutes: nu
       <p className="text-sm text-muted-foreground">
         Horarios cada {slotMinutes} min · último horario {today.last}
       </p>
-      {today.kind === 'available' ? (
-        <p className="text-sm font-semibold text-success">
-          Próximo horario disponible: {today.next} ({today.remaining}{' '}
-          {today.remaining === 1 ? 'horario restante' : 'horarios restantes'})
-        </p>
-      ) : (
+      {today.kind === 'ended' && (
         <p className="text-sm font-semibold text-destructive">
           Hoy ya no quedan horarios.
           {today.nextOpen ? ` Próximo: ${today.nextOpen}.` : ''}

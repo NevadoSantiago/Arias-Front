@@ -14,7 +14,7 @@ function order(id: number, estado: PickupOrder['estado'], pickup: string, extra:
   return {
     id,
     customerNickname: `cliente${id}`,
-    items: [{ dishNombre: 'Milanesa', sideNombre: 'Papas', creditCost: 1 }],
+    items: [{ dishNombre: 'Milanesa', sideNombre: 'Papas', creditCost: 1, notas: null }],
     notas: null,
     estado,
     pickupAt: at(pickup),

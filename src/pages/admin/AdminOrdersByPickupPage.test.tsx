@@ -61,7 +61,7 @@ function order(
   return {
     id,
     customerNickname: `alias${id}`,
-    items: [{ dishNombre: 'Milanesa', sideNombre: 'Papas', creditCost: 1 }],
+    items: [{ dishNombre: 'Milanesa', sideNombre: 'Papas', creditCost: 1, notas: null }],
     notas: null,
     estado,
     pickupAt: at(pickup),
@@ -159,7 +159,6 @@ describe('AdminOrdersByPickupPage (kitchen dashboard)', () => {
     const box = await screen.findByRole('region', { name: /pedidos comandados/i });
     expect(within(box).getByText(/N° 4/)).toBeInTheDocument();
     expect(within(box).getByText('en 7 min')).toBeInTheDocument();
-    expect(within(box).getByText(/comandado 11:55/i)).toBeInTheDocument();
     fireEvent.click(within(box).getByRole('button', { name: /entregado.*4/i }));
     await waitFor(() => expect(markOrdersEntregado).toHaveBeenCalledWith([4]));
     expect(await screen.findByText(/pedido n° 4 pasó a entregados/i)).toBeInTheDocument();
@@ -203,5 +202,54 @@ describe('AdminOrdersByPickupPage (kitchen dashboard)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /comandado.*7/i }));
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(screen.queryByRole('button', { name: /deshacer/i })).not.toBeInTheDocument();
+  });
+
+  describe('dish notes and card trimming', () => {
+    const noted = (note: string): PickupOrder['items'] => [
+      { dishNombre: 'Milanesa', sideNombre: 'Papas', creditCost: 1, notas: note },
+    ];
+
+    it('shows the dish note in the confirmed box', async () => {
+      renderPage([order(7, 'CONFIRMADO', '12:20', { items: noted('sin sal') })]);
+      const box = await screen.findByRole('region', { name: /pedidos confirmados para comandar/i });
+      expect(within(box).getByText('sin sal')).toBeInTheDocument();
+    });
+
+    it('shows the dish note in the commanded box, fresh and faded rows', async () => {
+      renderPage([
+        order(3, 'COMANDADO', '12:30', { comandadoAt: at('12:00'), items: noted('bien cocida') }),
+        order(4, 'COMANDADO', '11:10', { comandadoAt: at('11:00'), items: noted('sin cebolla') }),
+      ]);
+      const box = await screen.findByRole('region', { name: /pedidos comandados/i });
+      expect(within(box).getByText('bien cocida')).toBeInTheDocument();
+      fireEvent.click(within(box).getByRole('button', { name: /retiro hace más de/i }));
+      expect(within(box).getByText('sin cebolla')).toBeInTheDocument();
+    });
+
+    it('shows the dish note in the scheduled box', async () => {
+      renderPage([order(9, 'PENDIENTE', '13:10', { items: noted('aderezo aparte') })]);
+      const box = await screen.findByRole('region', { name: /pedidos programados/i });
+      expect(within(box).getByText('aderezo aparte')).toBeInTheDocument();
+    });
+
+    it('shows the dish note in the delivered box', async () => {
+      renderPage([order(5, 'ENTREGADO', '11:30', { deliveredAt: at('11:41'), items: noted('sin sal') })]);
+      fireEvent.click(await screen.findByRole('button', { name: /pedidos entregados/i }));
+      const box = screen.getByRole('region', { name: /pedidos entregados/i });
+      expect(within(box).getByText('sin sal')).toBeInTheDocument();
+    });
+
+    it('keeps the order-level note next to the dish notes', async () => {
+      renderPage([order(7, 'CONFIRMADO', '12:20', { notas: 'timbre roto', items: noted('sin sal') })]);
+      const box = await screen.findByRole('region', { name: /pedidos confirmados para comandar/i });
+      expect(within(box).getByText('timbre roto')).toBeInTheDocument();
+      expect(within(box).getByText('sin sal')).toBeInTheDocument();
+    });
+
+    it('does not print the time the order was commanded', async () => {
+      renderPage([order(3, 'COMANDADO', '12:30', { comandadoAt: at('12:00') })]);
+      await screen.findByRole('region', { name: /pedidos comandados/i });
+      expect(screen.queryByText(/comandado \d{1,2}:\d{2}/i)).not.toBeInTheDocument();
+    });
   });
 });

@@ -70,14 +70,15 @@ describe('AdminMenuPreviewPage — pickup hours (F5)', () => {
     vi.clearAllMocks();
   });
 
-  it('shows today\'s B2C window, interval, last slot and next available slot instead of the order cutoff', async () => {
+  it('shows today\'s B2C window, interval, last slot, with no next-slot line, instead of the order cutoff', async () => {
     renderPage();
 
     const card = within(await screen.findByRole('region', { name: /retiro en el local/i }));
     expect(card.getByText('11:00 a 15:00')).toBeInTheDocument();
     expect(card.getByText(/cada 10 min/i)).toBeInTheDocument();
     expect(card.getByText(/último horario 14:50/i)).toBeInTheDocument();
-    expect(card.getByText(/próximo horario disponible: 14:20 \(4 horarios restantes\)/i)).toBeInTheDocument();
+    expect(card.queryByText(/próximo horario disponible/i)).not.toBeInTheDocument();
+    expect(card.queryByText(/horarios restantes/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/cierre de pedidos/i)).not.toBeInTheDocument();
   });
 

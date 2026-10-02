@@ -25,7 +25,7 @@ export interface PickupHoursInput {
 }
 
 export type TodayPickup =
-  | { kind: 'available'; range: string; last: string; next: string; remaining: number }
+  | { kind: 'available'; range: string; last: string }
   | { kind: 'ended'; range: string; last: string; nextOpen: string | null }
   | { kind: 'closed'; nextOpen: string | null }
   | { kind: 'disabled'; motivo: string | null; nextOpen: string | null };
@@ -120,11 +120,10 @@ export function buildPickupHours(input: PickupHoursInput): PickupHours {
     const last = formatMinute(slots[slots.length - 1]);
     // Seconds matter: a slot at exactly now + lead is offered, one a second earlier is not.
     const earliest = minuteOfDay(now, timezone) + now.getUTCSeconds() / 60 + leadMinutes;
-    const remaining = slots.filter((t) => t >= earliest);
-    todayResult =
-      remaining.length > 0
-        ? { kind: 'available', range, last, next: formatMinute(remaining[0]), remaining: remaining.length }
-        : { kind: 'ended', range, last, nextOpen: nextOpen() };
+    const hasSlotLeft = slots.some((t) => t >= earliest);
+    todayResult = hasSlotLeft
+      ? { kind: 'available', range, last }
+      : { kind: 'ended', range, last, nextOpen: nextOpen() };
   }
 
   const monday = addDays(today, -(todayIso - 1));

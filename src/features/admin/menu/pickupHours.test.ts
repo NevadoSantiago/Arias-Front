@@ -29,16 +29,10 @@ function input(overrides: Partial<PickupHoursInput> = {}): PickupHoursInput {
 }
 
 describe('buildPickupHours — today', () => {
-  it('offers the next slot after now + lead and counts the remaining ones', () => {
+  it('is available while a slot at or after now + lead is left', () => {
     const { today } = buildPickupHours(input());
 
-    expect(today).toMatchObject({
-      kind: 'available',
-      range: '11:00 a 15:00',
-      last: '14:50',
-      next: '14:20',
-      remaining: 4, // 14:20, 14:30, 14:40, 14:50
-    });
+    expect(today).toEqual({ kind: 'available', range: '11:00 a 15:00', last: '14:50' });
   });
 
   it('excludes the closing time from the slots', () => {
@@ -52,14 +46,14 @@ describe('buildPickupHours — today', () => {
       input({ schedule: allOpen.map((d) => ({ ...d, windowStart: '11:05' })) }),
     );
 
-    expect(today).toMatchObject({ kind: 'available', last: '14:55', next: '14:25' });
+    expect(today).toMatchObject({ kind: 'available', last: '14:55' });
   });
 
-  it('includes a slot exactly at now + lead, but not when now has extra seconds', () => {
+  it('counts a slot exactly at now + lead, but not when now has extra seconds', () => {
     const exact = buildPickupHours(input({ now: at('2026-10-01', '14:30:00') })).today;
     const late = buildPickupHours(input({ now: at('2026-10-01', '14:30:30') })).today;
 
-    expect(exact).toMatchObject({ kind: 'available', next: '14:50', remaining: 1 });
+    expect(exact).toMatchObject({ kind: 'available' });
     expect(late).toMatchObject({ kind: 'ended' });
   });
 
