@@ -51,7 +51,7 @@ function toMinutes(hhmm: string | null): number | null {
 }
 
 /** `YYYY-MM-DD` of an instant, read in `timezone`. */
-function localDate(instant: Date, timezone: string): string {
+export function localDate(instant: Date, timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
     year: 'numeric',
@@ -60,7 +60,7 @@ function localDate(instant: Date, timezone: string): string {
   }).format(instant);
 }
 
-function addDays(date: string, days: number): string {
+export function addDays(date: string, days: number): string {
   const [y, m, d] = date.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }

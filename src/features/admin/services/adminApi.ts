@@ -597,9 +597,15 @@ interface PickupGroupRawFromApi {
   orders: PickupOrder[];
 }
 
-/** Today's B2C orders, flattened: the backend groups them by pickup time, the board regroups by state. */
-export async function getOrdersByPickup(): Promise<PickupOrder[]> {
-  const { data } = await api.get<PickupGroupRawFromApi[]>(`${BASE}/orders/by-pickup`);
+/**
+ * B2C orders of a pickup day (`YYYY-MM-DD`, today when omitted), flattened: the backend groups them
+ * by pickup time, the board regroups by state.
+ */
+export async function getOrdersByPickup(fecha?: string): Promise<PickupOrder[]> {
+  const { data } = await api.get<PickupGroupRawFromApi[]>(
+    `${BASE}/orders/by-pickup`,
+    fecha ? { params: { fecha } } : undefined,
+  );
   return data.flatMap((g) => g.orders);
 }
 

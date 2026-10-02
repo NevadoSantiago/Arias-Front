@@ -16,13 +16,13 @@ interface KitchenBoardViewProps {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** One numbered row per dish, each with its own note right under it. */
-function Items({
+export function Items({
   order,
   className,
   badgeClassName,
   compact = false,
 }: {
-  order: BoardOrder;
+  order: Pick<BoardOrder, 'items'>;
   className: string;
   badgeClassName: string;
   compact?: boolean;
@@ -75,11 +75,11 @@ function Note({
 }
 
 /** The note of the whole order, labelled apart from the dish notes. */
-function OrderNote({ notas, compact = false }: { notas: string | null; compact?: boolean }) {
+export function OrderNote({ notas, compact = false }: { notas: string | null; compact?: boolean }) {
   return <Note notas={notas} compact={compact} label="Nota del pedido" />;
 }
 
-function CountBadge({ n, className }: { n: number; className: string }) {
+export function CountBadge({ n, className }: { n: number; className: string }) {
   return (
     <span
       className={cn(

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AdminOrdersByPickupPage } from './AdminOrdersByPickupPage';
 import {
@@ -12,6 +13,7 @@ import {
   type PickupOrder,
   type RestaurantConfig,
 } from '@/features/admin/services/adminApi';
+import { getDisabledDates } from '@/features/orders/services/ordersApi';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('@/features/admin/services/adminApi', async () => {
@@ -26,6 +28,13 @@ vi.mock('@/features/admin/services/adminApi', async () => {
     markOrdersEntregado: vi.fn(),
     undoOrderKitchenState: vi.fn(),
   };
+});
+
+vi.mock('@/features/orders/services/ordersApi', async () => {
+  const actual = await vi.importActual<typeof import('@/features/orders/services/ordersApi')>(
+    '@/features/orders/services/ordersApi',
+  );
+  return { ...actual, getDisabledDates: vi.fn() };
 });
 
 const config: RestaurantConfig = {
@@ -71,13 +80,31 @@ function order(
   };
 }
 
-function renderPage(orders: PickupOrder[]) {
-  vi.mocked(getOrdersByPickup).mockResolvedValue(orders);
-  vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(config);
+function Search() {
+  return <output data-testid="search">{useLocation().search}</output>;
+}
+
+interface RenderOptions {
+  route?: string;
+  /** Orders returned per `fecha`; any other day is empty. */
+  byDay?: Record<string, PickupOrder[]>;
+  disabled?: { fecha: string; motivo: string | null }[];
+  config?: RestaurantConfig;
+}
+
+function renderPage(orders: PickupOrder[], opts: RenderOptions = {}) {
+  vi.mocked(getOrdersByPickup).mockImplementation(async (fecha?: string) =>
+    fecha ? (opts.byDay?.[fecha] ?? []) : orders,
+  );
+  vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(opts.config ?? config);
+  vi.mocked(getDisabledDates).mockResolvedValue(opts.disabled ?? []);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <AdminOrdersByPickupPage />
+      <MemoryRouter initialEntries={[opts.route ?? '/']}>
+        <AdminOrdersByPickupPage />
+        <Search />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -328,5 +355,143 @@ describe('AdminOrdersByPickupPage (kitchen dashboard)', () => {
       expect(within(box).getByText('Nota del pedido')).toBeInTheDocument();
       expect(within(box).getAllByText('timbre roto')).toHaveLength(1);
     });
+  });
+});
+
+describe('AdminOrdersByPickupPage — another day', () => {
+  // "Today" is Thursday 2026-10-01 (see beforeEach); 2026-10-05 is the next Monday.
+  const MONDAY = '2026-10-05';
+  const mondayOrders = [
+    order(31, 'PENDIENTE', '13:00', {
+      notas: 'bien cocida',
+      items: [
+        { dishNombre: 'Milanesa', sideNombre: 'Papas fritas', creditCost: 1, notas: 'sin sal' },
+        { dishNombre: 'Milanesa', sideNombre: null, creditCost: 1, notas: null },
+      ],
+    }),
+    order(30, 'PENDIENTE', '12:00', {
+      items: [{ dishNombre: 'Tarta', sideNombre: 'Ensalada mixta', creditCost: 1, notas: null }],
+    }),
+  ];
+
+  const selectDay = (value: string) => fireEvent.change(screen.getByLabelText('Día'), { target: { value } });
+
+  it('offers Hoy, Mañana and short labels up to Sunday of next week, with Hoy selected', async () => {
+    renderPage([], { disabled: [{ fecha: '2026-10-06', motivo: 'Feriado' }] });
+    const select = (await screen.findByLabelText('Día')) as HTMLSelectElement;
+    await screen.findByText('Nada para comandar ahora');
+    expect(select.value).toBe('2026-10-01');
+    const labels = () => Array.from(select.options).map((o) => o.textContent);
+    expect(labels().slice(0, 4)).toEqual(['Hoy', 'Mañana', 'Sáb 3/10', 'Dom 4/10']);
+    expect(labels().at(-1)).toBe('Dom 11/10');
+    expect(labels()).toHaveLength(11);
+    await waitFor(() => expect(labels()).toContain('Mar 6/10 · deshabilitado'));
+  });
+
+  it('requests that day when the select changes and keeps it in the URL', async () => {
+    renderPage([], { byDay: { [MONDAY]: mondayOrders } });
+    await screen.findByText('Nada para comandar ahora');
+    selectDay(MONDAY);
+    await waitFor(() => expect(getOrdersByPickup).toHaveBeenCalledWith(MONDAY));
+    expect(screen.getByTestId('search')).toHaveTextContent('?dia=2026-10-05');
+    expect(await screen.findByRole('region', { name: /platos del día/i })).toBeInTheDocument();
+  });
+
+  it('restores the day from the URL', async () => {
+    renderPage([], { route: '/?dia=2026-10-05', byDay: { [MONDAY]: mondayOrders } });
+    expect(await screen.findByRole('region', { name: /pedidos programados · lunes 5\/10/i })).toBeInTheDocument();
+    expect(getOrdersByPickup).toHaveBeenCalledWith(MONDAY);
+    expect(getOrdersByPickup).not.toHaveBeenCalledWith();
+    expect((screen.getByLabelText('Día') as HTMLSelectElement).value).toBe(MONDAY);
+  });
+
+  it.each(['2026-10-30', 'banana', '2026-09-30'])('falls back to today for the invalid value %s', async (dia) => {
+    renderPage([order(7, 'CONFIRMADO', '12:20')], { route: `/?dia=${dia}` });
+    expect(await screen.findByRole('region', { name: /pedidos confirmados para comandar/i })).toBeInTheDocument();
+    expect(getOrdersByPickup).not.toHaveBeenCalledWith(dia);
+  });
+
+  it('shows only the dish box and the scheduled box, read-only and without "Se confirma"', async () => {
+    renderPage([order(7, 'CONFIRMADO', '12:20')], { route: '/?dia=2026-10-05', byDay: { [MONDAY]: mondayOrders } });
+    const scheduled = await screen.findByRole('region', { name: /pedidos programados · lunes 5\/10/i });
+    expect(screen.getByRole('region', { name: /platos del día · lunes 5\/10/i })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /confirmados/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /pedidos comandados/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /entregados/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/se confirma \d/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /comand|entreg|deshacer/i })).not.toBeInTheDocument();
+    expect(within(scheduled).getByText(/ese día pasan a confirmados 20 min antes de cada retiro/i)).toBeInTheDocument();
+
+    // Sorted by pickup time: N° 30 (12:00) before N° 31 (13:00).
+    const rows = within(scheduled).getAllByRole('listitem').filter((li) => /^\d{2}:\d{2}N° \d+/.test(li.textContent ?? ''));
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent('N° 30 · alias30');
+    expect(rows[1]).toHaveTextContent('N° 31 · alias31');
+    expect(within(scheduled).getByText('sin sal')).toBeInTheDocument();
+    expect(within(scheduled).getByText('bien cocida')).toBeInTheDocument();
+  });
+
+  it('summarizes the dishes of the day', async () => {
+    renderPage([], { route: '/?dia=2026-10-05', byDay: { [MONDAY]: mondayOrders } });
+    const box = await screen.findByRole('region', { name: /platos del día/i });
+    expect(within(box).getByText('3 platos')).toBeInTheDocument();
+    expect(within(box).getByText('2 ×')).toBeInTheDocument();
+    expect(within(box).getByText('Milanesa')).toBeInTheDocument();
+    expect(within(box).getByText('1 c/ Papas fritas · 1 sin acompañamiento')).toBeInTheDocument();
+    expect(within(box).getByText('1 c/ Ensalada mixta')).toBeInTheDocument();
+  });
+
+  it('shows the compact "no es hoy" line and "Volver a hoy" restores the full board', async () => {
+    renderPage([order(7, 'CONFIRMADO', '12:20')], { route: '/?dia=2026-10-05', byDay: { [MONDAY]: mondayOrders } });
+    expect(await screen.findByText(/no es hoy/i)).toHaveTextContent('Estás viendo el lunes 5/10');
+    fireEvent.click(screen.getByRole('button', { name: /volver a hoy/i }));
+    expect(await screen.findByRole('region', { name: /pedidos confirmados para comandar/i })).toBeInTheDocument();
+    expect(screen.queryByText(/no es hoy/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('search')).toHaveTextContent(/^$/);
+    expect((screen.getByLabelText('Día') as HTMLSelectElement).value).toBe('2026-10-01');
+  });
+
+  it('shows no banner nor day boxes on today', async () => {
+    renderPage([order(7, 'CONFIRMADO', '12:20')]);
+    await screen.findByRole('region', { name: /pedidos confirmados para comandar/i });
+    expect(screen.queryByText(/no es hoy/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /platos del día/i })).not.toBeInTheDocument();
+    expect(getOrdersByPickup).toHaveBeenCalledWith();
+  });
+
+  it('explains an empty open day', async () => {
+    renderPage([], { route: '/?dia=2026-10-07' });
+    expect(await screen.findByText('No hay pedidos programados para el miércoles 7/10')).toBeInTheDocument();
+    expect(screen.getByText(/todavía no hay pedidos para ese día/i)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /platos del día/i })).not.toBeInTheDocument();
+  });
+
+  it('flags a closed weekday', async () => {
+    const closedSunday = {
+      ...config,
+      pickupSchedule: (config.pickupSchedule ?? []).map((d) => ({ ...d, open: d.dayOfWeek !== 7 })),
+    };
+    renderPage([], { route: '/?dia=2026-10-04', config: closedSunday });
+    expect(await screen.findByText(/día cerrado/i)).toBeInTheDocument();
+    expect(screen.getByText('No hay pedidos programados para el domingo 4/10')).toBeInTheDocument();
+    expect(screen.queryByText(/siguen activos/i)).not.toBeInTheDocument();
+  });
+
+  it('flags a disabled date with its reason and says existing orders stay active', async () => {
+    renderPage([], {
+      route: '/?dia=2026-10-06',
+      byDay: { '2026-10-06': mondayOrders },
+      disabled: [{ fecha: '2026-10-06', motivo: 'Feriado' }],
+    });
+    expect(await screen.findByText(/fecha deshabilitada\. motivo: feriado/i)).toBeInTheDocument();
+    expect(screen.getByText(/los pedidos que ya existen siguen activos/i)).toBeInTheDocument();
+  });
+
+  it('gives the select a stronger border on another day', async () => {
+    renderPage([]);
+    const select = await screen.findByLabelText('Día');
+    const normal = select.className;
+    selectDay(MONDAY);
+    await waitFor(() => expect(screen.getByLabelText('Día').className).not.toBe(normal));
   });
 });

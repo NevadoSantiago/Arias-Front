@@ -26,7 +26,7 @@ interface UndoState {
   message: string;
 }
 
-function useNow(intervalMs: number): Date {
+export function useNow(intervalMs: number): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), intervalMs);
@@ -43,7 +43,7 @@ function moveMessage(kind: MoveKind, orders: BoardOrder[]): string {
 }
 
 /** Container logic of the kitchen dashboard: data, live clock, moves and undo. */
-export function useKitchenBoard() {
+export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) {
   const queryClient = useQueryClient();
   const now = useNow(CLOCK_TICK_MS);
   const [undo, setUndo] = useState<UndoState | null>(null);
@@ -52,6 +52,7 @@ export function useKitchenBoard() {
     queryKey: ORDERS_KEY,
     queryFn: () => getOrdersByPickup(),
     refetchInterval: ORDERS_POLL_MS,
+    enabled,
   });
   const config = useQuery({
     queryKey: ['adminRestaurantConfig'],
