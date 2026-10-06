@@ -55,7 +55,6 @@ export function OrderReviewSheet({
 
           <CartSummary
             lines={lines}
-            totalCredits={totalLunches}
             onRemove={onRemoveLine}
             insufficientBalance={insufficientBalance}
           />

@@ -80,14 +80,14 @@ describe('DishSheet', () => {
     expect(frame.className).not.toContain('max-h-[40vh]');
   });
 
-  it('renders as a dialog with the dish name, description and cost in "almuerzos"', async () => {
+  it('renders as a dialog with the dish name and description, without the lunch cost', async () => {
     vi.mocked(getDishPreference).mockResolvedValue(null);
     renderSheet();
 
     expect(await screen.findByRole('dialog', { name: /tira de asado/i })).toBeInTheDocument();
     expect(screen.getByText('Tira de asado a la parrilla.')).toBeInTheDocument();
-    // Aparece dos veces: la insignia de costo y el botón "Agregar al pedido".
-    expect(screen.getAllByText('Usa 1 almuerzo')).toHaveLength(2);
+    // El costo en almuerzos solo se muestra en el resumen final del pedido.
+    expect(screen.queryByText(/usa \d+ almuerzo/i)).not.toBeInTheDocument();
   });
 
   it('requires a side choice before confirming, when the dish has sides', async () => {

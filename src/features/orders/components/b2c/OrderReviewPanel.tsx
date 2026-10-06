@@ -69,7 +69,6 @@ export function OrderReviewPanel({
           <>
             <CartSummary
               lines={lines}
-              totalCredits={totalLunches}
               onRemove={onRemoveLine}
               insufficientBalance={insufficientBalance}
             />

@@ -161,15 +161,15 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
    * revisión (`OrderReviewSheet`), que se abre con "Ver pedido" en la barra
    * inferior — ya no está siempre visible bajo el menú.
    */
-  it('adds a dish to the cart and shows its cost in "almuerzos", never "créditos"', async () => {
+  it('adds a dish to the cart and shows its cost in "almuerzos" only in the balance box, never "créditos"', async () => {
     renderPage();
 
     await addDishToCart();
     await openReview();
 
-    // El costo de la línea, el total del carrito y "Este pedido usa" en el
-    // cálculo de saldo (display-only) — los tres dicen "2 almuerzos".
-    expect(await screen.findAllByText('2 almuerzos')).toHaveLength(3);
+    // El costo solo aparece en "Este pedido usa" del cálculo de saldo
+    // (display-only): ni la línea del carrito ni un total lo repiten.
+    expect(await screen.findAllByText('2 almuerzos')).toHaveLength(1);
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
   });
 

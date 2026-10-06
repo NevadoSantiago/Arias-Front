@@ -765,7 +765,6 @@ export function B2cOrderPage() {
           <div className="container max-w-xl px-0">
             <CartBar
               count={cart.lines.length}
-              totalLunches={cart.totalCredits}
               isToday={isToday}
               dayLabel={dayShortLabel}
               onOpenReview={() => setReviewOpen(true)}

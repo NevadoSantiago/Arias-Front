@@ -1,9 +1,7 @@
 import { ChevronRight, UtensilsCrossed } from 'lucide-react';
-import { formatLunches } from '../../lunches';
 
 interface Props {
   count: number;
-  totalLunches: number;
   isToday: boolean;
   dayLabel: string;
   onOpenReview: () => void;
@@ -14,7 +12,7 @@ interface Props {
  * Vacía: pista para tocar un plato. Con platos: resumen + "Ver pedido",
  * que abre `OrderReviewSheet`.
  */
-export function CartBar({ count, totalLunches, isToday, dayLabel, onOpenReview }: Props) {
+export function CartBar({ count, isToday, dayLabel, onOpenReview }: Props) {
   return (
     <div className="flex min-h-[74px] flex-none items-center border-t border-border bg-card px-4 py-3">
       {count === 0 ? (
@@ -24,11 +22,8 @@ export function CartBar({ count, totalLunches, isToday, dayLabel, onOpenReview }
         </p>
       ) : (
         <div className="flex w-full items-center justify-between gap-3">
-          <span className="flex flex-col gap-0.5">
-            <span className="text-xs font-semibold text-muted-foreground">
-              {count === 1 ? '1 plato' : `${count} platos`} · {isToday ? 'hoy' : dayLabel}
-            </span>
-            <span className="text-lg font-bold text-foreground">{`Usa ${formatLunches(totalLunches)}`}</span>
+          <span className="text-base font-bold text-foreground">
+            {count === 1 ? '1 plato' : `${count} platos`} · {isToday ? 'hoy' : dayLabel}
           </span>
           <button
             type="button"

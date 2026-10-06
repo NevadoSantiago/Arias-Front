@@ -24,7 +24,7 @@ function renderSummary(lines: CartLine[], props: Partial<Parameters<typeof CartS
   const onRemove = vi.fn();
   render(
     <MemoryRouter>
-      <CartSummary lines={lines} totalCredits={lines.reduce((s, l) => s + l.dish.category.creditCost, 0)} onRemove={onRemove} {...props} />
+      <CartSummary lines={lines} onRemove={onRemove} {...props} />
     </MemoryRouter>,
   );
   return { onRemove };
@@ -36,7 +36,7 @@ describe('CartSummary', () => {
     expect(screen.getByText(/todavía no agregaste platos/i)).toBeInTheDocument();
   });
 
-  it('shows the total in "almuerzos", pluralized, never "créditos"', () => {
+  it('lists the dishes without lunch costs or a total — the cost only lives in the balance box', () => {
     const lines: CartLine[] = [
       { localId: 'a', dish: makeDish(1, 'Milanesa', 2), sideId: null, sideNombre: null, notas: null },
       { localId: 'b', dish: makeDish(2, 'Ensalada', 1), sideId: null, sideNombre: null, notas: null },
@@ -44,18 +44,11 @@ describe('CartSummary', () => {
 
     renderSummary(lines);
 
-    expect(screen.getByText('3 almuerzos')).toBeInTheDocument();
+    expect(screen.getByText('Milanesa')).toBeInTheDocument();
+    expect(screen.getByText('Ensalada')).toBeInTheDocument();
+    expect(screen.queryByText(/almuerzo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^total$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
-  });
-
-  it('uses the singular form when the total is exactly 1', () => {
-    const lines: CartLine[] = [
-      { localId: 'a', dish: makeDish(1, 'Milanesa', 1), sideId: null, sideNombre: null, notas: null },
-    ];
-
-    renderSummary(lines);
-
-    expect(screen.getAllByText('1 almuerzo')).toHaveLength(2); // el costo de la línea y el total
   });
 
   it('removes a line when its remove button is clicked', () => {

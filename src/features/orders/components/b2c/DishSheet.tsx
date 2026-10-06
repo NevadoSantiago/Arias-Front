@@ -3,7 +3,6 @@ import { Lightbulb, UtensilsCrossed } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { getDishPreference } from '../../services/ordersApi';
-import { formatLunches } from '../../lunches';
 import type { Dish } from '../../types';
 
 interface Props {
@@ -83,7 +82,6 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
   const requiresSide = dish.sideType !== null;
   const sideLabel = dish.sideType === 'GUARNICION' ? 'guarnición' : 'salsa';
   const sidesTitle = dish.sideType === 'GUARNICION' ? 'Elegí tu guarnición' : 'Elegí tu salsa';
-  const costText = `Usa ${formatLunches(dish.category.creditCost)}`;
 
   const handleConfirm = () => {
     if (requiresSide && !sideId) {
@@ -126,9 +124,6 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
       <SheetTitle>{dish.nombre}</SheetTitle>
       <SheetDescription className="sr-only">Detalle de {dish.nombre}: elegí el acompañamiento y una nota opcional.</SheetDescription>
       <p className="text-sm leading-relaxed text-muted-foreground">{dish.descripcion}</p>
-      <span className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm font-bold text-primary-deep">
-        {costText}
-      </span>
     </div>
   );
 
@@ -234,10 +229,9 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
     <button
       type="button"
       onClick={handleConfirm}
-      className="flex h-[54px] w-full items-center justify-between rounded-md bg-primary-deep px-4 font-medium text-primary-foreground"
+      className="flex h-[54px] w-full items-center justify-center rounded-md bg-primary-deep px-4 font-medium text-primary-foreground"
     >
       <span className="text-sm font-bold uppercase tracking-brand">Agregar al pedido</span>
-      <span className="text-sm font-semibold">{costText}</span>
     </button>
   );
 
