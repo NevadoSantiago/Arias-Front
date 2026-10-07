@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell } from 'lucide-react';
+import { Bell, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { useTourReplay } from '@/features/tour/TourContext';
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
@@ -19,6 +20,7 @@ export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const { canReplay, replay } = useTourReplay();
 
   const { data: prefs } = useQuery({
     queryKey: ['notificationPreferences'],
@@ -85,6 +87,28 @@ export function NotificationsBell() {
               onCheckedChange={(v) => mutation.mutate({ recibeRecordatorioPedido: v })}
             />
           </div>
+
+          {canReplay && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-[10px] uppercase tracking-brand font-medium text-muted-foreground mb-3">Ayuda</p>
+              <button
+                type="button"
+                className="flex w-full items-start gap-3 text-left"
+                onClick={() => {
+                  setOpen(false);
+                  replay();
+                }}
+              >
+                <Compass className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="space-y-0.5 flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-foreground">Ver el tour de nuevo</span>
+                  <span className="block text-[11px] text-muted-foreground leading-snug">
+                    Te mostramos cómo pedir y dónde ver tus almuerzos.
+                  </span>
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

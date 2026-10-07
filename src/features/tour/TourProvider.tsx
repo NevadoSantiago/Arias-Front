@@ -21,6 +21,8 @@ interface Session {
   stepId: TourStepId;
   /** No había platos para pedir: el tour termina antes, con un cierre distinto. */
   noOrder: boolean;
+  /** Repetición a pedido: no vuelve a marcar el tour como visto ni limpia el carrito del cliente. */
+  replay?: boolean;
 }
 
 /** Pasos en los que ya hay un plato en el carrito (agregado por el cliente durante el tour). */
@@ -66,6 +68,9 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
   const eligible =
     !!user && user.role === 'EMPLOYEE' && user.companyId == null && user.onboardingTourSeenAt === null;
 
+  // Repetir el tour solo lo ofrece a clientes B2C; no depende de si ya lo vieron.
+  const canReplay = !!user && user.role === 'EMPLOYEE' && user.companyId == null;
+
   // Estado derivado durante el render (patrón de React), sin efectos.
   if (session && (!user || session.userId !== user.id)) {
     setSession(null);
@@ -78,13 +83,16 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
 
   const finish = useCallback(() => {
     const current = useAuthStore.getState().user;
+    const wasReplay = session?.replay === true;
     setSession(null);
     if (!current) return;
     setFinishedFor(current.id);
+    // Una repetición no toca lo ya guardado: el tour ya se vio.
+    if (wasReplay) return;
     setUser({ ...current, onboardingTourSeenAt: new Date().toISOString() });
     // No bloquea nada si falla: el backend lo marcará en un próximo intento.
     markOnboardingTourSeen().catch(() => {});
-  }, [setUser]);
+  }, [session, setUser]);
 
   /** Va a un paso y, si vive en otra pantalla, navega hasta ahí. */
   const goTo = useCallback(
@@ -96,6 +104,13 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
     },
     [steps, pathname, navigate],
   );
+
+  const replay = useCallback(() => {
+    const current = useAuthStore.getState().user;
+    if (!current) return;
+    setSession({ userId: current.id, stepId: 'balance-chip', noOrder: false, replay: true });
+    if (pathname !== '/orders/today') navigate('/orders/today');
+  }, [pathname, navigate]);
 
   const stepId = session?.stepId ?? null;
 
@@ -117,7 +132,7 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
     }
     if (target === 'dish' || target === 'cart') {
       controlsRef.current?.resetOrderUi({
-        clearCart: target === 'dish' && WITH_CART_ITEM.includes(stepId),
+        clearCart: !session.replay && target === 'dish' && WITH_CART_ITEM.includes(stepId),
       });
     }
     goTo(target as TourStepId, { noOrder: false });
@@ -178,7 +193,10 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
     return () => document.removeEventListener('keydown', onKeyDown, true);
   }, [active, finish]);
 
-  const value = useMemo(() => ({ active, registerPageControls }), [active, registerPageControls]);
+  const value = useMemo(
+    () => ({ active, registerPageControls, canReplay, replay }),
+    [active, registerPageControls, canReplay, replay],
+  );
 
   return (
     <TourContext.Provider value={value}>

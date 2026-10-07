@@ -10,16 +10,28 @@ interface TourContextValue {
   /** true mientras el tour está en pantalla. */
   active: boolean;
   registerPageControls: (controls: TourPageControls | null) => void;
+  /** true si el cliente puede repetir el tour a pedido (B2C), aunque ya lo haya visto. */
+  canReplay: boolean;
+  /** Repite el tour desde el saldo (sin la tarjeta del regalo) y sin volver a marcarlo como visto. */
+  replay: () => void;
 }
 
 /** Sin proveedor (tests, pantallas fuera del tour) el tour está apagado. */
 export const TourContext = createContext<TourContextValue>({
   active: false,
   registerPageControls: () => {},
+  canReplay: false,
+  replay: () => {},
 });
 
 export function useTourActive(): boolean {
   return useContext(TourContext).active;
+}
+
+/** Para el menú de ayuda: si se puede repetir el tour y cómo arrancarlo. */
+export function useTourReplay(): { canReplay: boolean; replay: () => void } {
+  const { canReplay, replay } = useContext(TourContext);
+  return { canReplay, replay };
 }
 
 /**

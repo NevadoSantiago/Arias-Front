@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
 import { TourProvider } from './TourProvider';
-import { useTourPageControls } from './TourContext';
+import { useTourPageControls, useTourReplay } from './TourContext';
 import { markOnboardingTourSeen } from './services/tourApi';
 
 vi.mock('./services/tourApi', () => ({
@@ -96,11 +96,21 @@ function OrderPage({ hasDish = true, resetSpy }: { hasDish?: boolean; resetSpy?:
   );
 }
 
+function ReplayButton() {
+  const { canReplay, replay } = useTourReplay();
+  return canReplay ? (
+    <button type="button" onClick={replay}>
+      Repetir tour
+    </button>
+  ) : null;
+}
+
 function renderTour(path = '/orders/today', opts: { hasDish?: boolean; resetSpy?: (o: { clearCart: boolean }) => void; missingAfterMs?: number } = {}) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <TourProvider targetTimeoutMs={opts.missingAfterMs ?? 10000}>
         <header>
+          <ReplayButton />
           <Link to="/credits" data-tour="balance-chip">
             Saldo
           </Link>
@@ -323,6 +333,81 @@ describe('TourProvider', () => {
 
       expect(await screen.findByText('Elegí un plato')).toBeInTheDocument();
       expect(resetSpy).toHaveBeenCalledWith({ clearCart: true });
+    });
+  });
+
+  describe('replay', () => {
+    const seen = { onboardingTourSeenAt: '2026-10-01T10:00:00Z' };
+
+    it('is offered to a B2C customer even after seeing the tour, and not to a company employee', async () => {
+      setUser(seen);
+      const { unmount } = renderTour();
+      expect(await screen.findByRole('button', { name: 'Repetir tour' })).toBeInTheDocument();
+      unmount();
+
+      setUser({ ...seen, companyId: 3 });
+      renderTour();
+      await act(async () => {});
+      expect(screen.queryByRole('button', { name: 'Repetir tour' })).not.toBeInTheDocument();
+    });
+
+    it('starts at the balance chip step, skipping the gift welcome card, from any screen', async () => {
+      setUser(seen);
+      renderTour('/credits');
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
+
+      expect(await screen.findByText('Este es tu saldo de almuerzos')).toBeInTheDocument();
+      expect(screen.getByText('1 de 11')).toBeInTheDocument();
+      expect(screen.queryByText('¡Te regalamos un almuerzo!')).not.toBeInTheDocument();
+      expect(screen.getByTestId('path')).toHaveTextContent('/orders/today');
+    });
+
+    it('does not tell the backend again nor touch the seen date when it finishes', async () => {
+      setUser(seen);
+      renderTour();
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
+      await screen.findByText('Este es tu saldo de almuerzos');
+
+      fireEvent.click(screen.getByRole('button', { name: /saltar tour/i }));
+
+      await waitFor(() => expect(screen.queryByText('Este es tu saldo de almuerzos')).not.toBeInTheDocument());
+      expect(markOnboardingTourSeen).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().user?.onboardingTourSeenAt).toBe(seen.onboardingTourSeenAt);
+    });
+
+    it('does not re-enable the auto-start for a customer who had not seen it when the replay ends', async () => {
+      setUser({});
+      renderTour('/credits');
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
+      await screen.findByText('Este es tu saldo de almuerzos');
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => expect(screen.queryByText('Este es tu saldo de almuerzos')).not.toBeInTheDocument());
+      expect(screen.queryByText('¡Te regalamos un almuerzo!')).not.toBeInTheDocument();
+      expect(markOnboardingTourSeen).not.toHaveBeenCalled();
+    });
+
+    it('going back to the dish step keeps the customer cart', async () => {
+      const resetSpy = vi.fn();
+      setUser(seen);
+      renderTour('/orders/today', { resetSpy });
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
+      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      fireEvent.click(await screen.findByRole('link', { name: 'Saldo' }));
+      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Milanesa' }));
+      fireEvent.click(await screen.findByRole('radio', { name: 'Papas' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Agregar al pedido' }));
+      await screen.findByText('Tu pedido te espera acá abajo');
+
+      fireEvent.click(screen.getByRole('button', { name: /anterior/i }));
+
+      expect(await screen.findByText('Elegí un plato')).toBeInTheDocument();
+      expect(resetSpy).toHaveBeenCalledWith({ clearCart: false });
+      expect(resetSpy).not.toHaveBeenCalledWith({ clearCart: true });
     });
   });
 
