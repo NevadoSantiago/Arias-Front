@@ -61,8 +61,7 @@ export type TourStep = TourCardStep | TourSpotStep;
 
 const spot = (step: Omit<TourSpotStep, 'kind'>): TourSpotStep => ({ kind: 'spot', ...step });
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- el guion de escritorio llega con los pasos de pedido
-export function buildTourSteps(_options: { isDesktop: boolean }): TourStep[] {
+export function buildTourSteps({ isDesktop }: { isDesktop: boolean }): TourStep[] {
   return [
     {
       kind: 'card',
@@ -110,6 +109,85 @@ export function buildTourSteps(_options: { isDesktop: boolean }): TourStep[] {
       guide: 'de',
       title: 'Volvé al menú',
       text: 'Tocá ARIAS cuando quieras volver a pedir.',
+    }),
+    spot({
+      id: 'dish',
+      route: '/orders/today',
+      target: 'dish',
+      mode: 'tap',
+      radius: 10,
+      guide: 'malabarista',
+      title: 'Elegí un plato',
+      text: 'Tocá un plato para ver el detalle y armar tu pedido.',
+    }),
+    spot({
+      id: 'sides',
+      route: '/orders/today',
+      target: 'sides',
+      mode: 'tap',
+      radius: 10,
+      guide: 'duda',
+      scroll: 'center',
+      title: '¿Con qué lo acompañás?',
+      text: 'Algunos platos vienen con guarnición o salsa. Tocá la que quieras.',
+    }),
+    spot({
+      id: 'add',
+      route: '/orders/today',
+      target: 'add',
+      mode: 'tap',
+      radius: 8,
+      guide: 'chef',
+      title: 'Sumalo a tu pedido',
+      text: 'Podés agregar más de un plato antes de confirmar.',
+    }),
+    // En escritorio el pedido es un panel siempre visible: no hay "Ver pedido".
+    ...(isDesktop
+      ? []
+      : [
+          spot({
+            id: 'cart',
+            route: '/orders/today',
+            target: 'cart',
+            mode: 'tap',
+            radius: 8,
+            guide: 'bandeja',
+            title: 'Tu pedido te espera acá abajo',
+            text: 'Tocá «Ver pedido» para revisarlo.',
+          }),
+        ]),
+    spot({
+      id: 'picker',
+      route: '/orders/today',
+      target: 'picker',
+      mode: 'try',
+      radius: 10,
+      guide: 'esperando',
+      scroll: 'nearest',
+      title: 'Elegí cuándo lo retirás',
+      text: 'Lo antes posible o a la hora que quieras: te lo tenemos listo.',
+    }),
+    spot({
+      id: 'balance-box',
+      route: '/orders/today',
+      target: 'balance-box',
+      mode: 'info',
+      radius: 8,
+      guide: 'panero',
+      scroll: 'nearest',
+      title: 'Tu saldo, antes de confirmar',
+      text: 'Ves cuántos almuerzos tenés, cuántos usa este pedido y cuántos te quedan.',
+    }),
+    spot({
+      id: 'confirm',
+      route: '/orders/today',
+      target: 'confirm',
+      // Informativo a propósito: el tour nunca confirma un pedido, lo hace el cliente.
+      mode: 'info',
+      radius: 8,
+      guide: 'iz',
+      title: 'Confirmá cuando estés listo',
+      text: 'Este botón manda tu pedido a la cocina. Lo tocás vos cuando termine el tour.',
     }),
     {
       kind: 'card',

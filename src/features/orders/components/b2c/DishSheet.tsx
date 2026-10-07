@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Lightbulb, UtensilsCrossed } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useTourSheetGuard } from '@/features/tour/TourContext';
 import { getDishPreference } from '../../services/ordersApi';
 import type { Dish } from '../../types';
 
@@ -33,6 +34,7 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
   const [imgFailed, setImgFailed] = useState(false);
   /** true apenas el usuario elige una guarnición a mano — evita que una preferencia que llega tarde la pise. */
   const sideTouchedRef = useRef(false);
+  const tourGuard = useTourSheetGuard();
 
   useEffect(() => {
     if (!open) return;
@@ -130,7 +132,7 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
   const options = (
     <>
       {requiresSide ? (
-        <div className="flex flex-col gap-2.5">
+        <div data-tour="sides" className="flex flex-col gap-2.5">
           <span id="dish-sheet-sides-title" className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
             {sidesTitle}
           </span>
@@ -229,6 +231,7 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
     <button
       type="button"
       onClick={handleConfirm}
+      data-tour="add"
       className="flex h-[54px] w-full items-center justify-center rounded-md bg-primary-deep px-4 font-medium text-primary-foreground"
     >
       <span className="text-sm font-bold uppercase tracking-brand">Agregar al pedido</span>
@@ -243,6 +246,8 @@ export function DishSheet({ dish, open, onClose, onConfirm, presentation = 'shee
         // Radix autofocuses the first focusable control, which can be the notes
         // field and pops the keyboard open on phones. Focus stays on the sheet.
         onOpenAutoFocus={(e) => e.preventDefault()}
+        // Con el tour activo, tocar su capa o apretar Escape no cierra la hoja.
+        {...tourGuard}
         className={cn('p-0', asDialog && 'max-w-[1060px]')}
       >
         {asDialog ? (

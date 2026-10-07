@@ -16,9 +16,11 @@ interface Props {
   readonly?: boolean;
   /** Oculta indicadores de stock (para días futuros donde no aplica). */
   hideStock?: boolean;
+  /** Plato que resalta el tour de primer ingreso (un solo plato por pantalla). */
+  tour?: { hasSide: boolean };
 }
 
-export function DishCard({ dish, onSelect, readonly = false, hideStock = false }: Props) {
+export function DishCard({ dish, onSelect, readonly = false, hideStock = false, tour }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
   const hasStock = hideStock || dish.stockActual > 0;
   const isLowStock = !hideStock && dish.stockActual > 0 && dish.stockActual <= 3;
@@ -29,6 +31,8 @@ export function DishCard({ dish, onSelect, readonly = false, hideStock = false }
   return (
     <button
       type="button"
+      data-tour={tour ? 'dish' : undefined}
+      data-tour-has-side={tour ? String(tour.hasSide) : undefined}
       onClick={() => isClickable && onSelect(dish)}
       disabled={!isClickable}
       aria-disabled={!isClickable}

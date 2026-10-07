@@ -77,7 +77,7 @@ export function BalanceBox({
     // Con saldo parcial el servidor reserva lo disponible y cobra solo el resto (F23).
     const usable = Math.max(0, walletAvailable);
     return (
-      <div className="flex flex-col gap-2 rounded-md border-[1.5px] border-warning bg-warning/20 p-3.5">
+      <div data-tour="balance-box" className="flex flex-col gap-2 rounded-md border-[1.5px] border-warning bg-warning/20 p-3.5">
         <strong className="text-[15px] font-bold text-foreground">
           {missing === 1 ? 'Te falta 1 almuerzo' : `Te faltan ${missing} almuerzos`}
         </strong>
@@ -94,7 +94,7 @@ export function BalanceBox({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md bg-muted p-3.5">
+    <div data-tour="balance-box" className="flex flex-col gap-2 rounded-md bg-muted p-3.5">
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Tenés disponibles</span>
         <span className="font-semibold text-foreground">{formatLunches(walletAvailable!)}</span>

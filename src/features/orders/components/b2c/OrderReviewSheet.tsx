@@ -4,6 +4,7 @@ import { CartSummary } from '../CartSummary';
 import { PickupTimePicker } from './PickupTimePicker';
 import { BalanceBox, PickupNotices, pickupDayLabel } from './OrderReviewParts';
 import type { OrderReviewProps } from './orderReviewProps';
+import { useTourSheetGuard } from '@/features/tour/TourContext';
 
 interface Props extends OrderReviewProps {
   open: boolean;
@@ -42,10 +43,11 @@ export function OrderReviewSheet({
   onConfirm,
 }: Props) {
   const dayLabel = pickupDayLabel(isToday, dayShortLabel);
+  const tourGuard = useTourSheetGuard();
 
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent aria-label="Tu pedido" className="p-0">
+      <SheetContent aria-label="Tu pedido" className="p-0" {...tourGuard}>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
           <div className="flex flex-col gap-1">
             <SheetTitle>Tu pedido</SheetTitle>
@@ -68,7 +70,7 @@ export function OrderReviewSheet({
             Agregar otro plato
           </button>
 
-          <div className="flex flex-col gap-2">
+          <div data-tour="picker" className="flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
               ¿A qué hora lo retirás?
             </span>
@@ -101,6 +103,7 @@ export function OrderReviewSheet({
           <button
             type="button"
             onClick={onConfirm}
+            data-tour="confirm"
             disabled={!canConfirm}
             className="h-[54px] w-full rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground disabled:cursor-not-allowed disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
           >

@@ -44,6 +44,8 @@ import { useWallet } from '@/features/credits/hooks/useWallet';
 import { resolveCallName } from '@/features/auth/lib/callName';
 import { useIsDesktop } from '@/lib/useMediaQuery';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useTourPageControls } from '@/features/tour/TourContext';
+import { pickTourDish } from '@/features/tour/pickTourDish';
 import { cn } from '@/lib/utils';
 
 /**
@@ -360,6 +362,27 @@ export function B2cOrderPage() {
   }, [regularDishes, sections]);
 
   const canConfirm = cart.lines.length > 0 && !!pickupAt && !submitting;
+
+  /**
+   * Tour de primer ingreso: el plato que resalta (en el orden en que se ven en
+   * pantalla; ninguno si el día está cerrado o no hay nada pedible) y lo que el
+   * tour puede hacer sobre esta pantalla cuando el cliente vuelve atrás o salta.
+   */
+  const tourDish = useMemo(
+    () =>
+      disabledDates.has(selectedDate)
+        ? null
+        : pickTourDish([...specialDishes, ...groupedBySection.flatMap((g) => g.dishes)], { checkStock: isToday }),
+    [disabledDates, selectedDate, specialDishes, groupedBySection, isToday],
+  );
+  useTourPageControls({
+    resetOrderUi: ({ clearCart }) => {
+      setSelectedDish(null);
+      setReviewOpen(false);
+      setPickupJumpTo(null);
+      if (clearCart) cart.clear();
+    },
+  });
 
   const handleAddToCart = (selection: { sideId: number | null; notas: string | null }) => {
     if (!selectedDish) return;
@@ -724,7 +747,13 @@ export function B2cOrderPage() {
                   </h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-3 sm:gap-5">
                     {specialDishes.map((dish) => (
-                      <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} hideStock={!isToday} />
+                      <DishCard
+                        key={dish.id}
+                        dish={dish}
+                        onSelect={setSelectedDish}
+                        hideStock={!isToday}
+                        tour={tourDish?.dishId === dish.id ? { hasSide: tourDish.hasSide } : undefined}
+                      />
                     ))}
                   </div>
                 </section>
@@ -736,7 +765,13 @@ export function B2cOrderPage() {
                   </h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-3 sm:gap-5">
                     {sectionDishes.map((dish) => (
-                      <DishCard key={dish.id} dish={dish} onSelect={setSelectedDish} hideStock={!isToday} />
+                      <DishCard
+                        key={dish.id}
+                        dish={dish}
+                        onSelect={setSelectedDish}
+                        hideStock={!isToday}
+                        tour={tourDish?.dishId === dish.id ? { hasSide: tourDish.hasSide } : undefined}
+                      />
                     ))}
                   </div>
                 </section>

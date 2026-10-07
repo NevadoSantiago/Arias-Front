@@ -28,6 +28,7 @@ export function CartBar({ count, isToday, dayLabel, onOpenReview }: Props) {
           <button
             type="button"
             onClick={onOpenReview}
+            data-tour="cart"
             className="flex h-[52px] items-center gap-2 rounded-md bg-primary-deep px-5 text-sm font-bold uppercase tracking-brand text-primary-foreground"
           >
             Ver pedido

@@ -73,7 +73,7 @@ export function OrderReviewPanel({
               insufficientBalance={insufficientBalance}
             />
 
-            <div className="flex flex-col gap-2">
+            <div data-tour="picker" className="flex flex-col gap-2">
               <span className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
                 ¿A qué hora lo retirás?
               </span>
@@ -109,6 +109,7 @@ export function OrderReviewPanel({
         <button
           type="button"
           onClick={onConfirm}
+          data-tour="confirm"
           disabled={!canConfirm || empty}
           className="h-[54px] w-full rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground disabled:cursor-not-allowed disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
         >
