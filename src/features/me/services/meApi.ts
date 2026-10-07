@@ -4,6 +4,7 @@ const BASE = '/api/v1/me';
 
 export interface NotificationPreferences {
   recibeRecordatorioPedido: boolean;
+  recibeAvisoRetiro: boolean;
 }
 
 export async function getNotificationPreferences(): Promise<NotificationPreferences> {
@@ -12,7 +13,7 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
 }
 
 export async function updateNotificationPreferences(
-  prefs: NotificationPreferences,
+  prefs: Partial<NotificationPreferences>,
 ): Promise<NotificationPreferences> {
   const { data } = await api.put<NotificationPreferences>(`${BASE}/notifications`, prefs);
   return data;

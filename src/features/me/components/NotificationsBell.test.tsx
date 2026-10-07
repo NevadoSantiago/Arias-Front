@@ -4,10 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
 import { TourProvider } from '@/features/tour/TourProvider';
+import { updateNotificationPreferences } from '@/features/me/services/meApi';
 import { NotificationsBell } from './NotificationsBell';
 
 vi.mock('@/features/me/services/meApi', () => ({
-  getNotificationPreferences: vi.fn().mockResolvedValue({ recibeRecordatorioPedido: true }),
+  getNotificationPreferences: vi.fn().mockResolvedValue({ recibeRecordatorioPedido: true, recibeAvisoRetiro: true }),
   updateNotificationPreferences: vi.fn(),
 }));
 vi.mock('@/features/tour/services/tourApi', () => ({
@@ -99,5 +100,59 @@ describe('NotificationsBell tour replay', () => {
     expect(await screen.findByText('Este es tu saldo de almuerzos')).toBeInTheDocument();
     expect(screen.queryByText('Recordatorio diario')).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/orders/today'));
+  });
+});
+
+describe('NotificationsBell preferences by user type', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false });
+  });
+
+  it('shows "Aviso de pedido" and not "Recordatorio diario" to a B2C customer', async () => {
+    setUser({});
+    renderBell();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
+
+    expect(await screen.findByText('Aviso de pedido')).toBeInTheDocument();
+    expect(screen.queryByText('Recordatorio diario')).not.toBeInTheDocument();
+  });
+
+  it('shows "Recordatorio diario" and not "Aviso de pedido" to a company employee', async () => {
+    setUser({ companyId: 3 });
+    renderBell();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
+
+    expect(await screen.findByText('Recordatorio diario')).toBeInTheDocument();
+    expect(screen.queryByText('Aviso de pedido')).not.toBeInTheDocument();
+  });
+
+  it('shows "Recordatorio diario" to a company admin', async () => {
+    setUser({ role: 'COMPANY_ADMIN', companyId: 3 });
+    renderBell();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
+
+    expect(await screen.findByText('Recordatorio diario')).toBeInTheDocument();
+    expect(screen.queryByText('Aviso de pedido')).not.toBeInTheDocument();
+  });
+
+  it('sends only recibeAvisoRetiro when toggling "Aviso de pedido"', async () => {
+    vi.mocked(updateNotificationPreferences).mockResolvedValue({
+      recibeRecordatorioPedido: true,
+      recibeAvisoRetiro: false,
+    });
+    setUser({});
+    renderBell();
+    fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
+
+    const toggle = await screen.findByRole('switch');
+    await waitFor(() => expect(toggle).toBeEnabled());
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(updateNotificationPreferences).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(updateNotificationPreferences).mock.calls[0][0]).toEqual({ recibeAvisoRetiro: false });
   });
 });
