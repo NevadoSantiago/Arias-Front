@@ -1,5 +1,5 @@
-import { Outlet } from "react-router-dom";
-import { TourProvider } from "./TourProvider";
+import { Outlet } from 'react-router-dom';
+import { TourProvider } from './TourProvider';
 
 /**
  * Layout raíz sin path: monta el tour una sola vez por encima de todas las
