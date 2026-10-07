@@ -138,3 +138,25 @@
   display: none;
 }
 
+
+/* Tour de primer ingreso: el personaje "salta" al cambiar de paso y el
+   confeti del cartel de regalo cae suave. Ambos se apagan con
+   prefers-reduced-motion. */
+@keyframes tour-hop {
+  0% { transform: translateY(-8px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes tour-confetti {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(10px); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tour-hop {
+    animation: tour-hop 190ms ease-out;
+  }
+  .tour-confetti {
+    animation: tour-confetti 2.4s ease-in-out infinite;
+  }
+}

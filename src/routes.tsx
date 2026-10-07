@@ -35,129 +35,136 @@ import { ProtectedRoute } from '@/features/auth/components/ProtectedRoute';
 import { PublicRoute } from '@/features/auth/components/PublicRoute';
 import { LandingRoute } from '@/features/landing/components/LandingRoute';
 import { CorporatePage } from '@/pages/CorporatePage';
+import { TourRoot } from '@/features/tour/TourRoot';
 
 export const router = createBrowserRouter([
-  // ─── Rutas públicas (no requieren sesión) ─────────────────────────────
+  // Layout raíz sin path: el tour de primer ingreso vive acá para sobrevivir a la navegación.
   {
-    element: (
-      <PublicRoute>
-        <AuthLayout />
-      </PublicRoute>
-    ),
+    element: <TourRoot />,
     children: [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/forgot-password', element: <ForgotPasswordPage /> },
-      { path: '/reset-password', element: <ResetPasswordPage /> },
-      { path: '/register', element: <RegisterPage /> },
+      // ─── Rutas públicas (no requieren sesión) ─────────────────────────────
+      {
+        element: (
+          <PublicRoute>
+            <AuthLayout />
+          </PublicRoute>
+        ),
+        children: [
+          { path: '/login', element: <LoginPage /> },
+          { path: '/forgot-password', element: <ForgotPasswordPage /> },
+          { path: '/reset-password', element: <ResetPasswordPage /> },
+          { path: '/register', element: <RegisterPage /> },
+        ],
+      },
+
+      // ─── Verificación de correo (autorregistro) ────────────────────────────
+      // Sin PublicRoute a propósito: el link del mail puede establecer sesión a
+      // mitad de la pantalla (verify-email emite sesión), y un guard de
+      // "ya autenticado → afuera" pisaría esa navegación en pleno vuelo.
+      {
+        element: <AuthLayout />,
+        children: [{ path: '/verify-email', element: <VerifyEmailPage /> }],
+      },
+
+      // ─── Completar perfil (alta con Google sin teléfono/apodo) ─────────────
+      {
+        element: (
+          <ProtectedRoute>
+            <AuthLayout />
+          </ProtectedRoute>
+        ),
+        children: [{ path: '/complete-profile', element: <CompleteProfilePage /> }],
+      },
+
+      // ─── Rutas de empleado ────────────────────────────────────────────────
+      {
+        element: (
+          <ProtectedRoute roles={['EMPLOYEE']}>
+            <AppLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { path: '/orders/today', element: <TodayOrderPage /> },
+          { path: '/orders/today/summary', element: <OrderSummaryPage /> },
+          // "Mis pedidos" del camino nuevo por créditos — reachable por cualquier
+          // Role.EMPLOYEE (incluye empleados de empresa), pero el link de
+          // navegación en AppLayout solo se muestra a clientes B2C
+          // (`companyId == null`); CompanyOrderPage y el camino v1 no cambian.
+          { path: '/orders/mine', element: <MyOrdersPage /> },
+        ],
+      },
+
+      // ─── Billetera de almuerzos (créditos) ─────────────────────────────────
+      // Sin restricción de rol: el backend expone estos endpoints con
+      // isAuthenticated() únicamente (ver CreditController/CreditPurchaseController).
+      {
+        element: (
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { path: '/credits', element: <CreditsWalletPage /> },
+          { path: '/credits/packs', element: <CreditsPacksPage /> },
+          { path: '/compras/:purchaseId/procesando', element: <CreditsCheckoutReturnPage /> },
+          { path: '/credits/checkout/exito', element: <CreditsCheckoutReturnPage /> },
+          { path: '/credits/checkout/pendiente', element: <CreditsCheckoutReturnPage /> },
+          { path: '/credits/checkout/error', element: <CreditsCheckoutReturnPage /> },
+        ],
+      },
+
+      // ─── Rutas de admin del restaurant ─────────────────────────────────────
+      {
+        element: (
+          <ProtectedRoute roles={['SUPER_ADMIN']}>
+            <AdminLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { path: '/admin', element: <Navigate to="/admin/dashboard" replace /> },
+          { path: '/admin/dashboard', element: <AdminOrdersByPickupPage /> },
+          { path: '/admin/payments', element: <AdminPaymentsPage /> },
+          { path: '/admin/companies/dashboard', element: <AdminDashboardPage /> },
+          { path: '/admin/menu', element: <AdminMenuPreviewPage /> },
+          { path: '/admin/dishes', element: <AdminDishesPage /> },
+          { path: '/admin/dish-calendar', element: <AdminDishCalendarPage /> },
+          { path: '/admin/companies', element: <AdminCompaniesPage /> },
+          { path: '/admin/billing', element: <AdminBillingPage /> },
+          { path: '/admin/sections', element: <AdminSectionsPage /> },
+          { path: '/admin/categories', element: <AdminCategoriesPage /> },
+          { path: '/admin/sides', element: <AdminSidesPage /> },
+          { path: '/admin/config', element: <AdminConfigPage /> },
+          { path: '/admin/orders-by-pickup', element: <Navigate to="/admin/dashboard" replace /> },
+          { path: '/admin/credit-packs', element: <AdminCreditPacksPage /> },
+        ],
+      },
+
+      // ─── Rutas de CompanyAdmin (admin de empresa cliente) ──────────────────
+      {
+        element: (
+          <ProtectedRoute roles={['COMPANY_ADMIN']}>
+            <CompanyAdminLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { path: '/company-admin', element: <Navigate to="/company-admin/today" replace /> },
+          { path: '/company-admin/employees', element: <CompanyAdminEmployeesPage /> },
+          { path: '/company-admin/metrics', element: <CompanyAdminMetricsPage /> },
+          // El admin de la empresa también almuerza ahí — reusa las páginas de empleado
+          { path: '/company-admin/today', element: <TodayOrderPage /> },
+          { path: '/company-admin/today/summary', element: <OrderSummaryPage /> },
+        ],
+      },
+
+      // Página pública del link "no quiero más recordatorios" del mail
+      { path: '/unsubscribe-reminder', element: <UnsubscribeReminderPage /> },
+
+      // Contenido corporativo (B2B) — trasladado desde la raíz, sin autenticación
+      { path: '/corporate', element: <CorporatePage /> },
+
+      // Raíz pública: landing B2C (con sesión → home del rol vía LandingRoute)
+      { path: '/', element: <LandingRoute /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
-
-  // ─── Verificación de correo (autorregistro) ────────────────────────────
-  // Sin PublicRoute a propósito: el link del mail puede establecer sesión a
-  // mitad de la pantalla (verify-email emite sesión), y un guard de
-  // "ya autenticado → afuera" pisaría esa navegación en pleno vuelo.
-  {
-    element: <AuthLayout />,
-    children: [{ path: '/verify-email', element: <VerifyEmailPage /> }],
-  },
-
-  // ─── Completar perfil (alta con Google sin teléfono/apodo) ─────────────
-  {
-    element: (
-      <ProtectedRoute>
-        <AuthLayout />
-      </ProtectedRoute>
-    ),
-    children: [{ path: '/complete-profile', element: <CompleteProfilePage /> }],
-  },
-
-  // ─── Rutas de empleado ────────────────────────────────────────────────
-  {
-    element: (
-      <ProtectedRoute roles={['EMPLOYEE']}>
-        <AppLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { path: '/orders/today', element: <TodayOrderPage /> },
-      { path: '/orders/today/summary', element: <OrderSummaryPage /> },
-      // "Mis pedidos" del camino nuevo por créditos — reachable por cualquier
-      // Role.EMPLOYEE (incluye empleados de empresa), pero el link de
-      // navegación en AppLayout solo se muestra a clientes B2C
-      // (`companyId == null`); CompanyOrderPage y el camino v1 no cambian.
-      { path: '/orders/mine', element: <MyOrdersPage /> },
-    ],
-  },
-
-  // ─── Billetera de almuerzos (créditos) ─────────────────────────────────
-  // Sin restricción de rol: el backend expone estos endpoints con
-  // isAuthenticated() únicamente (ver CreditController/CreditPurchaseController).
-  {
-    element: (
-      <ProtectedRoute>
-        <AppLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { path: '/credits', element: <CreditsWalletPage /> },
-      { path: '/credits/packs', element: <CreditsPacksPage /> },
-      { path: '/compras/:purchaseId/procesando', element: <CreditsCheckoutReturnPage /> },
-      { path: '/credits/checkout/exito', element: <CreditsCheckoutReturnPage /> },
-      { path: '/credits/checkout/pendiente', element: <CreditsCheckoutReturnPage /> },
-      { path: '/credits/checkout/error', element: <CreditsCheckoutReturnPage /> },
-    ],
-  },
-
-  // ─── Rutas de admin del restaurant ─────────────────────────────────────
-  {
-    element: (
-      <ProtectedRoute roles={['SUPER_ADMIN']}>
-        <AdminLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { path: '/admin', element: <Navigate to="/admin/dashboard" replace /> },
-      { path: '/admin/dashboard', element: <AdminOrdersByPickupPage /> },
-      { path: '/admin/payments', element: <AdminPaymentsPage /> },
-      { path: '/admin/companies/dashboard', element: <AdminDashboardPage /> },
-      { path: '/admin/menu', element: <AdminMenuPreviewPage /> },
-      { path: '/admin/dishes', element: <AdminDishesPage /> },
-      { path: '/admin/dish-calendar', element: <AdminDishCalendarPage /> },
-      { path: '/admin/companies', element: <AdminCompaniesPage /> },
-      { path: '/admin/billing', element: <AdminBillingPage /> },
-      { path: '/admin/sections', element: <AdminSectionsPage /> },
-      { path: '/admin/categories', element: <AdminCategoriesPage /> },
-      { path: '/admin/sides', element: <AdminSidesPage /> },
-      { path: '/admin/config', element: <AdminConfigPage /> },
-      { path: '/admin/orders-by-pickup', element: <Navigate to="/admin/dashboard" replace /> },
-      { path: '/admin/credit-packs', element: <AdminCreditPacksPage /> },
-    ],
-  },
-
-  // ─── Rutas de CompanyAdmin (admin de empresa cliente) ──────────────────
-  {
-    element: (
-      <ProtectedRoute roles={['COMPANY_ADMIN']}>
-        <CompanyAdminLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { path: '/company-admin', element: <Navigate to="/company-admin/today" replace /> },
-      { path: '/company-admin/employees', element: <CompanyAdminEmployeesPage /> },
-      { path: '/company-admin/metrics', element: <CompanyAdminMetricsPage /> },
-      // El admin de la empresa también almuerza ahí — reusa las páginas de empleado
-      { path: '/company-admin/today', element: <TodayOrderPage /> },
-      { path: '/company-admin/today/summary', element: <OrderSummaryPage /> },
-    ],
-  },
-
-  // Página pública del link "no quiero más recordatorios" del mail
-  { path: '/unsubscribe-reminder', element: <UnsubscribeReminderPage /> },
-
-  // Contenido corporativo (B2B) — trasladado desde la raíz, sin autenticación
-  { path: '/corporate', element: <CorporatePage /> },
-
-  // Raíz pública: landing B2C (con sesión → home del rol vía LandingRoute)
-  { path: '/', element: <LandingRoute /> },
-  { path: '*', element: <Navigate to="/" replace /> },
 ]);

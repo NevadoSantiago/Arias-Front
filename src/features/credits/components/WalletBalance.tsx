@@ -158,6 +158,7 @@ export function WalletBalance({ variant = 'card' }: Props = {}) {
 
       <Link
         to="/credits/packs"
+        data-tour="buy"
         className="flex h-[54px] items-center justify-center gap-2 rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
       >
         <Plus className="h-[18px] w-[18px]" aria-hidden="true" />

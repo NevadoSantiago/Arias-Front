@@ -23,6 +23,7 @@ export function BalanceChip() {
   return (
     <Link
       to="/credits"
+      data-tour="balance-chip"
       aria-label={ariaLabel}
       className={cn(
         'inline-flex h-11 shrink-0 items-center gap-2 rounded-full border pl-[5px] pr-3.5',

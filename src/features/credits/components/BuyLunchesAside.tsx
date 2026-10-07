@@ -53,6 +53,7 @@ export function BuyLunchesAside() {
   return (
     <aside
       aria-labelledby="buy-lunches-title"
+      data-tour="buy"
       className="sticky top-6 flex flex-col gap-4 rounded-xl border border-border bg-card p-[22px]"
     >
       <div className="flex flex-col gap-1">

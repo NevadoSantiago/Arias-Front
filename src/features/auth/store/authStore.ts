@@ -24,6 +24,12 @@ export interface AuthUser {
   emailVerified: boolean;
   /** true si tiene teléfono y apodo. false hasta completar el perfil (alta con Google). */
   profileComplete: boolean;
+  /**
+   * Cuándo terminó o salteó el tour de primer ingreso; null = todavía no lo
+   * vio. Opcional por la misma razón que `displayName`: un backend sin el campo
+   * (despliegue en otro orden, rollback) no debe disparar el tour.
+   */
+  onboardingTourSeenAt?: string | null;
 }
 
 interface AuthState {

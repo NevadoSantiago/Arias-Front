@@ -15,7 +15,7 @@ export function AppLayout() {
       <header className="border-b border-border bg-card">
         <div className="container flex items-center justify-between h-16">
           {/* Logo / brand */}
-          <Link to="/orders/today" className="flex items-baseline gap-3">
+          <Link to="/orders/today" data-tour="logo" className="flex items-baseline gap-3">
             <h1 className="font-display text-primary text-2xl font-bold leading-none">
               ARIAS
             </h1>

@@ -135,3 +135,25 @@ describe('AppLayout — desktop navigation (B2C only)', () => {
     expect(within(nav).getByRole('link', { name: 'Mis pedidos' })).not.toHaveAttribute('aria-current');
   });
 });
+
+describe('AppLayout — onboarding tour targets', () => {
+  beforeEach(() => {
+    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false });
+    vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  it('marks the ARIAS logo and the balance chip as tour targets', async () => {
+    useAuthStore.setState({ accessToken: 't', user: b2cUser, bootstrapping: false });
+
+    renderLayout('/orders/today');
+
+    const chip = await screen.findByRole('link', { name: /tenés 1 almuerzo disponible/i });
+    expect(chip).toHaveAttribute('data-tour', 'balance-chip');
+    expect(screen.getByRole('link', { name: /arias/i })).toHaveAttribute('data-tour', 'logo');
+  });
+});
