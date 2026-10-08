@@ -12,8 +12,8 @@ import { buildKitchenBoard, slotAnchorFor, type BoardOrder } from './kitchenBoar
 
 /** How often the order list is refetched (the backend confirms PENDIENTE orders every minute). */
 export const ORDERS_POLL_MS = 20_000;
-/** How often the clock-dependent grouping is recomputed. */
-export const CLOCK_TICK_MS = 30_000;
+/** How often the clock-dependent grouping is recomputed: once per minute, right when the minute changes. */
+export const CLOCK_TICK_MS = 60_000;
 /** How long the "Deshacer" bar stays after a move. */
 const UNDO_VISIBLE_MS = 20_000;
 
@@ -26,11 +26,24 @@ interface UndoState {
   message: string;
 }
 
+/**
+ * Reloj local, sin pedidos al backend: se actualiza en cada múltiplo de `intervalMs` del reloj
+ * (con 60 s, justo cuando cambia el minuto), no cada `intervalMs` desde que se montó, así la
+ * hora que se muestra nunca queda atrasada. Cada tick reprograma el siguiente para no acumular
+ * desvío.
+ */
 export function useNow(intervalMs: number): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      id = setTimeout(() => {
+        setNow(new Date());
+        schedule();
+      }, intervalMs - (Date.now() % intervalMs));
+    };
+    schedule();
+    return () => clearTimeout(id);
   }, [intervalMs]);
   return now;
 }
