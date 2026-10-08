@@ -135,7 +135,6 @@ function ConfirmedBox({ board, leadMinutes, slotMinutes, busy, onComandar }: Kit
               className={cn(
                 'flex flex-col gap-3 rounded-md border bg-card p-4',
                 slot.first ? 'border-2 border-primary-deep' : 'border-primary/30',
-                slot.orders.length === 0 && 'bg-card/50',
               )}
             >
               <div className="flex items-center justify-between gap-2 border-b border-primary/25 pb-2.5">
@@ -156,17 +155,11 @@ function ConfirmedBox({ board, leadMinutes, slotMinutes, busy, onComandar }: Kit
                       Primero
                     </span>
                   )}
-                  {slot.orders.length > 0 && (
-                    <span className="text-[13px] font-semibold text-muted-foreground">
-                      {plural(slot.orders.length, 'pedido', 'pedidos')}
-                    </span>
-                  )}
+                  <span className="text-[13px] font-semibold text-muted-foreground">
+                    {plural(slot.orders.length, 'pedido', 'pedidos')}
+                  </span>
                 </div>
               </div>
-
-              {slot.orders.length === 0 && (
-                <p className="pt-1 text-sm text-muted-foreground">Sin pedidos para este horario.</p>
-              )}
 
               {slot.orders.map((order) => (
                 <div key={order.id} className="flex flex-col gap-2 border-b border-border pb-3 last:border-b-0 last:pb-0">

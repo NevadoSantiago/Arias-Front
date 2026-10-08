@@ -44,39 +44,33 @@ describe('minuteOfDay / formatMinute', () => {
 });
 
 describe('confirmed columns', () => {
-  it('shows 2 columns with a 20 min lead and 10 min slots', () => {
-    const board = buildKitchenBoard([], ctx('12:03'));
-    expect(board.confirmed.map((c) => c.time)).toEqual(['12:10', '12:20']);
+  it('has no columns when there are no confirmed orders, whatever the lead and slot size', () => {
+    expect(buildKitchenBoard([], ctx('12:03')).confirmed).toEqual([]);
+    expect(buildKitchenBoard([], ctx('12:03', { leadMinutes: 30 })).confirmed).toEqual([]);
+    expect(buildKitchenBoard([], ctx('12:10', { slotMinutes: 15, slotAnchorMinutes: 11 * 60 + 5 })).confirmed).toEqual([]);
   });
 
-  it('shows 3 columns with a 30 min lead and 10 min slots', () => {
-    const board = buildKitchenBoard([], ctx('12:03', { leadMinutes: 30 }));
-    expect(board.confirmed.map((c) => c.time)).toEqual(['12:10', '12:20', '12:30']);
-  });
-
-  it('aligns the slots to the pickup window start, like the backend does', () => {
-    const board = buildKitchenBoard([], ctx('12:03', { slotMinutes: 15, leadMinutes: 30, slotAnchorMinutes: 11 * 60 + 5 }));
-    // 11:05 + k*15 -> 12:05, 12:20, 12:35 ; (12:03, 12:33] keeps 12:05 and 12:20
-    expect(board.confirmed.map((c) => c.time)).toEqual(['12:05', '12:20']);
-  });
-
-  it('excludes the current minute from the grid and includes now + lead', () => {
-    const board = buildKitchenBoard([], ctx('12:10'));
-    expect(board.confirmed.map((c) => c.time)).toEqual(['12:20', '12:30']);
-  });
-
-  it('puts CONFIRMADO orders in their slot and marks the first column with orders', () => {
+  it('shows only the slots that have orders, skipping the empty ones in the window', () => {
     const board = buildKitchenBoard(
       [order(1, 'CONFIRMADO', '12:20'), order(2, 'CONFIRMADO', '12:20')],
       ctx('12:03'),
     );
-    expect(board.confirmed.map((c) => [c.time, c.orders.length, c.first])).toEqual([
-      ['12:10', 0, false],
-      ['12:20', 2, true],
+    // 12:10 is in the window but has no orders: it is not a column.
+    expect(board.confirmed.map((c) => [c.time, c.orders.length, c.first])).toEqual([['12:20', 2, true]]);
+  });
+
+  it('keeps the slots in time order and marks only the first one', () => {
+    const board = buildKitchenBoard(
+      [order(1, 'CONFIRMADO', '12:20'), order(2, 'CONFIRMADO', '12:10')],
+      ctx('12:03'),
+    );
+    expect(board.confirmed.map((c) => [c.time, c.first])).toEqual([
+      ['12:10', true],
+      ['12:20', false],
     ]);
   });
 
-  it('adds an overdue column, first, for a CONFIRMADO order whose slot already passed', () => {
+  it('keeps an overdue slot with orders, first, and drops the empty slots around it', () => {
     const board = buildKitchenBoard(
       [order(1, 'CONFIRMADO', '12:00'), order(2, 'CONFIRMADO', '12:10')],
       ctx('12:07'),
@@ -84,8 +78,12 @@ describe('confirmed columns', () => {
     expect(board.confirmed.map((c) => [c.time, c.overdue, c.first, c.rel])).toEqual([
       ['12:00', true, true, 'atrasado 7 min'],
       ['12:10', false, false, 'en 3 min'],
-      ['12:20', false, false, 'en 13 min'],
     ]);
+  });
+
+  it('keeps a slot with orders that is beyond the lead window', () => {
+    const board = buildKitchenBoard([order(1, 'CONFIRMADO', '12:50')], ctx('12:03'));
+    expect(board.confirmed.map((c) => [c.time, c.overdue, c.rel])).toEqual([['12:50', false, 'en 47 min']]);
   });
 
   it('labels a slot that is exactly now', () => {
@@ -98,7 +96,7 @@ describe('confirmed columns', () => {
       [order(1, 'PENDIENTE', '12:10'), order(2, 'COMANDADO', '12:10'), order(3, 'ENTREGADO', '12:10')],
       ctx('12:03'),
     );
-    expect(board.confirmed.every((c) => c.orders.length === 0)).toBe(true);
+    expect(board.confirmed).toEqual([]);
   });
 });
 

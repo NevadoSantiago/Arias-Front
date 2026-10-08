@@ -95,28 +95,18 @@ function toBoardOrder(order: PickupOrder, ctx: BoardContext, nowMinute: number):
 
 const byPickup = (a: BoardOrder, b: BoardOrder) => a.pickupMinute - b.pickupMinute || a.id - b.id;
 
-/** Slot minutes in (now, now + lead], aligned to the window start like the backend's slots. */
-function slotGrid(nowMinute: number, ctx: BoardContext): number[] {
-  const step = Math.max(1, ctx.slotMinutes);
-  const end = nowMinute + ctx.leadMinutes;
-  const first = nowMinute + 1 + ((((ctx.slotAnchorMinutes - nowMinute - 1) % step) + step) % step);
-  const slots: number[] = [];
-  for (let m = first; m <= end; m += step) slots.push(m);
-  return slots;
-}
-
-function buildConfirmed(confirmed: BoardOrder[], ctx: BoardContext, nowMinute: number): ConfirmedSlot[] {
+/** One column per pickup slot that has at least one CONFIRMADO order (overdue and early ones included). */
+function buildConfirmed(confirmed: BoardOrder[], nowMinute: number): ConfirmedSlot[] {
   const ordersBySlot = new Map<number, BoardOrder[]>();
   for (const o of confirmed) {
     ordersBySlot.set(o.pickupMinute, [...(ordersBySlot.get(o.pickupMinute) ?? []), o]);
   }
-  // Grid columns, plus any slot that has orders (overdue ones, or beyond the lead if the backend confirmed early).
-  const minutes = [...new Set([...slotGrid(nowMinute, ctx), ...ordersBySlot.keys()])].sort((a, b) => a - b);
+  const minutes = [...ordersBySlot.keys()].sort((a, b) => a - b);
   let firstMarked = false;
   return minutes.map((minute) => {
     const orders = ordersBySlot.get(minute) ?? [];
-    const first = orders.length > 0 && !firstMarked;
-    if (first) firstMarked = true;
+    const first = !firstMarked;
+    firstMarked = true;
     const overdue = minute < nowMinute;
     return {
       minute,
@@ -137,7 +127,7 @@ export function buildKitchenBoard(orders: PickupOrder[], ctx: BoardContext): Kit
 
   const commanded = inState('COMANDADO');
   return {
-    confirmed: buildConfirmed(inState('CONFIRMADO'), ctx, nowMinute),
+    confirmed: buildConfirmed(inState('CONFIRMADO'), nowMinute),
     commanded: {
       fresh: commanded.filter((o) => nowMinute - o.pickupMinute <= STALE_AFTER_MINUTES),
       stale: commanded.filter((o) => nowMinute - o.pickupMinute > STALE_AFTER_MINUTES),
