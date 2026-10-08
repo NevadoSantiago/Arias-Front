@@ -11,7 +11,7 @@ import {
 import { buildKitchenBoard, slotAnchorFor, type BoardOrder } from './kitchenBoard';
 
 /** How often the order list is refetched (the backend confirms PENDIENTE orders every minute). */
-export const ORDERS_POLL_MS = 20_000;
+export const ORDERS_POLL_MS = 60_000;
 /** How often the clock-dependent grouping is recomputed: once per minute, right when the minute changes. */
 export const CLOCK_TICK_MS = 60_000;
 /** How long the "Deshacer" bar stays after a move. */
