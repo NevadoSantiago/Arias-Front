@@ -140,10 +140,10 @@ describe('AdminOrdersByPickupPage (kitchen dashboard)', () => {
     expect(screen.getByText('No quedan pedidos programados para hoy.')).toBeInTheDocument();
   });
 
-  it('shows the pickup columns derived from lead and slot, and the order detail', async () => {
+  it('shows only the pickup columns that have orders, and the order detail', async () => {
     renderPage([order(7, 'CONFIRMADO', '12:20', { notas: 'sin sal' })]);
     const box = await screen.findByRole('region', { name: /pedidos confirmados para comandar/i });
-    expect(within(box).getByText('12:10')).toBeInTheDocument();
+    expect(within(box).queryByText('12:10')).not.toBeInTheDocument();
     expect(within(box).getByText('12:20')).toBeInTheDocument();
     expect(within(box).getByText('Primero')).toBeInTheDocument();
     expect(within(box).getByText(/N° 7 · alias7/)).toBeInTheDocument();
