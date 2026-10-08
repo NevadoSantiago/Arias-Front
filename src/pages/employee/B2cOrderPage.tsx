@@ -11,6 +11,7 @@ import { RemoveOrderItemSheet } from '@/features/orders/components/RemoveOrderIt
 import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
+import { NoPickupSlotsNotice } from '@/features/orders/components/b2c/NoPickupSlotsNotice';
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
 import { comandaFooter, comandaItems, isPaidWithMercadoPago } from '@/features/orders/components/b2c/comandaModel';
 import { OrderPayDirectSheet } from '@/features/orders/components/b2c/OrderPayDirectSheet';
@@ -32,6 +33,7 @@ import {
   getDisabledDates,
   getMenuSections,
   getOrdersV2,
+  getPickupSlots,
   getRestaurantConfig,
   InsufficientCreditsError,
   OrderNotModifiableError,
@@ -214,6 +216,16 @@ export function B2cOrderPage() {
   const { data: config } = useQuery({ queryKey: ['restaurantConfig'], queryFn: getRestaurantConfig });
 
   /**
+   * Horarios de retiro del día — misma clave que `PickupTimePicker`, así comparten caché. Solo una lista
+   * vacía YA CARGADA bloquea el pedido: mientras carga o si falla, la pantalla se comporta como siempre
+   * (el backend sigue validando el horario al confirmar).
+   */
+  const { data: pickupSlots } = useQuery({
+    queryKey: ['pickupSlots', selectedDate],
+    queryFn: () => getPickupSlots(selectedDate),
+  });
+
+  /**
    * Saldo de almuerzos — solo para mostrar (tarjeta de saldo cero, cálculo
    * "Te quedan N"); nunca decide si se puede confirmar. Usa `useWallet`
    * (clave `['creditsWallet']`) para compartir la misma caché que el chip
@@ -364,16 +376,24 @@ export function B2cOrderPage() {
   const canConfirm = cart.lines.length > 0 && !!pickupAt && !submitting;
 
   /**
+   * Día sin horarios de retiro: no se puede armar pedido. Un día cerrado (`disabledDates`) ya se explica
+   * solo, así que no suma este aviso. Con el carrito vacío se oculta el armado (barra / panel "Tu pedido");
+   * con platos ya cargados se conserva para poder verlos y quitarlos, y la revisión explica por qué no confirma.
+   */
+  const noSlots = pickupSlots !== undefined && pickupSlots.length === 0 && !disabledDates.has(selectedDate);
+  const hideOrdering = noSlots && cartEmpty;
+
+  /**
    * Tour de primer ingreso: el plato que resalta (en el orden en que se ven en
    * pantalla; ninguno si el día está cerrado o no hay nada pedible) y lo que el
    * tour puede hacer sobre esta pantalla cuando el cliente vuelve atrás o salta.
    */
   const tourDish = useMemo(
     () =>
-      disabledDates.has(selectedDate)
+      disabledDates.has(selectedDate) || noSlots
         ? null
         : pickTourDish([...specialDishes, ...groupedBySection.flatMap((g) => g.dishes)], { checkStock: isToday }),
-    [disabledDates, selectedDate, specialDishes, groupedBySection, isToday],
+    [disabledDates, noSlots, selectedDate, specialDishes, groupedBySection, isToday],
   );
   useTourPageControls({
     resetOrderUi: ({ clearCart }) => {
@@ -712,6 +732,12 @@ export function B2cOrderPage() {
             </div>
           )}
 
+          {noSlots && (
+            <div className="mb-6">
+              <NoPickupSlotsNotice />
+            </div>
+          )}
+
           <SelectedDayOrders
             orders={ordersForSelectedDay}
             dayHeadingLabel={dayHeadingLabel}
@@ -751,6 +777,7 @@ export function B2cOrderPage() {
                         key={dish.id}
                         dish={dish}
                         onSelect={setSelectedDish}
+                        readonly={noSlots}
                         hideStock={!isToday}
                         tour={tourDish?.dishId === dish.id ? { hasSide: tourDish.hasSide } : undefined}
                       />
@@ -769,6 +796,7 @@ export function B2cOrderPage() {
                         key={dish.id}
                         dish={dish}
                         onSelect={setSelectedDish}
+                        readonly={noSlots}
                         hideStock={!isToday}
                         tour={tourDish?.dishId === dish.id ? { hasSide: tourDish.hasSide } : undefined}
                       />
@@ -780,7 +808,11 @@ export function B2cOrderPage() {
           )}
         </div>
         {isDesktop &&
-          (hideCartInfo ? (
+          (hideOrdering ? (
+            <div className="sticky top-6 flex flex-col items-center gap-5">
+              <OrderDayIllustration size="lg" />
+            </div>
+          ) : hideCartInfo ? (
             <div className="sticky top-6 flex flex-col items-center gap-5">
               <p className="m-0 text-center text-sm text-foreground">
                 {hasOrderLine} ·{' '}
@@ -795,7 +827,7 @@ export function B2cOrderPage() {
           ))}
       </div>
 
-      {!isDesktop && !hideCartInfo && (
+      {!isDesktop && !hideCartInfo && !hideOrdering && (
         <div className="sticky bottom-0 z-20 bg-background">
           <div className="container max-w-xl px-0">
             <CartBar

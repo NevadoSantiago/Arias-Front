@@ -25,6 +25,7 @@ import {
 } from '@/features/orders/services/ordersApi';
 import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
 import type { Dish } from '@/features/orders/types';
+import { mockMatchMedia } from '@/test/matchMedia';
 
 vi.mock('@/features/orders/services/ordersApi', async () => {
   const actual = await vi.importActual<typeof import('@/features/orders/services/ordersApi')>(
@@ -123,6 +124,17 @@ async function openReview() {
   fireEvent.click(await screen.findByRole('button', { name: /ver pedido/i }));
 }
 
+/** Arma un carrito de hoy sin pasar por la hoja del plato (sirve cuando el día ya no tiene horarios). */
+function seedCartForToday() {
+  useCartStore.getState().addLine(toIso(new Date()), {
+    localId: 'seed-1',
+    dish,
+    sideId: null,
+    sideNombre: null,
+    notas: null,
+  });
+}
+
 // El carrito es un store global (F24): cada test arranca vacío.
 afterEach(() => useCartStore.getState().reset());
 
@@ -191,16 +203,14 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     expect(confirmButton).not.toBeDisabled();
   });
 
-  it('keeps the confirm button disabled when there are no pickup slots for the selected day', async () => {
+  it('keeps the confirm button disabled and explains why when a cart already built has no pickup slots left', async () => {
+    seedCartForToday();
     vi.mocked(getPickupSlots).mockResolvedValue([]);
     renderPage();
 
-    await addDishToCart();
     await openReview();
 
-    expect(
-      await screen.findByText(/no quedan horarios de retiro para este día/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/no quedan horarios de retiro para este día. elegí otro día./i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^confirmar pedido$/i })).toBeDisabled();
   });
 
@@ -1639,5 +1649,121 @@ describe('B2cOrderPage — the cart survives navigation (F24)', () => {
 
     await screen.findByRole('button', { name: /milanesa napolitana/i });
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — a day with no pickup slots cannot be ordered', () => {
+  const NOTICE = /ya no quedan horarios de retiro para este día/i;
+
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([dish]);
+    vi.mocked(getPickupSlots).mockResolvedValue([]);
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null });
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  it('shows the notice, keeps the dishes visible but disabled, and hides the cart bar', async () => {
+    renderPage();
+
+    expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+    expect(screen.getByText(/elegí otro día para armar tu pedido/i)).toBeInTheDocument();
+
+    const card = screen.getByRole('button', { name: /milanesa napolitana/i });
+    expect(card).toBeDisabled();
+    expect(card).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(card);
+    expect(screen.queryByRole('button', { name: /agregar al pedido/i })).not.toBeInTheDocument();
+
+    expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/tocá un plato para armar tu pedido/i)).not.toBeInTheDocument();
+  });
+
+  it('does not offer the tour dish target on a day with no slots', async () => {
+    const { unmount } = renderPage();
+    await screen.findByText(NOTICE);
+    expect(document.querySelector('[data-tour="dish"]')).toBeNull();
+    unmount();
+
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    renderPage();
+    await screen.findByRole('button', { name: /milanesa napolitana/i });
+    expect(document.querySelector('[data-tour="dish"]')).not.toBeNull();
+  });
+
+  it('does not flash the notice while the slots are loading', async () => {
+    vi.mocked(getPickupSlots).mockReturnValue(new Promise(() => {}));
+    renderPage();
+
+    const card = await screen.findByRole('button', { name: /milanesa napolitana/i });
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+    expect(card).not.toBeDisabled();
+  });
+
+  it('does not block ordering when the slots fail to load', async () => {
+    vi.mocked(getPickupSlots).mockRejectedValue(new Error('boom'));
+    renderPage();
+
+    const card = await screen.findByRole('button', { name: /milanesa napolitana/i });
+    await waitFor(() => expect(getPickupSlots).toHaveBeenCalled());
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+    expect(card).not.toBeDisabled();
+  });
+
+  it('keeps the day unchanged when there are slots', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(['2026-05-21T15:00:00Z']);
+    renderPage();
+
+    const card = await screen.findByRole('button', { name: /milanesa napolitana/i });
+    expect(card).not.toBeDisabled();
+    expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+    expect(screen.getByText(/tocá un plato para armar tu pedido/i)).toBeInTheDocument();
+  });
+
+  it('keeps the cart bar when the day already has items, and the review explains why it cannot confirm', async () => {
+    seedCartForToday();
+    renderPage();
+
+    expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+    await openReview();
+    expect(await screen.findByRole('button', { name: /^confirmar pedido$/i })).toBeDisabled();
+  });
+
+  describe('on desktop', () => {
+    let media: ReturnType<typeof mockMatchMedia>;
+    beforeEach(() => {
+      media = mockMatchMedia(true);
+    });
+    afterEach(() => media.restore());
+
+    it('shows the notice and no "Tu pedido" panel when the cart is empty', async () => {
+      renderPage();
+
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      expect(screen.queryByRole('complementary', { name: /tu pedido/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /milanesa napolitana/i })).toBeDisabled();
+    });
+
+    it('keeps the panel, with the confirm button disabled, when the day already has items', async () => {
+      seedCartForToday();
+      renderPage();
+
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      const panel = screen.getByRole('complementary', { name: /tu pedido/i });
+      expect(within(panel).getByRole('button', { name: /^confirmar pedido$/i })).toBeDisabled();
+    });
   });
 });
