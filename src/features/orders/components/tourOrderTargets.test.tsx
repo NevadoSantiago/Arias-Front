@@ -59,7 +59,7 @@ function inApp(ui: React.ReactNode, tourActive = false) {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <TourContext.Provider value={{ active: tourActive, registerPageControls: () => {} }}>
+        <TourContext.Provider value={{ active: tourActive, registerPageControls: () => {}, canReplay: false, replay: () => {} }}>
           {ui}
         </TourContext.Provider>
       </MemoryRouter>

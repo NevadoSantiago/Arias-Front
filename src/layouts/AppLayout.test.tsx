@@ -51,7 +51,7 @@ function renderLayout(path = '/') {
 
 describe('AppLayout — balance chip (B2C only)', () => {
   beforeEach(() => {
-    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false });
+    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false, recibeAvisoRetiro: true });
   });
 
   afterEach(() => {
@@ -93,7 +93,7 @@ describe('AppLayout — balance chip (B2C only)', () => {
 
 describe('AppLayout — desktop navigation (B2C only)', () => {
   beforeEach(() => {
-    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false });
+    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false, recibeAvisoRetiro: true });
     vi.mocked(getWallet).mockResolvedValue({ available: 3, committed: 0, expiresAt: null });
   });
 
@@ -138,7 +138,7 @@ describe('AppLayout — desktop navigation (B2C only)', () => {
 
 describe('AppLayout — onboarding tour targets', () => {
   beforeEach(() => {
-    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false });
+    vi.mocked(getNotificationPreferences).mockResolvedValue({ recibeRecordatorioPedido: false, recibeAvisoRetiro: true });
     vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
   });
 

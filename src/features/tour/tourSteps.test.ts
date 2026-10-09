@@ -34,7 +34,7 @@ describe('buildTourSteps', () => {
   it('makes the confirm step informational so the tour never places an order', () => {
     const confirm = buildTourSteps({ isDesktop: false }).find((s) => s.id === 'confirm');
 
-    expect(confirm?.mode).toBe('info');
+    expect(confirm).toMatchObject({ kind: 'spot', mode: 'info' });
   });
 
   it('never mentions the per-order lunch cost in any copy', () => {

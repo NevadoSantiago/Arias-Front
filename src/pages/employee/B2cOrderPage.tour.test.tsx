@@ -76,7 +76,7 @@ function renderPage() {
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <TourContext.Provider value={{ active: true, registerPageControls: (c) => (controls = c) }}>
+        <TourContext.Provider value={{ active: true, registerPageControls: (c) => (controls = c), canReplay: false, replay: () => {} }}>
           <B2cOrderPage />
         </TourContext.Provider>
       </MemoryRouter>
