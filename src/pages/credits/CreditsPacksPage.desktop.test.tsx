@@ -53,6 +53,13 @@ describe('CreditsPacksPage on desktop (F22c)', () => {
     vi.useRealTimers();
   });
 
+  it('does not show the mobile "how buying works" image', async () => {
+    renderPage();
+
+    await screen.findByText('Sueltos');
+    expect(screen.queryByRole('img', { name: /cómo funciona la compra de almuerzos/i })).not.toBeInTheDocument();
+  });
+
   it('lays Sueltos, Semana and Mes out as three side-by-side cards, Semana preselected', async () => {
     renderPage();
 

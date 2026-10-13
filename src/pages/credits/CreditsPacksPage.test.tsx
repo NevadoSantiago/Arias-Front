@@ -77,6 +77,12 @@ describe('CreditsPacksPage', () => {
     expect(await screen.findByText(/vencen a los 45 días de tu última compra/i)).toBeInTheDocument();
   });
 
+  it('shows the "how buying works" image on mobile', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('img', { name: /cómo funciona la compra de almuerzos/i })).toBeInTheDocument();
+  });
+
   it('shows Sueltos first, then the other packs ordered by ordenDisplay, with prices from priceCents', async () => {
     renderPage();
 
