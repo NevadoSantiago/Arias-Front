@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { buildTourSteps, nextStepId, stepCounter } from './tourSteps';
 
 describe('buildTourSteps', () => {
+  it('has no separate "tap your balance" step', () => {
+    expect(buildTourSteps({ isDesktop: false }).map((s) => s.id)).not.toContain('balance-chip-tap');
+  });
+
   it('starts with the centered gift card and ends with the closing card', () => {
     const steps = buildTourSteps({ isDesktop: false });
 
@@ -19,7 +23,7 @@ describe('buildTourSteps', () => {
     const ids = buildTourSteps({ isDesktop: false }).map((s) => s.id);
 
     expect(ids).toEqual([
-      'welcome', 'balance-chip', 'balance-chip-tap', 'buy', 'logo',
+      'welcome', 'balance-chip', 'buy', 'logo',
       'dish', 'sides', 'add', 'cart', 'picker', 'balance-box', 'confirm', 'final',
     ]);
   });
@@ -55,13 +59,13 @@ describe('stepCounter', () => {
     const steps = buildTourSteps({ isDesktop: false });
 
     expect(stepCounter(steps, 'welcome')).toBeNull();
-    expect(stepCounter(steps, 'balance-chip')).toEqual({ position: 1, total: 11 });
-    expect(stepCounter(steps, 'confirm')).toEqual({ position: 11, total: 11 });
+    expect(stepCounter(steps, 'balance-chip')).toEqual({ position: 1, total: 10 });
+    expect(stepCounter(steps, 'confirm')).toEqual({ position: 10, total: 10 });
     expect(stepCounter(steps, 'final')).toBeNull();
   });
 
   it('adapts the total on desktop', () => {
-    expect(stepCounter(buildTourSteps({ isDesktop: true }), 'balance-chip')).toEqual({ position: 1, total: 10 });
+    expect(stepCounter(buildTourSteps({ isDesktop: true }), 'balance-chip')).toEqual({ position: 1, total: 9 });
   });
 });
 
@@ -70,6 +74,7 @@ describe('nextStepId', () => {
     const steps = buildTourSteps({ isDesktop: false });
 
     expect(nextStepId(steps, 'welcome')).toBe('balance-chip');
+    expect(nextStepId(steps, 'balance-chip')).toBe('buy');
     expect(nextStepId(steps, 'final')).toBeNull();
   });
 });

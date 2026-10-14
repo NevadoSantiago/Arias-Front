@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TourSpotlight } from './TourSpotlight';
 import type { TourSpotStep } from './tourSteps';
@@ -15,7 +15,7 @@ const step = (mode: TourSpotStep['mode']): TourSpotStep => ({
   guide: 'chef' as TourSpotStep['guide'],
 });
 
-function renderSpotlight(mode: TourSpotStep['mode']) {
+function renderSpotlight(mode: TourSpotStep['mode'], onNext: () => void = vi.fn()) {
   const target = document.createElement('a');
   target.setAttribute('data-tour', 'balance-chip');
   target.getBoundingClientRect = () =>
@@ -27,7 +27,7 @@ function renderSpotlight(mode: TourSpotStep['mode']) {
       counter={{ position: 2, total: 8 }}
       canGoBack
       targetTimeoutMs={5000}
-      onNext={vi.fn()}
+      onNext={onNext}
       onPrev={vi.fn()}
       onSkip={vi.fn()}
       onTargetMissing={vi.fn()}
@@ -82,5 +82,94 @@ describe('TourSpotlight pointer events', () => {
     pane.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+  });
+});
+
+describe('TourSpotlight overlay tap', () => {
+  it.each(['info', 'try'] as const)('advances when a dark pane is clicked on %s steps', async (mode) => {
+    const onNext = vi.fn();
+    renderSpotlight(mode, onNext);
+    await settle();
+
+    fireEvent.click(document.querySelector('[data-tour-block]') as HTMLElement);
+
+    expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('advances when the blocker over the cutout is clicked on info steps', async () => {
+    const onNext = vi.fn();
+    renderSpotlight('info', onNext);
+    await settle();
+
+    const blockers = document.querySelectorAll<HTMLElement>('[data-tour-block]');
+    fireEvent.click(blockers[blockers.length - 1]);
+
+    expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not advance when a pane is clicked on tap steps', async () => {
+    const onNext = vi.fn();
+    renderSpotlight('tap', onNext);
+    await settle();
+
+    document.querySelectorAll<HTMLElement>('[data-tour-block]').forEach((pane) => fireEvent.click(pane));
+
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('does not advance when the bubble is clicked', async () => {
+    const onNext = vi.fn();
+    renderSpotlight('info', onNext);
+    await settle();
+
+    fireEvent.click(screen.getByRole('dialog'));
+
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('does not advance from the invisible block shown while the target is missing', () => {
+    const onNext = vi.fn();
+    render(
+      <TourSpotlight
+        step={step('info')}
+        counter={null}
+        canGoBack
+        targetTimeoutMs={5000}
+        onNext={onNext}
+        onPrev={vi.fn()}
+        onSkip={vi.fn()}
+        onTargetMissing={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(document.querySelector('[data-tour-block]') as HTMLElement);
+
+    expect(onNext).not.toHaveBeenCalled();
+  });
+});
+
+describe('TourSpotlight tap arrow', () => {
+  it('points an arrow at the target on tap steps instead of the "tocá acá" pill', async () => {
+    renderSpotlight('tap');
+    await settle();
+
+    expect(document.querySelector('[data-tour-arrow]')).not.toBeNull();
+    expect(screen.queryByText('Tocá acá para seguir')).not.toBeInTheDocument();
+  });
+
+  it.each(['info', 'try'] as const)('renders no arrow on %s steps', async (mode) => {
+    renderSpotlight(mode);
+    await settle();
+
+    expect(document.querySelector('[data-tour-arrow]')).toBeNull();
+  });
+
+  it('is decorative and never captures taps', async () => {
+    renderSpotlight('tap');
+    await settle();
+
+    const arrow = document.querySelector('[data-tour-arrow]') as HTMLElement;
+    expect(arrow).toHaveAttribute('aria-hidden', 'true');
+    expect(arrow.className).toContain('pointer-events-none');
   });
 });

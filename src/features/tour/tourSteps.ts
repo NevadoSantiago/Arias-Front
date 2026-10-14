@@ -6,7 +6,6 @@
 export type TourStepId =
   | 'welcome'
   | 'balance-chip'
-  | 'balance-chip-tap'
   | 'buy'
   | 'logo'
   | 'dish'
@@ -79,16 +78,6 @@ export function buildTourSteps({ isDesktop }: { isDesktop: boolean }): TourStep[
       guide: 'ofrece',
       title: 'Este es tu saldo de almuerzos',
       text: 'Te regalamos 1 para que pruebes. Lo usás cuando confirmás tu primer pedido.',
-    }),
-    spot({
-      id: 'balance-chip-tap',
-      route: '/orders/today',
-      target: 'balance-chip',
-      mode: 'tap',
-      radius: 999,
-      guide: 'ofrece',
-      title: 'Tocá tu saldo',
-      text: 'Ahí ves cuántos almuerzos tenés y desde ahí comprás más.',
     }),
     spot({
       id: 'buy',

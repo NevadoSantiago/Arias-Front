@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Pointer } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GUIDES } from './characters';
-import { computeCutout, placeTooltip, type Viewport } from './tourGeometry';
+import { computeCutout, placeTooltip, TAP_GAP_TO_TARGET, type Viewport } from './tourGeometry';
 import type { TourSpotStep } from './tourSteps';
 import { useTargetRect } from './useTargetRect';
 
@@ -30,11 +30,16 @@ function useViewport(): Viewport {
 
 const DIM = 'hsl(var(--foreground) / 0.62)';
 const PANE = 'pointer-events-auto fixed';
+const ARROW_SIZE = 36;
+const GUTTER_ARROW = 8;
 
 /**
  * Capa del tour sobre un elemento real: oscurece la pantalla con un recorte
  * redondeado, bloquea los toques fuera del recorte (cuatro paneles) y deja
- * pasar los del recorte en los pasos "tocá acá"; el globito lleva al personaje.
+ * pasar los del recorte en los pasos "tocá": ahí una flecha va del globito al
+ * elemento. En los pasos de mirar y probar, tocar la capa oscura equivale a
+ * "Siguiente"; en los de tocar no, porque el paso siguiente depende del toque
+ * real sobre el elemento. El globito lleva al personaje.
  * Está por encima de las hojas de Radix (z-50), que además ponen
  * `pointer-events: none` en el resto de la página: por eso cada panel lo
  * reactiva.
@@ -88,8 +93,15 @@ export function TourSpotlight({
   }
 
   const cut = computeCutout(rect, viewport, step.radius);
-  const place = placeTooltip(cut, viewport);
   const tap = step.mode === 'tap';
+  const place = placeTooltip(cut, viewport, tap ? TAP_GAP_TO_TARGET : undefined);
+  // En los pasos de mirar y probar la capa oscura avanza; en los de tocar solo bloquea.
+  const advanceOnPane = tap ? undefined : onNext;
+  const ArrowIcon = place.below ? ArrowUp : ArrowDown;
+  const arrowLeft = Math.max(
+    GUTTER_ARROW,
+    Math.min(viewport.width - GUTTER_ARROW - ARROW_SIZE, cut.left + cut.width / 2 - ARROW_SIZE / 2),
+  );
   const guide = GUIDES[step.guide];
   const needFacing = place.charOnLeft ? 'right' : 'left';
   const mirrored = guide.face !== 'none' && guide.face !== needFacing;
@@ -97,10 +109,10 @@ export function TourSpotlight({
   // La raíz no capta toques: si no, taparía el recorte; los paneles sí.
   return (
     <div ref={setRoot} className="pointer-events-none fixed inset-0 z-[100]">
-      <div data-tour-block className={PANE} style={{ left: 0, top: 0, width: '100%', height: cut.top }} />
-      <div data-tour-block className={PANE} style={{ left: 0, top: cut.bottom, width: '100%', bottom: 0 }} />
-      <div data-tour-block className={PANE} style={{ left: 0, top: cut.top, width: cut.left, height: cut.height }} />
-      <div data-tour-block className={PANE} style={{ left: cut.right, top: cut.top, right: 0, height: cut.height }} />
+      <div data-tour-block className={PANE} onClick={advanceOnPane} style={{ left: 0, top: 0, width: '100%', height: cut.top }} />
+      <div data-tour-block className={PANE} onClick={advanceOnPane} style={{ left: 0, top: cut.bottom, width: '100%', bottom: 0 }} />
+      <div data-tour-block className={PANE} onClick={advanceOnPane} style={{ left: 0, top: cut.top, width: cut.left, height: cut.height }} />
+      <div data-tour-block className={PANE} onClick={advanceOnPane} style={{ left: cut.right, top: cut.top, right: 0, height: cut.height }} />
 
       {/* Recorte: la sombra enorme es la capa oscura; en los pasos "tocá" lleva un aro rojo. */}
       <div
@@ -118,13 +130,37 @@ export function TourSpotlight({
         }}
       />
 
-      {/* En los pasos informativos el elemento se ve pero no se toca. */}
+      {/* En los pasos informativos el elemento se ve pero no se toca (y tocarlo avanza). */}
       {step.mode === 'info' && (
         <div
           data-tour-block
           className="pointer-events-auto fixed"
+          onClick={advanceOnPane}
           style={{ left: cut.left, top: cut.top, width: cut.width, height: cut.height }}
         />
+      )}
+
+      {/* Flecha del globito al elemento: va en el hueco que deja TAP_GAP_TO_TARGET. */}
+      {tap && (
+        <span
+          aria-hidden="true"
+          data-tour-arrow
+          className="pointer-events-none fixed flex items-center justify-center rounded-full bg-card shadow-md"
+          style={{
+            left: arrowLeft,
+            width: ARROW_SIZE,
+            height: ARROW_SIZE,
+            top: place.below ? cut.bottom + (TAP_GAP_TO_TARGET - ARROW_SIZE) / 2 : undefined,
+            bottom: place.below ? undefined : viewport.height - cut.top + (TAP_GAP_TO_TARGET - ARROW_SIZE) / 2,
+          }}
+        >
+          <span
+            className="tour-point flex"
+            style={{ '--tour-point-dir': place.below ? -1 : 1 } as CSSProperties}
+          >
+            <ArrowIcon className="h-5 w-5 text-primary-deep" strokeWidth={3} />
+          </span>
+        </span>
       )}
 
       <div
@@ -174,12 +210,6 @@ export function TourSpotlight({
             <p id={textId} className="m-0 text-[13.5px] leading-snug text-foreground">
               {step.text}
             </p>
-            {tap && (
-              <span className="inline-flex h-7 items-center gap-1.5 self-start rounded-full bg-primary-deep px-2.5 text-xs font-bold text-primary-foreground">
-                <Pointer className="h-[15px] w-[15px]" aria-hidden="true" />
-                Tocá acá para seguir
-              </span>
-            )}
             {step.mode === 'try' && (
               <span className="text-xs font-semibold text-muted-foreground">Probalo, o seguí con Siguiente.</span>
             )}

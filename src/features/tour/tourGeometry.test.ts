@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCutout, placeTooltip } from './tourGeometry';
+import { computeCutout, placeTooltip, TAP_GAP_TO_TARGET } from './tourGeometry';
 
 const phone = { width: 390, height: 844 };
 
@@ -24,6 +24,22 @@ describe('computeCutout', () => {
 });
 
 describe('placeTooltip', () => {
+  it('moves the bubble away from the target by a custom gap (below)', () => {
+    const cut = computeCutout({ x: 20, y: 10, w: 100, h: 44 }, phone, 8);
+
+    expect(placeTooltip(cut, phone, 52).top).toBe(cut.bottom + 52);
+  });
+
+  it('moves the bubble away from the target by a custom gap (above)', () => {
+    const cut = computeCutout({ x: 250, y: 700, w: 100, h: 44 }, phone, 8);
+
+    expect(placeTooltip(cut, phone, 52).bottom).toBe(phone.height - cut.top + 52);
+  });
+
+  it('exposes a tap gap wider than the default one so an arrow fits', () => {
+    expect(TAP_GAP_TO_TARGET).toBeGreaterThanOrEqual(48);
+  });
+
   it('puts the bubble below a target in the top half and the character on the side far from it', () => {
     const cut = computeCutout({ x: 20, y: 10, w: 100, h: 44 }, phone, 8);
 

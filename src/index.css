@@ -140,11 +140,18 @@
 
 
 /* Tour de primer ingreso: el personaje "salta" al cambiar de paso y el
-   confeti del cartel de regalo cae suave. Ambos se apagan con
+   confeti del cartel de regalo cae suave; la flecha de los pasos "tocá"
+   rebota hacia el elemento. Todos se apagan con
    prefers-reduced-motion. */
 @keyframes tour-hop {
   0% { transform: translateY(-8px); }
   100% { transform: translateY(0); }
+}
+
+/* La flecha de los pasos "tocá" rebota hacia el elemento (--tour-point-dir: 1 baja, -1 sube). */
+@keyframes tour-point {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(calc(var(--tour-point-dir, 1) * 8px)); }
 }
 
 @keyframes tour-confetti {
@@ -158,5 +165,8 @@
   }
   .tour-confetti {
     animation: tour-confetti 2.4s ease-in-out infinite;
+  }
+  .tour-point {
+    animation: tour-point 1s ease-in-out infinite;
   }
 }

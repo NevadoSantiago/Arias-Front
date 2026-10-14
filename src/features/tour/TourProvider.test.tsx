@@ -217,26 +217,39 @@ describe('TourProvider', () => {
       fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
 
       expect(await screen.findByText('Este es tu saldo de almuerzos')).toBeInTheDocument();
-      expect(screen.getByText('1 de 11')).toBeInTheDocument();
+      expect(screen.getByText('1 de 10')).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
 
-      expect(await screen.findByText('Tocá tu saldo')).toBeInTheDocument();
-      expect(screen.getByText('Tocá acá para seguir')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /siguiente/i })).not.toBeInTheDocument();
+      expect(await screen.findByText('Acá comprás más almuerzos')).toBeInTheDocument();
+      expect(screen.getByTestId('path')).toHaveTextContent('/credits');
+      expect(screen.getByText('2 de 10')).toBeInTheDocument();
     });
 
-    it('tapping the highlighted balance chip follows the real link and moves to "buy more lunches"', async () => {
+    it('clicking the dark overlay advances an info step', async () => {
+      setUser({});
+      renderTour();
+      fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
+      await screen.findByText('Este es tu saldo de almuerzos');
+
+      fireEvent.click(document.querySelector('[data-tour-block]') as HTMLElement);
+
+      expect(await screen.findByText('Acá comprás más almuerzos')).toBeInTheDocument();
+      expect(screen.getByTestId('path')).toHaveTextContent('/credits');
+    });
+
+    it('clicking the dark overlay does not advance a tap step', async () => {
       setUser({});
       renderTour();
       fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
       fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      await screen.findByText('Tocá tu saldo');
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+      await screen.findByText('Volvé al menú');
 
-      fireEvent.click(screen.getByRole('link', { name: 'Saldo' }));
+      fireEvent.click(document.querySelector('[data-tour-block]') as HTMLElement);
 
-      expect(await screen.findByText('Acá comprás más almuerzos')).toBeInTheDocument();
-      expect(screen.getByTestId('path')).toHaveTextContent('/credits');
+      expect(screen.getByText('Volvé al menú')).toBeInTheDocument();
     });
 
     it('"Anterior" returns to the previous step and its screen', async () => {
@@ -244,12 +257,11 @@ describe('TourProvider', () => {
       renderTour();
       fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
       fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      fireEvent.click(await screen.findByRole('link', { name: 'Saldo' }));
       await screen.findByText('Acá comprás más almuerzos');
 
       fireEvent.click(screen.getByRole('button', { name: /anterior/i }));
 
-      expect(await screen.findByText('Tocá tu saldo')).toBeInTheDocument();
+      expect(await screen.findByText('Este es tu saldo de almuerzos')).toBeInTheDocument();
       expect(screen.getByTestId('path')).toHaveTextContent('/orders/today');
     });
 
@@ -259,8 +271,8 @@ describe('TourProvider', () => {
       renderTour('/orders/today', { resetSpy });
       fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
       fireEvent.click(await screen.findByRole('button', { name: /siguiente/i })); // chip info
-      fireEvent.click(await screen.findByRole('link', { name: 'Saldo' })); // chip tap
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i })); // buy
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i })); // buy
       await screen.findByText('Volvé al menú');
       fireEvent.click(screen.getByRole('link', { name: 'ARIAS' })); // logo tap
 
@@ -278,7 +290,7 @@ describe('TourProvider', () => {
       await screen.findByText('Tu saldo, antes de confirmar');
       fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
       await screen.findByText('Confirmá cuando estés listo');
-      expect(screen.getByText('11 de 11')).toBeInTheDocument();
+      expect(screen.getByText('10 de 10')).toBeInTheDocument();
 
       // El botón de confirmar solo se mira: tocarlo no avanza ni confirma desde el tour.
       fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
@@ -297,8 +309,8 @@ describe('TourProvider', () => {
       renderTour('/orders/today', { resetSpy });
       fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
       fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      fireEvent.click(await screen.findByRole('link', { name: 'Saldo' }));
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
       fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Milanesa' }));
       fireEvent.click(await screen.findByRole('radio', { name: 'Papas' }));
@@ -321,8 +333,8 @@ describe('TourProvider', () => {
       renderTour('/orders/today', { resetSpy });
       fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
       fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      fireEvent.click(await screen.findByRole('link', { name: 'Saldo' }));
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
       fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Milanesa' }));
       fireEvent.click(await screen.findByRole('radio', { name: 'Papas' }));
@@ -358,7 +370,7 @@ describe('TourProvider', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
 
       expect(await screen.findByText('Este es tu saldo de almuerzos')).toBeInTheDocument();
-      expect(screen.getByText('1 de 11')).toBeInTheDocument();
+      expect(screen.getByText('1 de 10')).toBeInTheDocument();
       expect(screen.queryByText('¡Te regalamos un almuerzo!')).not.toBeInTheDocument();
       expect(screen.getByTestId('path')).toHaveTextContent('/orders/today');
     });
@@ -395,8 +407,8 @@ describe('TourProvider', () => {
       renderTour('/orders/today', { resetSpy });
       fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
       fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      fireEvent.click(await screen.findByRole('link', { name: 'Saldo' }));
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
       fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Milanesa' }));
       fireEvent.click(await screen.findByRole('radio', { name: 'Papas' }));
@@ -417,8 +429,8 @@ describe('TourProvider', () => {
       renderTour('/orders/today', { hasDish: false, missingAfterMs: 150 });
       fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
       fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      fireEvent.click(await screen.findByRole('link', { name: 'Saldo' }));
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
       fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
 
       expect(await screen.findByText(/hoy no hay platos para pedir/i)).toBeInTheDocument();

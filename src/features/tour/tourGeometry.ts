@@ -24,6 +24,8 @@ const MARGIN = 4;
 const GUTTER = 12;
 const MAX_BUBBLE = 420;
 const GAP_TO_TARGET = 14;
+/** Hueco mayor en los pasos "tocá": entre el recorte y el globito cabe la flecha que señala el elemento. */
+export const TAP_GAP_TO_TARGET = 52;
 
 /** Recorte de la capa oscura alrededor del elemento: con aire, dentro de la pantalla y con radio acotado. */
 export function computeCutout(rect: Rect, viewport: Viewport, radius: number, pad = 6): Cutout {
@@ -51,7 +53,7 @@ export interface TooltipPlacement {
 }
 
 /** Dónde poner el globito (con el personaje adentro): del lado de la pantalla con más lugar y mirando al recorte. */
-export function placeTooltip(cut: Cutout, viewport: Viewport): TooltipPlacement {
+export function placeTooltip(cut: Cutout, viewport: Viewport, gap = GAP_TO_TARGET): TooltipPlacement {
   const centerX = cut.left + cut.width / 2;
   const below = cut.top + cut.height / 2 < viewport.height / 2;
   const charOnLeft = centerX >= viewport.width / 2;
@@ -63,8 +65,8 @@ export function placeTooltip(cut: Cutout, viewport: Viewport): TooltipPlacement 
 
   return {
     below,
-    top: below ? cut.bottom + GAP_TO_TARGET : undefined,
-    bottom: below ? undefined : viewport.height - cut.top + GAP_TO_TARGET,
+    top: below ? cut.bottom + gap : undefined,
+    bottom: below ? undefined : viewport.height - cut.top + gap,
     left,
     width,
     charOnLeft,

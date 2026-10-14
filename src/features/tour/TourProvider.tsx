@@ -46,8 +46,10 @@ interface Props {
  * `/orders/today` con el tour sin ver, y al terminar o saltarlo lo guarda en
  * el backend (sin bloquear la pantalla si falla: se reintenta la próxima sesión).
  *
- * El tour solo mira y señala: nunca confirma un pedido. En los pasos "tocá acá"
- * deja pasar el toque al elemento real y avanza al detectarlo.
+ * El tour solo mira y señala: nunca confirma un pedido. En los pasos "tocá" una
+ * flecha señala el elemento, la capa oscura no avanza, y el toque llega al
+ * elemento real y avanza al detectarlo. En los de mirar y probar, tocar la capa
+ * oscura equivale a "Siguiente".
  */
 export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
   const user = useAuthStore((s) => s.user);
@@ -153,7 +155,7 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
     next();
   }, [stepId, next]);
 
-  // Pasos "tocá acá": el toque llega al elemento real (la capa deja el recorte libre)
+  // Pasos "tocá": el toque llega al elemento real (la capa deja el recorte libre)
   // y el tour avanza al detectarlo.
   const tapStep = step?.kind === 'spot' && step.mode === 'tap' ? step : null;
   useEffect(() => {
