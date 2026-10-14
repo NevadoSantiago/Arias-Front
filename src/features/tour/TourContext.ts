@@ -4,6 +4,12 @@ import { createContext, useContext, useEffect, useRef } from 'react';
 export interface TourPageControls {
   /** Cierra la hoja del plato y la de revisión; con `clearCart` también vacía el carrito. */
   resetOrderUi: (options: { clearCart: boolean }) => void;
+  /**
+   * Si el día elegido no se puede pedir (cerrado, sin horarios, sin platos pedibles o con pedido
+   * ya hecho), pasa al primer día de las fichas que sí. `moved` es el día al que pasó (`null` si
+   * el actual ya servía); `orderable: false` si ningún día sirve.
+   */
+  ensureOrderableDay: () => Promise<{ moved: string | null; orderable: boolean }>;
 }
 
 interface TourContextValue {
@@ -57,7 +63,10 @@ export function useTourPageControls(controls: TourPageControls): void {
     latest.current = controls;
   });
   useEffect(() => {
-    registerPageControls({ resetOrderUi: (options) => latest.current.resetOrderUi(options) });
+    registerPageControls({
+      resetOrderUi: (options) => latest.current.resetOrderUi(options),
+      ensureOrderableDay: () => latest.current.ensureOrderableDay(),
+    });
     return () => registerPageControls(null);
   }, [registerPageControls]);
 }

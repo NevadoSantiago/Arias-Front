@@ -33,6 +33,15 @@ const NO_ORDER_COPY = {
   text: 'Hoy no hay platos para pedir, pero cuando haya menú vas a poder armar tu pedido desde acá.',
 };
 
+/** "Hoy no se puede pedir, así que te llevamos al jueves 15 de octubre." Fecha parseada como LOCAL, nunca como UTC. */
+function movedNote(date: string): string {
+  // Según la versión de ICU, es-AR pone o no una coma tras el día de la semana: se la saca.
+  const day = new Date(`${date}T12:00:00`)
+    .toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+    .replace(',', '');
+  return `Hoy no se puede pedir, así que te llevamos al ${day}.`;
+}
+
 interface Props {
   children: ReactNode;
   /** Cuánto espera un paso a que aparezca su elemento antes de saltearlo. */
@@ -62,9 +71,16 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [finishedFor, setFinishedFor] = useState<number | null>(null);
   const controlsRef = useRef<TourPageControls | null>(null);
+  // Sube cada vez que la pantalla registra sus controles: el paso del plato puede empezar antes de que
+  // la pantalla termine de montarse (al volver de /credits) y necesita reintentar cuando aparezcan.
+  const [controlsVersion, setControlsVersion] = useState(0);
   const registerPageControls = useCallback((controls: TourPageControls | null) => {
     controlsRef.current = controls;
+    if (controls) setControlsVersion((v) => v + 1);
   }, []);
+  // Paso del plato: ya se consultó si el día elegido se puede pedir, y a qué día se pasó (si se pasó).
+  const [dishChecked, setDishChecked] = useState(false);
+  const [movedToDate, setMovedToDate] = useState<string | null>(null);
 
   // Solo B2C y solo si el backend dice explícitamente "sin ver" (undefined = backend viejo, no arranca).
   const eligible =
@@ -116,6 +132,14 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
 
   const stepId = session?.stepId ?? null;
 
+  // Cada vez que cambia el paso se olvida lo del paso del plato (estado derivado durante el render).
+  const [trackedStepId, setTrackedStepId] = useState<TourStepId | null>(null);
+  if (trackedStepId !== stepId) {
+    setTrackedStepId(stepId);
+    if (dishChecked) setDishChecked(false);
+    if (movedToDate !== null) setMovedToDate(null);
+  }
+
   const next = useCallback(() => {
     if (!stepId) return;
     const id = nextStepId(steps, stepId);
@@ -154,6 +178,40 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
     }
     next();
   }, [stepId, next]);
+
+  // Al empezar el paso del plato (la primera vez y al volver con "Anterior") la pantalla pasa a un día
+  // que se pueda pedir. Mientras tanto el recorte espera (`holdTarget`) y, si ningún día sirve, el tour
+  // cierra sin esperar el tiempo de espera del elemento. Al salir del paso se limpia para la próxima vez.
+  useEffect(() => {
+    if (stepId !== 'dish' || dishChecked) return;
+    const controls = controlsRef.current;
+    if (!controls) {
+      // La pantalla todavía no registró sus controles (`controlsVersion` re-ejecuta este efecto cuando lo
+      // haga). Si nunca aparecen, se sigue como antes: el elemento que falta cierra el tour solo.
+      const giveUp = setTimeout(() => setDishChecked(true), targetTimeoutMs);
+      return () => clearTimeout(giveUp);
+    }
+    // Si el paso cambia mientras se consulta, la respuesta tardía se ignora.
+    let cancelled = false;
+    controls.ensureOrderableDay().then(
+      ({ moved, orderable }) => {
+        if (cancelled) return;
+        if (!orderable) {
+          setSession((prevSession) => (prevSession ? { ...prevSession, stepId: 'final', noOrder: true } : prevSession));
+          return;
+        }
+        setMovedToDate(moved);
+        setDishChecked(true);
+      },
+      () => {
+        // Si la consulta falla se sigue como antes: el paso espera al plato con su tiempo de espera.
+        if (!cancelled) setDishChecked(true);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [stepId, dishChecked, controlsVersion, targetTimeoutMs]);
 
   // Pasos "tocá": el toque llega al elemento real (la capa deja el recorte libre)
   // y el tour avanza al detectarlo.
@@ -213,6 +271,8 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
               counter={stepCounter(steps, step.id)}
               canGoBack={step.id !== 'balance-chip'}
               targetTimeoutMs={targetTimeoutMs}
+              holdTarget={step.id === 'dish' && !dishChecked}
+              note={step.id === 'dish' && movedToDate ? movedNote(movedToDate) : undefined}
               onNext={next}
               onPrev={prev}
               onSkip={finish}

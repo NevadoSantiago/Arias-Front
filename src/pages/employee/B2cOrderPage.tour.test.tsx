@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { B2cOrderPage } from './B2cOrderPage';
@@ -16,6 +16,7 @@ import {
   getRestaurantConfig,
 } from '@/features/orders/services/ordersApi';
 import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
+import type { OrderV2 } from '@/features/orders/services/ordersApi';
 import type { Dish } from '@/features/orders/types';
 
 vi.mock('@/features/orders/services/ordersApi', async () => {
@@ -139,5 +140,93 @@ describe('B2cOrderPage — onboarding tour hooks', () => {
     expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
     expect(screen.getByText(/tocá un plato para armar tu pedido/i)).toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — ensureOrderableDay (tour)', () => {
+  const TODAY = '2026-09-30'; // miércoles
+  const TOMORROW = '2026-10-01';
+  const slots = ['2026-10-01T15:00:00Z'];
+  const order = (fecha: string) => ({ id: 1, fecha, estado: 'CONFIRMADO' }) as unknown as OrderV2;
+
+  beforeEach(() => {
+    // Solo el reloj: el resto de los temporizadores sigue real para que react-query y waitFor anden.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${TODAY}T10:00:00`));
+    useAuthStore.setState({ accessToken: 'token', user, bootstrapping: false });
+    vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(getAvailableDishes).mockResolvedValue([plain, withSide]);
+    vi.mocked(getPickupSlots).mockImplementation(async (fecha) => (fecha === TODAY ? [] : slots));
+    vi.mocked(getDishPreference).mockResolvedValue(null);
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '23:00',
+    });
+    vi.mocked(getWallet).mockResolvedValue({ available: 1, committed: 0, expiresAt: null });
+    vi.mocked(getPacks).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    useCartStore.getState().reset();
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
+    vi.clearAllMocks();
+  });
+
+  async function ensure(controls: () => TourPageControls | null) {
+    await waitFor(() => expect(controls()).not.toBeNull());
+    let result: { moved: string | null; orderable: boolean } | undefined;
+    await act(async () => {
+      result = await controls()!.ensureOrderableDay();
+    });
+    return result;
+  }
+
+  it('moves to the first selectable day with slots and dishes when today has no slots', async () => {
+    const { controls } = renderPage();
+
+    expect(await ensure(controls)).toEqual({ moved: TOMORROW, orderable: true });
+
+    expect(getPickupSlots).toHaveBeenCalledWith(TOMORROW);
+    expect(await screen.findByRole('button', { name: /milanesa napolitana/i })).toHaveAttribute('data-tour', 'dish');
+  });
+
+  it('stays on the current day when it can already be ordered', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue(slots);
+    const { controls } = renderPage();
+
+    expect(await ensure(controls)).toEqual({ moved: null, orderable: true });
+  });
+
+  it('skips closed days, days with an order already and days without a pickable dish', async () => {
+    vi.mocked(getDisabledDates).mockResolvedValue([{ fecha: TOMORROW }] as never);
+    vi.mocked(getOrdersV2).mockResolvedValue([order('2026-10-02')]);
+    vi.mocked(getAvailableDishes).mockImplementation(async (fecha) =>
+      fecha === '2026-10-05' ? [] : [plain, withSide],
+    );
+    const { controls } = renderPage();
+
+    expect(await ensure(controls)).toEqual({ moved: '2026-10-06', orderable: true });
+  });
+
+  it('treats a day whose lookup fails as not orderable', async () => {
+    vi.mocked(getPickupSlots).mockImplementation(async (fecha) => {
+      if (fecha === TODAY) return [];
+      if (fecha === TOMORROW) throw new Error('boom');
+      return slots;
+    });
+    const { controls } = renderPage();
+
+    expect(await ensure(controls)).toEqual({ moved: '2026-10-02', orderable: true });
+  });
+
+  it('reports orderable false, without moving, when no selectable day works', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValue([]);
+    const { controls } = renderPage();
+
+    expect(await ensure(controls)).toEqual({ moved: null, orderable: false });
   });
 });

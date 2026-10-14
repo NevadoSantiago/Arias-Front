@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { selectableDates } from './selectableDates';
 
 const DAY_LABELS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi'] as const;
 const WEEKEND_LABELS: Record<number, string> = { 0: 'Dom', 6: 'Sáb' };
@@ -30,23 +31,6 @@ interface Props {
   fitColumn?: boolean;
 }
 
-function getWeekdays(mondayDate: Date): string[] {
-  return Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(mondayDate);
-    d.setDate(mondayDate.getDate() + i);
-    return d.toISOString().split('T')[0];
-  });
-}
-
-function getMondayOf(date: string): Date {
-  const d = new Date(date + 'T12:00:00');
-  const dow = d.getDay();
-  const mondayOffset = dow === 0 ? -6 : 1 - dow;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + mondayOffset);
-  return monday;
-}
-
 export function WeekDaySelector({
   selectedDate,
   onSelect,
@@ -63,15 +47,10 @@ export function WeekDaySelector({
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, []);
-  const currentMonday = useMemo(() => getMondayOf(today), [today]);
-  const nextMonday = useMemo(() => {
-    const d = new Date(currentMonday);
-    d.setDate(d.getDate() + 7);
-    return d;
-  }, [currentMonday]);
-
-  const currentWeek = useMemo(() => getWeekdays(currentMonday), [currentMonday]);
-  const nextWeek = useMemo(() => getWeekdays(nextMonday), [nextMonday]);
+  // Siempre las dos semanas completas; el chip de hoy en fin de semana se arma aparte (abajo).
+  const weeks = useMemo(() => selectableDates(today), [today]);
+  const currentWeek = weeks.slice(0, 5);
+  const nextWeek = weeks.slice(5);
 
   /**
    * `today` ya es el string de fecha LOCAL (misma construcción de arriba,

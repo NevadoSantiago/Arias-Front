@@ -39,12 +39,24 @@ function Location() {
 }
 
 /** Una pantalla mínima con los mismos `data-tour` que la app real. */
-function OrderPage({ hasDish = true, resetSpy }: { hasDish?: boolean; resetSpy?: (o: { clearCart: boolean }) => void }) {
+type EnsureResult = { moved: string | null; orderable: boolean };
+const orderableAsIs = () => Promise.resolve<EnsureResult>({ moved: null, orderable: true });
+
+function OrderPage({
+  hasDish = true,
+  resetSpy,
+  ensureOrderableDay = orderableAsIs,
+}: {
+  hasDish?: boolean;
+  resetSpy?: (o: { clearCart: boolean }) => void;
+  ensureOrderableDay?: () => Promise<EnsureResult>;
+}) {
   const [sheet, setSheet] = useState(false);
   const [side, setSide] = useState(false);
   const [cart, setCart] = useState(false);
   const [review, setReview] = useState(false);
   useTourPageControls({
+    ensureOrderableDay,
     resetOrderUi: (o) => {
       resetSpy?.(o);
       setSheet(false);
@@ -105,7 +117,12 @@ function ReplayButton() {
   ) : null;
 }
 
-function renderTour(path = '/orders/today', opts: { hasDish?: boolean; resetSpy?: (o: { clearCart: boolean }) => void; missingAfterMs?: number } = {}) {
+function renderTour(path = '/orders/today', opts: {
+    hasDish?: boolean;
+    resetSpy?: (o: { clearCart: boolean }) => void;
+    ensureOrderableDay?: () => Promise<EnsureResult>;
+    missingAfterMs?: number;
+  } = {}) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <TourProvider targetTimeoutMs={opts.missingAfterMs ?? 10000}>
@@ -119,7 +136,7 @@ function renderTour(path = '/orders/today', opts: { hasDish?: boolean; resetSpy?
           </Link>
         </header>
         <Routes>
-          <Route path="/orders/today" element={<OrderPage hasDish={opts.hasDish} resetSpy={opts.resetSpy} />} />
+          <Route path="/orders/today" element={<OrderPage hasDish={opts.hasDish} resetSpy={opts.resetSpy} ensureOrderableDay={opts.ensureOrderableDay} />} />
           <Route path="/credits" element={<a href="#buy" data-tour="buy">Comprar más almuerzos</a>} />
         </Routes>
         <Location />
@@ -420,6 +437,84 @@ describe('TourProvider', () => {
       expect(await screen.findByText('Elegí un plato')).toBeInTheDocument();
       expect(resetSpy).toHaveBeenCalledWith({ clearCart: false });
       expect(resetSpy).not.toHaveBeenCalledWith({ clearCart: true });
+    });
+  });
+
+  describe('orderable day on the dish step', () => {
+    /** Del inicio hasta el paso del plato: bienvenida, saldo, comprar, volver al menú. */
+    async function goToDishStep() {
+      fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
+      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+      fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
+    }
+
+    it('asks the page for an orderable day when the dish step starts', async () => {
+      const ensure = vi.fn(orderableAsIs);
+      setUser({});
+      renderTour('/orders/today', { ensureOrderableDay: ensure });
+
+      await goToDishStep();
+
+      expect(await screen.findByText('Elegí un plato')).toBeInTheDocument();
+      expect(ensure).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText(/te llevamos al/i)).not.toBeInTheDocument();
+    });
+
+    it('tells the customer which day it moved to, as a local date', async () => {
+      setUser({});
+      renderTour('/orders/today', {
+        ensureOrderableDay: () => Promise.resolve({ moved: '2026-10-15', orderable: true }),
+      });
+
+      await goToDishStep();
+
+      expect(await screen.findByText('Elegí un plato')).toBeInTheDocument();
+      expect(screen.getByText('Hoy no se puede pedir, así que te llevamos al jueves 15 de octubre.')).toBeInTheDocument();
+    });
+
+    it('closes with the "no dishes" card right away when no day can be ordered', async () => {
+      setUser({});
+      renderTour('/orders/today', {
+        ensureOrderableDay: () => Promise.resolve({ moved: null, orderable: false }),
+      });
+
+      await goToDishStep();
+
+      // El tiempo de espera del paso es de 10 s: aparece sin esperarlo.
+      expect(await screen.findByText(/hoy no hay platos para pedir/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /ir a confirmar/i })).not.toBeInTheDocument();
+    });
+
+    it('does not start the missing-target timer while the page is still choosing a day', async () => {
+      setUser({});
+      renderTour('/orders/today', {
+        ensureOrderableDay: () => new Promise<EnsureResult>(() => {}),
+        missingAfterMs: 100,
+      });
+
+      await goToDishStep();
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 400));
+      });
+
+      expect(screen.queryByText(/hoy no hay platos para pedir/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('Elegí un plato')).not.toBeInTheDocument();
+    });
+
+    it('ignores a late answer once the customer left the dish step', async () => {
+      let answer: (r: EnsureResult) => void = () => {};
+      setUser({});
+      renderTour('/orders/today', {
+        ensureOrderableDay: () => new Promise<EnsureResult>((resolve) => (answer = resolve)),
+      });
+      await goToDishStep();
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await act(async () => answer({ moved: null, orderable: false }));
+
+      expect(screen.queryByText(/hoy no hay platos para pedir/i)).not.toBeInTheDocument();
     });
   });
 

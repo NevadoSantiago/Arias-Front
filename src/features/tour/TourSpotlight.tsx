@@ -12,6 +12,13 @@ interface Props {
   canGoBack: boolean;
   /** Tiempo que se espera a que aparezca el elemento antes de avisar que falta. */
   targetTimeoutMs: number;
+  /**
+   * true mientras la pantalla todavía prepara el elemento (por ejemplo, cambia de día para
+   * mostrar un plato): no corre el tiempo de espera, y empieza a contar recién al soltarse.
+   */
+  holdTarget?: boolean;
+  /** Línea extra, chica y atenuada, bajo el texto del paso (por ejemplo, el aviso de que se cambió de día). */
+  note?: string;
   onNext: () => void;
   onPrev: () => void;
   onSkip: () => void;
@@ -49,6 +56,8 @@ export function TourSpotlight({
   counter,
   canGoBack,
   targetTimeoutMs,
+  holdTarget = false,
+  note,
   onNext,
   onPrev,
   onSkip,
@@ -67,10 +76,10 @@ export function TourSpotlight({
   });
   const present = rect !== null;
   useEffect(() => {
-    if (present) return;
+    if (present || holdTarget) return;
     const timer = setTimeout(() => missingRef.current(), targetTimeoutMs);
     return () => clearTimeout(timer);
-  }, [present, step.id, targetTimeoutMs]);
+  }, [present, holdTarget, step.id, targetTimeoutMs]);
 
   // El scroll con la rueda o el dedo sobre la capa no debe mover la página de atrás.
   // Depende de `root`: la capa recién existe cuando aparece el elemento.
@@ -87,8 +96,8 @@ export function TourSpotlight({
     };
   }, [root]);
 
-  if (!rect) {
-    // Mientras el elemento no está, un bloqueo transparente evita toques sueltos.
+  if (!rect || holdTarget) {
+    // Mientras el elemento no está (o la pantalla aún lo prepara), un bloqueo transparente evita toques sueltos.
     return <div data-tour-block className="pointer-events-auto fixed inset-0 z-[100]" />;
   }
 
@@ -210,6 +219,7 @@ export function TourSpotlight({
             <p id={textId} className="m-0 text-[13.5px] leading-snug text-foreground">
               {step.text}
             </p>
+            {note && <p className="m-0 text-xs leading-snug text-muted-foreground">{note}</p>}
             {step.mode === 'try' && (
               <span className="text-xs font-semibold text-muted-foreground">Probalo, o seguí con Siguiente.</span>
             )}

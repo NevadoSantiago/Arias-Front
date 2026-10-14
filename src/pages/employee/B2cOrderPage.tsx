@@ -6,6 +6,7 @@ import { DishCard } from '@/features/orders/components/DishCard';
 import { FilterPills } from '@/features/orders/components/FilterPills';
 import type { ActiveFilter } from '@/features/orders/components/FilterPills';
 import { WeekDaySelector } from '@/features/orders/components/WeekDaySelector';
+import { selectableDates } from '@/features/orders/components/selectableDates';
 import { CancelOrderSheet } from '@/features/orders/components/CancelOrderSheet';
 import { RemoveOrderItemSheet } from '@/features/orders/components/RemoveOrderItemSheet';
 import { CartBar } from '@/features/orders/components/b2c/CartBar';
@@ -395,15 +396,6 @@ export function B2cOrderPage() {
         : pickTourDish([...specialDishes, ...groupedBySection.flatMap((g) => g.dishes)], { checkStock: isToday }),
     [disabledDates, noSlots, selectedDate, specialDishes, groupedBySection, isToday],
   );
-  useTourPageControls({
-    resetOrderUi: ({ clearCart }) => {
-      setSelectedDish(null);
-      setReviewOpen(false);
-      setPickupJumpTo(null);
-      if (clearCart) cart.clear();
-    },
-  });
-
   const handleAddToCart = (selection: { sideId: number | null; notas: string | null }) => {
     if (!selectedDish) return;
     const side = selection.sideId
@@ -431,6 +423,46 @@ export function B2cOrderPage() {
     setReviewOpen(false);
     setPickupJumpTo(null);
   };
+
+  const ensureOrderableDay = async (): Promise<{ moved: string | null; orderable: boolean }> => {
+    // Primero el día elegido y después las fichas en el orden en que se ven; sin días pasados ni cerrados.
+    const [closed, orders] = await Promise.all([
+      queryClient.ensureQueryData({ queryKey: ['disabledDates'], queryFn: () => getDisabledDates() }),
+      queryClient.ensureQueryData({ queryKey: ['ordersV2'], queryFn: getOrdersV2 }),
+    ]).catch(() => [[], []] as [{ fecha: string }[], OrderV2[]]);
+    const closedDates = new Set(closed.map((d) => d.fecha));
+    const orderedDays = new Set(orders.filter((o) => o.estado !== 'CANCELADO').map((o) => o.fecha));
+    const candidates = [...new Set([selectedDate, ...selectableDates(todayStr, { includeWeekendToday: true })])].filter(
+      (date) => date >= todayStr && !closedDates.has(date),
+    );
+    for (const date of candidates) {
+      // Mismas claves que las consultas de arriba: el día al que se pasa ya está en caché y se ve al instante.
+      try {
+        const [slots, dayDishes] = await Promise.all([
+          queryClient.fetchQuery({ queryKey: ['pickupSlots', date], queryFn: () => getPickupSlots(date), staleTime: 30_000 }),
+          queryClient.fetchQuery({ queryKey: ['availableDishes', date], queryFn: () => getAvailableDishes(date), staleTime: 30_000 }),
+        ]);
+        if (slots.length === 0 || orderedDays.has(date)) continue;
+        if (pickTourDish(dayDishes, { checkStock: date === todayStr }) === null) continue;
+      } catch {
+        continue; // un día que no carga cuenta como no pedible
+      }
+      if (date === selectedDate) return { moved: null, orderable: true };
+      handleSelectDate(date);
+      return { moved: date, orderable: true };
+    }
+    return { moved: null, orderable: false };
+  };
+
+  useTourPageControls({
+    ensureOrderableDay,
+    resetOrderUi: ({ clearCart }) => {
+      setSelectedDish(null);
+      setReviewOpen(false);
+      setPickupJumpTo(null);
+      if (clearCart) cart.clear();
+    },
+  });
 
   /**
    * Quitar la última línea vacía el carrito y debe cerrar la hoja de

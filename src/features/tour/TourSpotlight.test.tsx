@@ -173,3 +173,85 @@ describe('TourSpotlight tap arrow', () => {
     expect(arrow.className).toContain('pointer-events-none');
   });
 });
+
+describe('TourSpotlight holdTarget and note', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function missingTarget(holdTarget: boolean, onTargetMissing: () => void) {
+    return (
+      <TourSpotlight
+        step={step('tap')}
+        counter={null}
+        canGoBack
+        targetTimeoutMs={5000}
+        holdTarget={holdTarget}
+        onNext={vi.fn()}
+        onPrev={vi.fn()}
+        onSkip={vi.fn()}
+        onTargetMissing={onTargetMissing}
+      />
+    );
+  }
+
+  it('does not report a missing target while holdTarget is on, and starts counting once it is released', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const onTargetMissing = vi.fn();
+    const { rerender } = render(missingTarget(true, onTargetMissing));
+
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+    expect(onTargetMissing).not.toHaveBeenCalled();
+    // Mientras espera sigue el bloqueo transparente.
+    expect(document.querySelector('[data-tour-block]')).not.toBeNull();
+
+    rerender(missingTarget(false, onTargetMissing));
+    act(() => {
+      vi.advanceTimersByTime(4999);
+    });
+    expect(onTargetMissing).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(2);
+    });
+    expect(onTargetMissing).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a missing target after the timeout when holdTarget is off', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const onTargetMissing = vi.fn();
+    render(missingTarget(false, onTargetMissing));
+
+    act(() => {
+      vi.advanceTimersByTime(5001);
+    });
+
+    expect(onTargetMissing).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the note under the text when given, and nothing when not', async () => {
+    const target = document.createElement('a');
+    target.setAttribute('data-tour', 'balance-chip');
+    target.getBoundingClientRect = () =>
+      ({ left: 250, top: 10, width: 100, height: 44, right: 350, bottom: 54, x: 250, y: 10 }) as DOMRect;
+    document.body.appendChild(target);
+    const props = {
+      step: step('tap'),
+      counter: null,
+      canGoBack: true,
+      targetTimeoutMs: 5000,
+      onNext: vi.fn(),
+      onPrev: vi.fn(),
+      onSkip: vi.fn(),
+      onTargetMissing: vi.fn(),
+    };
+    const { rerender } = render(<TourSpotlight {...props} />);
+    await settle();
+    expect(screen.queryByText(/te llevamos al/i)).not.toBeInTheDocument();
+
+    rerender(<TourSpotlight {...props} note="Hoy no se puede pedir, así que te llevamos al jueves." />);
+
+    expect(screen.getByText('Hoy no se puede pedir, así que te llevamos al jueves.')).toBeInTheDocument();
+  });
+});
