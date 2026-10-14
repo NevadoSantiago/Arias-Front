@@ -182,8 +182,8 @@ export function buildTourSteps({ isDesktop }: { isDesktop: boolean }): TourStep[
       kind: 'card',
       id: 'final',
       route: '/orders/today',
-      title: '¡Listo! Ya podés pedir tu primer plato',
-      text: 'Quedó tu pedido armado con tu almuerzo de regalo. Podés confirmarlo o modificarlo a tu gusto.',
+      title: '¡Listo!',
+      text: 'Ya sabés cómo hacer tu próximo pedido. ¡Que lo disfrutes!',
     },
   ];
 }

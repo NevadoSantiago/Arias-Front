@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef } from 'react';
 
 /** Lo que la pantalla de pedido le deja hacer al tour sobre su estado (hojas y carrito). */
 export interface TourPageControls {
-  /** Cierra la hoja del plato y la de revisión; con `clearCart` también vacía el carrito. */
+  /** Cierra la hoja del plato y la de revisión; con `clearCart` saca del carrito el plato que agregó el tour (o vacía el día si no sabe cuál fue). */
   resetOrderUi: (options: { clearCart: boolean }) => void;
   /**
    * Si el día elegido no se puede pedir (cerrado, sin horarios, sin platos pedibles o con pedido

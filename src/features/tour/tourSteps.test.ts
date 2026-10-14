@@ -13,10 +13,10 @@ describe('buildTourSteps', () => {
     expect(steps[steps.length - 1]).toMatchObject({ id: 'final', kind: 'card' });
   });
 
-  it('closes telling the customer the order is ready to confirm or modify', () => {
+  it('closes telling the customer they know how to place their next order', () => {
     const final = buildTourSteps({ isDesktop: false }).find((s) => s.id === 'final');
 
-    expect(final?.text).toBe('Quedó tu pedido armado con tu almuerzo de regalo. Podés confirmarlo o modificarlo a tu gusto.');
+    expect(final).toMatchObject({ title: '¡Listo!', text: 'Ya sabés cómo hacer tu próximo pedido. ¡Que lo disfrutes!' });
   });
 
   it('walks the ordering flow in the agreed order on mobile', () => {

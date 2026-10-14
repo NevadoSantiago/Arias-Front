@@ -312,15 +312,17 @@ describe('TourProvider', () => {
       // El botón de confirmar solo se mira: tocarlo no avanza ni confirma desde el tour.
       fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
 
-      expect(await screen.findByText('¡Listo! Ya podés pedir tu primer plato')).toBeInTheDocument();
+      expect(await screen.findByText('¡Listo!')).toBeInTheDocument();
+      expect(screen.getByText('Ya sabés cómo hacer tu próximo pedido. ¡Que lo disfrutes!')).toBeInTheDocument();
       expect(document.body).not.toHaveAttribute('data-ordered');
-
-      fireEvent.click(screen.getByRole('button', { name: /ir a confirmar mi pedido/i }));
-      await waitFor(() => expect(markOnboardingTourSeen).toHaveBeenCalledTimes(1));
       expect(resetSpy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Empezar a pedir' }));
+      await waitFor(() => expect(markOnboardingTourSeen).toHaveBeenCalledTimes(1));
+      expect(resetSpy).toHaveBeenCalledWith({ clearCart: true });
     });
 
-    it('"Seguir mirando el menú" ends the tour and asks the page to close its sheets', async () => {
+    it('"Saltar tour" once the tour added a dish removes it from the cart', async () => {
       const resetSpy = vi.fn();
       setUser({});
       renderTour('/orders/today', { resetSpy });
@@ -333,15 +335,29 @@ describe('TourProvider', () => {
       fireEvent.click(await screen.findByRole('radio', { name: 'Papas' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Agregar al pedido' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Ver pedido' }));
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
-      await screen.findByText('¡Listo! Ya podés pedir tu primer plato');
+      await screen.findByText('Elegí cuándo lo retirás');
 
-      fireEvent.click(screen.getByRole('button', { name: /seguir mirando el menú/i }));
+      fireEvent.click(screen.getByRole('button', { name: /saltar tour/i }));
 
       await waitFor(() => expect(markOnboardingTourSeen).toHaveBeenCalledTimes(1));
-      expect(resetSpy).toHaveBeenCalledWith({ clearCart: false });
+      expect(resetSpy).toHaveBeenCalledWith({ clearCart: true });
+    });
+
+    it('"Saltar tour" before the tour added a dish leaves the page alone', async () => {
+      const resetSpy = vi.fn();
+      setUser({});
+      renderTour('/orders/today', { resetSpy });
+      fireEvent.click(await screen.findByRole('button', { name: /empezar/i }));
+      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+      fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
+      await screen.findByText('Elegí un plato');
+
+      fireEvent.click(screen.getByRole('button', { name: /saltar tour/i }));
+
+      await waitFor(() => expect(markOnboardingTourSeen).toHaveBeenCalledTimes(1));
+      expect(resetSpy).not.toHaveBeenCalled();
     });
 
     it('going back from "Ver pedido" to the dish step clears what the tour added', async () => {
@@ -403,6 +419,32 @@ describe('TourProvider', () => {
       await waitFor(() => expect(screen.queryByText('Este es tu saldo de almuerzos')).not.toBeInTheDocument());
       expect(markOnboardingTourSeen).not.toHaveBeenCalled();
       expect(useAuthStore.getState().user?.onboardingTourSeenAt).toBe(seen.onboardingTourSeenAt);
+    });
+
+    it('replaying through to the final card removes the tour dish without touching the seen date', async () => {
+      const resetSpy = vi.fn();
+      setUser(seen);
+      renderTour('/orders/today', { resetSpy });
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
+      await screen.findByText('Este es tu saldo de almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i })); // chip info
+      await screen.findByText('Acá comprás más almuerzos');
+      fireEvent.click(screen.getByRole('button', { name: /siguiente/i })); // buy
+      fireEvent.click(await screen.findByRole('link', { name: 'ARIAS' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Milanesa' }));
+      fireEvent.click(await screen.findByRole('radio', { name: 'Papas' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Agregar al pedido' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Ver pedido' }));
+      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      fireEvent.click(await screen.findByRole('button', { name: /siguiente/i }));
+      await screen.findByText('¡Listo!');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Empezar a pedir' }));
+
+      await waitFor(() => expect(screen.queryByText('¡Listo!')).not.toBeInTheDocument());
+      expect(resetSpy).toHaveBeenCalledWith({ clearCart: true });
+      expect(markOnboardingTourSeen).not.toHaveBeenCalled();
     });
 
     it('does not re-enable the auto-start for a customer who had not seen it when the replay ends', async () => {
@@ -475,8 +517,10 @@ describe('TourProvider', () => {
     });
 
     it('closes with the "no dishes" card right away when no day can be ordered', async () => {
+      const resetSpy = vi.fn();
       setUser({});
       renderTour('/orders/today', {
+        resetSpy,
         ensureOrderableDay: () => Promise.resolve({ moved: null, orderable: false }),
       });
 
@@ -484,7 +528,12 @@ describe('TourProvider', () => {
 
       // El tiempo de espera del paso es de 10 s: aparece sin esperarlo.
       expect(await screen.findByText(/hoy no hay platos para pedir/i)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /ir a confirmar/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /empezar a pedir/i })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Entendido' }));
+
+      await waitFor(() => expect(screen.queryByText(/hoy no hay platos para pedir/i)).not.toBeInTheDocument());
+      expect(resetSpy).not.toHaveBeenCalledWith({ clearCart: true });
     });
 
     it('does not start the missing-target timer while the page is still choosing a day', async () => {

@@ -50,15 +50,17 @@ export function useCart(fecha: string) {
   );
 
   const addItem = useCallback(
-    (input: AddCartLineInput) => {
+    (input: AddCartLineInput): string => {
       const count = useCartStore.getState().byDate[fecha]?.length ?? 0;
+      const localId = `${input.dish.id}-${count}-${Date.now()}`;
       addLine(fecha, {
-        localId: `${input.dish.id}-${count}-${Date.now()}`,
+        localId,
         dish: input.dish,
         sideId: input.sideId,
         sideNombre: input.sideNombre,
         notas: input.notas,
       });
+      return localId;
     },
     [fecha, addLine],
   );

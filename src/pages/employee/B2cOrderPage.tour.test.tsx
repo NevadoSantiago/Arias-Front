@@ -141,6 +141,48 @@ describe('B2cOrderPage — onboarding tour hooks', () => {
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
     expect(screen.getByText(/tocá un plato para armar tu pedido/i)).toBeInTheDocument();
   });
+
+  it('removes only the dish the tour added and keeps what the customer already had', async () => {
+    const { controls } = renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /milanesa napolitana/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /papas fritas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
+    await screen.findByRole('button', { name: /ver pedido/i });
+    // El día elegido solo se conoce una vez armado el carrito: ahí se suma la línea que ya era del cliente.
+    const [date] = Object.keys(useCartStore.getState().byDate);
+    act(() =>
+      useCartStore.getState().addLine(date, {
+        localId: 'customer-line',
+        dish: plain,
+        sideId: null,
+        sideNombre: null,
+        notas: null,
+      }),
+    );
+    expect(useCartStore.getState().byDate[date]).toHaveLength(2);
+
+    act(() => controls()?.resetOrderUi({ clearCart: true }));
+
+    expect(useCartStore.getState().byDate[date].map((l) => l.localId)).toEqual(['customer-line']);
+  });
+
+  it('empties the day when the line it remembers is no longer in the cart', async () => {
+    const { controls } = renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /milanesa napolitana/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /papas fritas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
+    await screen.findByRole('button', { name: /ver pedido/i });
+    const [date] = Object.keys(useCartStore.getState().byDate);
+    const tourLine = useCartStore.getState().byDate[date][0];
+    act(() => {
+      useCartStore.getState().removeLine(date, tourLine.localId);
+      useCartStore.getState().addLine(date, { ...tourLine, localId: 'other' });
+    });
+
+    act(() => controls()?.resetOrderUi({ clearCart: true }));
+
+    expect(useCartStore.getState().byDate[date] ?? []).toHaveLength(0);
+  });
 });
 
 describe('B2cOrderPage — ensureOrderableDay (tour)', () => {

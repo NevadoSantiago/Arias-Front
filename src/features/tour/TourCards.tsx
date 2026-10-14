@@ -82,15 +82,14 @@ export function TourWelcomeCard({ title, text, onStart, onSkip }: WelcomeProps) 
 interface FinalProps {
   title: string;
   text: string;
-  /** Sin platos para pedir no hay nada que confirmar: se cierra con "Entendido". */
+  /** Sin platos para pedir no hay nada que empezar: se cierra con "Entendido". */
   canOrder: boolean;
-  onConfirmOrder: () => void;
-  onBrowseMenu: () => void;
+  onDone: () => void;
   onPrev: () => void;
 }
 
 /** Último cuadro del tour. */
-export function TourFinalCard({ title, text, canOrder, onConfirmOrder, onBrowseMenu, onPrev }: FinalProps) {
+export function TourFinalCard({ title, text, canOrder, onDone, onPrev }: FinalProps) {
   const titleId = useId();
   return (
     <CardFrame titleId={titleId}>
@@ -104,22 +103,13 @@ export function TourFinalCard({ title, text, canOrder, onConfirmOrder, onBrowseM
         {title}
       </h2>
       <p className="m-0 text-sm leading-relaxed text-muted-foreground">{text}</p>
-      <button type="button" onClick={canOrder ? onConfirmOrder : onBrowseMenu} className={`${PRIMARY_BUTTON} mt-1.5`}>
-        {canOrder ? 'Ir a confirmar mi pedido' : 'Entendido'}
+      <button type="button" onClick={onDone} className={`${PRIMARY_BUTTON} mt-1.5`}>
+        {canOrder ? 'Empezar a pedir' : 'Entendido'}
       </button>
-      <div className="flex w-full justify-between">
+      <div className="flex w-full justify-start">
         <button type="button" onClick={onPrev} className="h-11 px-1 text-[13px] font-semibold text-muted-foreground">
           Anterior
         </button>
-        {canOrder && (
-          <button
-            type="button"
-            onClick={onBrowseMenu}
-            className="h-11 px-1 text-[13px] font-bold text-primary-deep underline"
-          >
-            Seguir mirando el menú
-          </button>
-        )}
       </div>
     </CardFrame>
   );

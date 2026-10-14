@@ -61,6 +61,18 @@ describe('useCart', () => {
     expect(result.current.totalCredits).toBe(4);
   });
 
+  it('returns the localId of the line it added', () => {
+    const { result } = renderHook(() => useCart(DAY_A));
+    let id = '';
+
+    act(() => {
+      id = result.current.addItem({ dish: makeDish(1, 1), sideId: null, sideNombre: null, notas: null });
+    });
+
+    expect(id).toBeTruthy();
+    expect(result.current.lines.map((l) => l.localId)).toEqual([id]);
+  });
+
   it('recomputes the total after removing a line', () => {
     const { result } = renderHook(() => useCart(DAY_A));
 

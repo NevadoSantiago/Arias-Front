@@ -55,7 +55,7 @@ interface Props {
  * `/orders/today` con el tour sin ver, y al terminar o saltarlo lo guarda en
  * el backend (sin bloquear la pantalla si falla: se reintenta la próxima sesión).
  *
- * El tour solo mira y señala: nunca confirma un pedido. En los pasos "tocá" una
+ * El tour solo mira y señala: nunca confirma un pedido, y al terminar saca del carrito el plato que agregó. En los pasos "tocá" una
  * flecha señala el elemento, la capa oscura no avanza, y el toque llega al
  * elemento real y avanza al detectarlo. En los de mirar y probar, tocar la capa
  * oscura equivale a "Siguiente".
@@ -102,6 +102,10 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
   const finish = useCallback(() => {
     const current = useAuthStore.getState().user;
     const wasReplay = session?.replay === true;
+    // Si el tour ya agregó un plato, se lo saca (y se cierran las hojas) salga como salga del tour.
+    if (session && !session.noOrder && WITH_CART_ITEM.includes(session.stepId)) {
+      controlsRef.current?.resetOrderUi({ clearCart: true });
+    }
     setSession(null);
     if (!current) return;
     setFinishedFor(current.id);
@@ -163,11 +167,6 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
     }
     goTo(target as TourStepId, { noOrder: false });
   }, [steps, stepId, session, goTo]);
-
-  const browseMenu = useCallback(() => {
-    controlsRef.current?.resetOrderUi({ clearCart: false });
-    finish();
-  }, [finish]);
 
   const handleTargetMissing = useCallback(() => {
     if (!stepId) return;
@@ -290,8 +289,7 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
               title={session.noOrder ? NO_ORDER_COPY.title : step.title}
               text={session.noOrder ? NO_ORDER_COPY.text : step.text}
               canOrder={!session.noOrder}
-              onConfirmOrder={finish}
-              onBrowseMenu={browseMenu}
+              onDone={finish}
               onPrev={prev}
             />
           ),

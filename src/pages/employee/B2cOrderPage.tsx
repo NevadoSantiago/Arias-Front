@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
@@ -47,7 +47,7 @@ import { useWallet } from '@/features/credits/hooks/useWallet';
 import { resolveCallName } from '@/features/auth/lib/callName';
 import { useIsDesktop } from '@/lib/useMediaQuery';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { useTourPageControls } from '@/features/tour/TourContext';
+import { useTourActive, useTourPageControls } from '@/features/tour/TourContext';
 import { pickTourDish } from '@/features/tour/pickTourDish';
 import { cn } from '@/lib/utils';
 
@@ -197,6 +197,9 @@ export function B2cOrderPage() {
   const [selectedDate, setSelectedDate] = useState(requestedDayIsValid ? requestedDate : todayStr);
 
   const cart = useCart(selectedDate);
+  const tourActive = useTourActive();
+  // Línea que agregó el tour: es la única que se saca al terminarlo (el resto es del cliente).
+  const tourLineRef = useRef<string | null>(null);
 
   const { data: sections } = useQuery({ queryKey: ['menuSections'], queryFn: getMenuSections });
 
@@ -401,12 +404,13 @@ export function B2cOrderPage() {
     const side = selection.sideId
       ? selectedDish.allowedSides.find((s) => s.id === selection.sideId) ?? null
       : null;
-    cart.addItem({
+    const localId = cart.addItem({
       dish: selectedDish,
       sideId: selection.sideId,
       sideNombre: side?.nombre ?? null,
       notas: selection.notas,
     });
+    if (tourActive) tourLineRef.current = localId;
     setSelectedDish(null);
   };
 
@@ -460,7 +464,13 @@ export function B2cOrderPage() {
       setSelectedDish(null);
       setReviewOpen(false);
       setPickupJumpTo(null);
-      if (clearCart) cart.clear();
+      if (clearCart) {
+        const tourLine = tourLineRef.current;
+        tourLineRef.current = null;
+        // Si la pantalla se remontó se perdió cuál era: se vacía el día (el carrito vive en sessionStorage).
+        if (tourLine && cart.lines.some((l) => l.localId === tourLine)) cart.removeItem(tourLine);
+        else cart.clear();
+      }
     },
   });
 
