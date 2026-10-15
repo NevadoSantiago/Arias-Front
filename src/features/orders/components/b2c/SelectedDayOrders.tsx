@@ -12,8 +12,8 @@ interface Props {
   onRequestCancel: (order: OrderV2) => void;
   /** Optativo (F16) — ver `OrderCard.onRequestRemoveItem`; sin esta prop no aparece ninguna "×". */
   onRequestRemoveItem?: (order: OrderV2, item: OrderItemV2) => void;
-  /** F18 — ver `OrderCard.pickupLeadMinutes`. */
-  pickupLeadMinutes?: number | null;
+  /** F18 — ver `OrderCard.orderLeadMinutes`. */
+  orderLeadMinutes?: number | null;
   /** F18 — ver `OrderCard.onRequestPayNow`; sin esta prop no aparece "Pagar ahora". */
   onRequestPayNow?: (order: OrderV2) => void;
   /** F18 — id del pedido cuyo "Pagar ahora" está en curso (deshabilita SU botón). */
@@ -37,7 +37,7 @@ export function SelectedDayOrders({
   now,
   onRequestCancel,
   onRequestRemoveItem,
-  pickupLeadMinutes,
+  orderLeadMinutes,
   onRequestPayNow,
   payingOrderId,
 }: Props) {
@@ -64,7 +64,7 @@ export function SelectedDayOrders({
               onRequestRemoveItem={
                 onRequestRemoveItem ? (item) => onRequestRemoveItem(order, item) : undefined
               }
-              pickupLeadMinutes={pickupLeadMinutes}
+              orderLeadMinutes={orderLeadMinutes}
               onRequestPayNow={onRequestPayNow}
               payingNow={payingOrderId === order.id}
             />

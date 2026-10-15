@@ -107,7 +107,9 @@ function arrangeConfig(schedule = MON_TO_FRI_SCHEDULE) {
     horaCorte: '10:00',
     pickupWindowStart: null,
     pickupWindowEnd: null,
-    pickupLeadMinutes: 20,
+    pickupLeadMinutes: 45,
+    orderLeadMinutes: 20,
+    cancelLimitMinutes: 30,
     pickupSchedule: schedule,
   });
 }

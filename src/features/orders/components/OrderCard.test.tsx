@@ -66,6 +66,21 @@ describe('OrderCard — open the comanda (F20)', () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it.each(['CONFIRMADO', 'COMANDADO'] as const)('%s: shows the cancel action while cancellable', (estado) => {
+    const { onRequestCancel } = renderCard({
+      order: { ...order, estado, cancellable: true, modifiable: false, pickupTimeChangeable: false },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /^cancelar pedido$/i }));
+    expect(onRequestCancel).toHaveBeenCalled();
+  });
+
+  it.each(['CONFIRMADO', 'COMANDADO'] as const)('%s: hides the cancel action once past the limit', (estado) => {
+    renderCard({ order: { ...order, estado, cancellable: false, modifiable: false, pickupTimeChangeable: false } });
+
+    expect(screen.queryByRole('button', { name: /^cancelar pedido$/i })).not.toBeInTheDocument();
+  });
+
   it('"Pagar ahora" never opens the comanda either', () => {
     const { onOpen, onRequestPayNow } = renderCard({
       order: { ...order, estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true },

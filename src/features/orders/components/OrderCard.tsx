@@ -30,11 +30,11 @@ interface Props {
    */
   onRequestRemoveItem?: (item: OrderItemV2) => void;
   /**
-   * `getRestaurantConfig().pickupLeadMinutes` (F18) — antelación de corte
+   * `getRestaurantConfig().orderLeadMinutes` (F18) — antelación de corte
    * para el aviso de "Pago pendiente". `undefined`/`null` cuando no se
    * conoce (backend viejo, config sin cargar): el aviso omite el horario.
    */
-  pickupLeadMinutes?: number | null;
+  orderLeadMinutes?: number | null;
   /** Optativo (F18) — cuando se pasa, un pedido `PENDIENTE_PAGO` cancelable ofrece "Pagar ahora". */
   onRequestPayNow?: (order: OrderV2) => void;
   /** true mientras `onRequestPayNow` está en curso PARA ESTE pedido — deshabilita el botón. */
@@ -70,7 +70,7 @@ export function OrderCard({
   now,
   onRequestCancel,
   onRequestRemoveItem,
-  pickupLeadMinutes,
+  orderLeadMinutes,
   onRequestPayNow,
   payingNow,
   onRequestChangePickupTime,
@@ -91,7 +91,7 @@ export function OrderCard({
     : isCancelled
       ? 'Almuerzos reservados devueltos'
       : `${fromBalance} de tu saldo · ${mercadoPagoPartOf(order)} ${isAwaitingPayment ? 'a pagar' : 'con Mercado Pago'}`;
-  const deadlineLabel = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
+  const deadlineLabel = formatOrderPayDeadlineLabel(order.pickupAt, orderLeadMinutes);
   const payDeadlineText = deadlineLabel
     ? `Estamos esperando la confirmación de Mercado Pago. Si no se confirma antes de las ${deadlineLabel}, se cancela.`
     : 'Estamos esperando la confirmación de Mercado Pago. Si no se confirma a tiempo, se cancela.';

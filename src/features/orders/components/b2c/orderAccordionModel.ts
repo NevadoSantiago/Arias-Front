@@ -25,7 +25,7 @@ export interface OrderAccordionHeader {
   note: string | null;
 }
 
-function payLineOf(order: OrderV2, pickupLeadMinutes: number | null | undefined): string | null {
+function payLineOf(order: OrderV2, orderLeadMinutes: number | null | undefined): string | null {
   if (order.estado === 'CANCELADO') {
     // Pago parcial (F23.1): el DTO no dice cuánto volvió, así que no se da un número.
     if (hasReservedBalanceWithMercadoPago(order)) return PARTIAL_RETURNED_TO_BALANCE;
@@ -34,7 +34,7 @@ function payLineOf(order: OrderV2, pickupLeadMinutes: number | null | undefined)
     return `${formatLunches(count)} ${count === 1 ? 'devuelto' : 'devueltos'} a tu saldo`;
   }
   if (order.estado === 'PENDIENTE_PAGO') {
-    const deadline = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
+    const deadline = formatOrderPayDeadlineLabel(order.pickupAt, orderLeadMinutes);
     const base = balancePartOf(order) > 0
       ? `${balancePartOf(order)} de tu saldo · ${mercadoPagoPartOf(order)} a pagar`
       : 'A pagar con Mercado Pago';
@@ -50,7 +50,7 @@ function payLineOf(order: OrderV2, pickupLeadMinutes: number | null | undefined)
 
 export function orderAccordionHeader(
   order: OrderV2,
-  { now, pickupLeadMinutes }: { now: Date; pickupLeadMinutes?: number | null },
+  { now, orderLeadMinutes }: { now: Date; orderLeadMinutes?: number | null },
 ): OrderAccordionHeader {
   const upcoming = new Date(order.pickupAt).getTime() >= now.getTime();
   const dishes = order.items.length;
@@ -62,7 +62,7 @@ export function orderAccordionHeader(
     time: `Retiro ${formatOrderTimeLabel(order.pickupAt)} hs`,
     dateLabel: formatOrderDateLabel(order.pickupAt).replace(/ de \S+$/, ''),
     summary: `${dishes} ${dishes === 1 ? 'plato' : 'platos'} · ${formatLunches(order.creditTotal)}`,
-    payLine: payLineOf(order, pickupLeadMinutes),
+    payLine: payLineOf(order, orderLeadMinutes),
     note,
   };
 }

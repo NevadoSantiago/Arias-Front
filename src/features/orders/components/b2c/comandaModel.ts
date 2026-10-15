@@ -143,11 +143,16 @@ export function comandaWhenLabel(order: OrderV2, now: Date): string {
  * Título y bajada de la comanda abierta desde "Mis pedidos" (prototipo v20).
  * Todo sale de `estado`, de los flags del backend y de `now`: el frontend no
  * recalcula ninguna ventana de corte — solo la nombra cuando la config la
- * trae (`pickupLeadMinutes`).
+ * trae: `cancelLimitMinutes` para cambiar/cancelar y `orderLeadMinutes` para
+ * el corte del pago pendiente.
  */
 export function comandaCopy(
   order: OrderV2,
-  { now, pickupLeadMinutes }: { now: Date; pickupLeadMinutes?: number | null },
+  {
+    now,
+    orderLeadMinutes,
+    cancelLimitMinutes,
+  }: { now: Date; orderLeadMinutes?: number | null; cancelLimitMinutes?: number | null },
 ): { title: string; headline: string } {
   const time = formatOrderTimeLabel(order.pickupAt);
   const date = formatOrderDateLabel(order.pickupAt);
@@ -167,7 +172,7 @@ export function comandaCopy(
     };
   }
   if (order.estado === 'PENDIENTE_PAGO') {
-    const deadline = formatOrderPayDeadlineLabel(order.pickupAt, pickupLeadMinutes);
+    const deadline = formatOrderPayDeadlineLabel(order.pickupAt, orderLeadMinutes);
     const returns =
       fromBalance > 0
         ? ` y ${fromBalance === 1 ? 'tu almuerzo reservado vuelve' : 'tus almuerzos reservados vuelven'} a tu saldo`
@@ -181,14 +186,18 @@ export function comandaCopy(
   if (upcoming && order.estado === 'PENDIENTE') {
     const editable = order.pickupTimeChangeable || order.cancellable;
     const limit = editable
-      ? ` Podés cambiarlo o cancelarlo hasta ${pickupLeadMinutes != null ? `${pickupLeadMinutes} minutos antes del retiro` : 'poco antes del retiro'}.`
+      ? ` Podés cambiarlo o cancelarlo hasta ${cancelLimitMinutes != null ? `${cancelLimitMinutes} minutos antes del retiro` : 'poco antes del retiro'}.`
       : ' Ya pasó el límite para cambiarlo o cancelarlo.';
     return { title: 'Pedido programado', headline: `Te esperamos ${dayWhen} a las ${time}.${limit}` };
   }
   if (upcoming) {
+    // Confirmado o comandado: no se modifica, pero el backend lo deja cancelar hasta el límite (`cancellable`).
+    const cancelOffer = order.cancellable
+      ? ` Podés cancelarlo hasta ${cancelLimitMinutes != null ? `${cancelLimitMinutes} minutos antes del retiro` : 'poco antes del retiro'}.`
+      : '';
     return {
       title: 'Ya lo estamos preparando',
-      headline: `Te esperamos ${dayWhen} a las ${time}. Este pedido ya no se puede modificar.`,
+      headline: `Te esperamos ${dayWhen} a las ${time}. Este pedido ya no se puede modificar.${cancelOffer}`,
     };
   }
   return {

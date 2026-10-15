@@ -202,7 +202,7 @@ describe('comandaFooter', () => {
     });
 
     it('comandaCopy tells the reserved lunches return to the balance if the payment is not confirmed', () => {
-      const copy = comandaCopy(order({ ...partial, estado: 'PENDIENTE_PAGO' }), { now: NOW, pickupLeadMinutes: 20 });
+      const copy = comandaCopy(order({ ...partial, estado: 'PENDIENTE_PAGO' }), { now: NOW, orderLeadMinutes: 20 });
 
       expect(copy.title).toBe('Falta confirmar el pago');
       expect(copy.headline).toMatch(/se cancela y tu almuerzo reservado vuelve a tu saldo\.$/);
@@ -233,6 +233,44 @@ describe('comandaFooter', () => {
 
       expect(texts.join(' ')).not.toMatch(/no se cobra|no se cobró/i);
     });
+  });
+
+  it('names the cancel limit, not the order lead, for changing or cancelling a scheduled order', () => {
+    const copy = comandaCopy(order({ estado: 'PENDIENTE', cancellable: true, pickupTimeChangeable: true }), {
+      now: NOW,
+      orderLeadMinutes: 15,
+      cancelLimitMinutes: 30,
+    });
+
+    expect(copy.headline).toContain('hasta 30 minutos antes del retiro');
+    expect(copy.headline).not.toContain('15 minutos');
+  });
+
+  it('tells a confirmed order that is still cancellable that it can be cancelled until the cancel limit', () => {
+    const copy = comandaCopy(order({ estado: 'CONFIRMADO', cancellable: true, modifiable: false, pickupTimeChangeable: false }), {
+      now: NOW,
+      orderLeadMinutes: 15,
+      cancelLimitMinutes: 30,
+    });
+
+    expect(copy.title).toBe('Ya lo estamos preparando');
+    expect(copy.headline).toContain('Podés cancelarlo hasta 30 minutos antes del retiro');
+  });
+
+  it('keeps "ya no se puede modificar" without a cancel offer once a confirmed order is not cancellable', () => {
+    const copy = comandaCopy(order({ estado: 'COMANDADO', cancellable: false, modifiable: false, pickupTimeChangeable: false }), {
+      now: NOW,
+      cancelLimitMinutes: 30,
+    });
+
+    expect(copy.headline).toBe('Te esperamos hoy a las 13:00. Este pedido ya no se puede modificar.');
+  });
+
+  it('names the pay deadline from the order lead, not the cancel limit', () => {
+    const pending = order({ estado: 'PENDIENTE_PAGO', paidWithMercadoPago: true, pickupAt: '2026-09-24T13:00:00-03:00' });
+    const copy = comandaCopy(pending, { now: NOW, orderLeadMinutes: 15, cancelLimitMinutes: 30 });
+
+    expect(copy.headline).toContain('antes de las 12:45');
   });
 
   it('never says "créditos"', () => {

@@ -102,7 +102,7 @@ export function MyOrdersPage() {
   const callName = user ? resolveCallName(user) : '';
   /**
    * La config pública del local (la misma que usa `B2cOrderPage`): trae
-   * `pickupLeadMinutes` para el aviso de corte de "Pago pendiente" (F18) y
+   * `orderLeadMinutes` para el aviso de corte de "Pago pendiente" (F18), `cancelLimitMinutes` para el de cancelación y
    * `pickupSchedule` para los días abiertos (F29). Tolerante a que no cargue:
    * sin horario se asume lunes a viernes.
    */
@@ -197,7 +197,8 @@ export function MyOrdersPage() {
       order={order}
       now={now}
       callName={callName}
-      pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+      orderLeadMinutes={restaurantConfig?.orderLeadMinutes}
+      cancelLimitMinutes={restaurantConfig?.cancelLimitMinutes}
       open={openId === order.id}
       onToggle={() => toggle(order.id)}
       showDate={showDate}
@@ -295,7 +296,7 @@ export function MyOrdersPage() {
         <MyOrdersSidePanel
           available={wallet?.available ?? null}
           committed={wallet?.committed ?? null}
-          pickupLeadMinutes={restaurantConfig?.pickupLeadMinutes}
+          cancelLimitMinutes={restaurantConfig?.cancelLimitMinutes}
         />
       )}
 

@@ -56,7 +56,8 @@ function renderItem(order: OrderV2, props: Props = {}) {
           order={order}
           now={NOW}
           callName="Sofi"
-          pickupLeadMinutes={20}
+          orderLeadMinutes={15}
+          cancelLimitMinutes={20}
           open={false}
           {...handlers}
           {...props}
@@ -255,6 +256,18 @@ describe('OrderAccordionItem — panel', () => {
     renderItem(awaiting, { open: true, payingNow: true });
 
     expect(screen.getByRole('button', { name: /pagar ahora/i })).toBeDisabled();
+  });
+
+  it.each(['CONFIRMADO', 'COMANDADO'] as const)('%s and still cancellable: offers cancel only', (estado) => {
+    const { onRequestCancel } = renderItem(
+      { ...readOnly(estado), cancellable: true },
+      { open: true },
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /cancelar pedido/i }));
+    expect(onRequestCancel).toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /cambiar horario|pagar ahora/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /agregar platos/i })).not.toBeInTheDocument();
   });
 
   it('Confirmado: read-only, no actions', () => {

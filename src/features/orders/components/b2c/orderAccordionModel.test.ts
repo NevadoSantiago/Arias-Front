@@ -22,8 +22,8 @@ const base: OrderV2 = {
   creditsFromBalance: 0,
 };
 
-const header = (order: OrderV2, pickupLeadMinutes: number | null = 20) =>
-  orderAccordionHeader(order, { now: NOW, pickupLeadMinutes });
+const header = (order: OrderV2, orderLeadMinutes: number | null = 20) =>
+  orderAccordionHeader(order, { now: NOW, orderLeadMinutes });
 
 describe('orderAccordionHeader', () => {
   it('gives the pickup time and "N platos · N almuerzos"', () => {

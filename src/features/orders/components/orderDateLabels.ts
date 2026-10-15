@@ -72,10 +72,9 @@ export function isRestaurantDayOnOrAfter(pickupAt: string, now: Date): boolean {
 
 /**
  * Hora de corte "HH:MM" de un pedido `PENDIENTE_PAGO` (F18) — `pickupAt`
- * menos `leadMinutes` (`getRestaurantConfig().pickupLeadMinutes`), en la
- * zona del restaurante: la misma ventana que usa el backend para
- * `isCancellable`/`assertModifiable` y para el corte que cancela solo un
- * pedido sin pagar. `null` cuando `leadMinutes` no se conoce (backend viejo,
+ * menos `leadMinutes` (`getRestaurantConfig().orderLeadMinutes`), en la
+ * zona del restaurante: el corte con que el backend cancela solo un
+ * pedido sin pagar (la gracia de 10 minutos tras crearlo no se nombra). `null` cuando `leadMinutes` no se conoce (backend viejo,
  * config sin cargar) — el llamador omite el horario en ese caso.
  */
 export function formatOrderPayDeadlineLabel(pickupAt: string, leadMinutes: number | null | undefined): string | null {

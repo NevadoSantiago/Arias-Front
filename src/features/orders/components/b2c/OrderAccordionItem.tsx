@@ -19,8 +19,10 @@ interface Props {
   now: Date;
   /** Nombre con el que la cocina llama al cliente (`resolveCallName`). */
   callName: string;
-  /** `getRestaurantConfig().pickupLeadMinutes`, para nombrar el corte; null/undefined si no se conoce. */
-  pickupLeadMinutes?: number | null;
+  /** `getRestaurantConfig().orderLeadMinutes`, para nombrar el corte del pago pendiente; null/undefined si no se conoce. */
+  orderLeadMinutes?: number | null;
+  /** `getRestaurantConfig().cancelLimitMinutes`, para nombrar hasta cuándo se cambia o cancela; null/undefined si no se conoce. */
+  cancelLimitMinutes?: number | null;
   open: boolean;
   onToggle: () => void;
   /** "Anteriores": el encabezado suma el día del retiro (bajo un día no hace falta). */
@@ -90,7 +92,8 @@ export function OrderAccordionItem({
   order,
   now,
   callName,
-  pickupLeadMinutes,
+  orderLeadMinutes,
+  cancelLimitMinutes,
   open,
   onToggle,
   showDate = false,
@@ -106,7 +109,7 @@ export function OrderAccordionItem({
   onScrolled,
 }: Props) {
   const headerRef = useRef<HTMLButtonElement>(null);
-  const head = orderAccordionHeader(order, { now, pickupLeadMinutes });
+  const head = orderAccordionHeader(order, { now, orderLeadMinutes });
   const cancelled = order.estado === 'CANCELADO';
   const awaiting = order.estado === 'PENDIENTE_PAGO';
   const scheduled = order.estado === 'PENDIENTE';
@@ -142,7 +145,7 @@ export function OrderAccordionItem({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, scrollMode]);
 
-  const { headline } = comandaCopy(order, { now, pickupLeadMinutes });
+  const { headline } = comandaCopy(order, { now, orderLeadMinutes, cancelLimitMinutes });
   const wide = layout === 'wide';
 
   const actions = hasActions && (

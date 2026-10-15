@@ -93,7 +93,9 @@ function arrangeCommon() {
     horaCorte: '10:00',
     pickupWindowStart: null,
     pickupWindowEnd: null,
-    pickupLeadMinutes: 20,
+    pickupLeadMinutes: 45,
+    orderLeadMinutes: 20,
+    cancelLimitMinutes: 30,
     pickupSchedule: [1, 2, 3, 4, 5, 6, 7].map((dayOfWeek) => ({
       dayOfWeek,
       open: dayOfWeek <= 5,
@@ -203,7 +205,7 @@ describe('MyOrdersPage on desktop (F22b, F29)', () => {
     expect(within(panel).getByText(/reservados en pedidos programados/)).toBeInTheDocument();
     expect(within(panel).getByRole('link', { name: 'Hacer un pedido' })).toHaveAttribute('href', '/orders/today');
     expect(within(panel).getByRole('link', { name: 'Ver mis almuerzos' })).toHaveAttribute('href', '/credits');
-    expect(await within(panel).findByText(/hasta 20 minutos antes del retiro/)).toBeInTheDocument();
+    expect(await within(panel).findByText(/hasta 30 minutos antes del retiro/)).toBeInTheDocument();
   });
 
   it('keeps the default view and reveals Anteriores as one vertical list with "Ver pedidos anteriores"', async () => {

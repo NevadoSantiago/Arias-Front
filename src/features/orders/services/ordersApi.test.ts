@@ -177,6 +177,46 @@ describe('getRestaurantConfig', () => {
 
     expect(config.pickupLeadMinutes).toBeUndefined();
   });
+
+  it('passes orderLeadMinutes and cancelLimitMinutes through when the backend sends them', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        horaCorte: '10:00:00',
+        timezone: 'America/Argentina/Buenos_Aires',
+        pickupLeadMinutes: 40,
+        orderLeadMinutes: 20,
+        cancelLimitMinutes: 30,
+      },
+    });
+
+    const config = await getRestaurantConfig();
+
+    expect(config.pickupLeadMinutes).toBe(40);
+    expect(config.orderLeadMinutes).toBe(20);
+    expect(config.cancelLimitMinutes).toBe(30);
+  });
+
+  it('falls back to pickupLeadMinutes for the order lead and the cancel limit on an older backend', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { horaCorte: '10:00:00', timezone: 'America/Argentina/Buenos_Aires', pickupLeadMinutes: 25 },
+    });
+
+    const config = await getRestaurantConfig();
+
+    expect(config.orderLeadMinutes).toBe(25);
+    expect(config.cancelLimitMinutes).toBe(25);
+  });
+
+  it('leaves both undefined when the backend sends none of the three', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: { horaCorte: '10:00:00', timezone: 'America/Argentina/Buenos_Aires' },
+    });
+
+    const config = await getRestaurantConfig();
+
+    expect(config.orderLeadMinutes).toBeUndefined();
+    expect(config.cancelLimitMinutes).toBeUndefined();
+  });
 });
 
 // F18 (backend B7): pagar un pedido nuevo directo con Mercado Pago, y

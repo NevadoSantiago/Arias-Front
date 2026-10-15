@@ -786,7 +786,7 @@ export function B2cOrderPage() {
             now={now}
             onRequestCancel={requestCancel}
             onRequestRemoveItem={requestRemoveItem}
-            pickupLeadMinutes={config?.pickupLeadMinutes}
+            orderLeadMinutes={config?.orderLeadMinutes}
             onRequestPayNow={(order) => payNow(order.id)}
             payingOrderId={payingOrderId}
           />

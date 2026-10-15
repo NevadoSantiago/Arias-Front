@@ -8,8 +8,8 @@ interface Props {
   available: number | null;
   /** Almuerzos reservados por pedidos programados; null mientras no se conocen. */
   committed: number | null;
-  /** `getRestaurantConfig().pickupLeadMinutes`; null/undefined si no se conoce (el aviso se omite). */
-  pickupLeadMinutes?: number | null;
+  /** `getRestaurantConfig().cancelLimitMinutes`; null/undefined si no se conoce (el aviso se omite). */
+  cancelLimitMinutes?: number | null;
 }
 
 /** "20 minutos" / "1 minuto". */
@@ -25,7 +25,7 @@ function formatMinutes(minutes: number): string {
  * El corte real lo decide siempre el backend (`cancellable`); el texto solo lo
  * informa.
  */
-export function MyOrdersSidePanel({ available, committed, pickupLeadMinutes }: Props) {
+export function MyOrdersSidePanel({ available, committed, cancelLimitMinutes }: Props) {
   return (
     <aside aria-label="Resumen" className="sticky top-6 flex flex-col gap-4">
       <section
@@ -66,12 +66,12 @@ export function MyOrdersSidePanel({ available, committed, pickupLeadMinutes }: P
         Hacer un pedido
       </Link>
 
-      {pickupLeadMinutes != null && (
+      {cancelLimitMinutes != null && (
         <p className="m-0 flex items-start gap-2.5 text-[13px] leading-snug text-muted-foreground">
           <Clock3 className="mt-px h-4 w-4 flex-none text-primary-deep" aria-hidden="true" />
           <span>
-            Podés cancelar un pedido hasta {formatMinutes(pickupLeadMinutes)} antes del retiro. Después ya lo estamos
-            preparando.
+            Podés cancelar un pedido hasta {formatMinutes(cancelLimitMinutes)} antes del retiro. Después ya no se puede
+            cancelar.
           </span>
         </p>
       )}

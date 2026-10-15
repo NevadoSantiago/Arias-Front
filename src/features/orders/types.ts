@@ -95,13 +95,24 @@ export interface RestaurantConfig {
   /** Franja de retiro por día de la semana (lunes a domingo). Ausente en un backend viejo (tolerancia, F14b). */
   pickupSchedule?: PickupScheduleDay[];
   /**
-   * Minutos de antelación al retiro que usa el backend para la ventana de
-   * cancelación/modificación (`OrderPlacementService.isCancellable`) y para
-   * el corte que cancela solo un pedido `PENDIENTE_PAGO` sin pagar (F18).
-   * Optional: `getRestaurantConfig` lo mapea tolerante a un valor ausente,
-   * y la UI omite el horario del aviso cuando no está.
+   * Tiempo de preparación: minutos antes del retiro en que un pedido
+   * programado pasa a confirmado y la cocina lo ve. El cliente no lo usa en
+   * su copy (usa `orderLeadMinutes` y `cancelLimitMinutes`).
    */
   pickupLeadMinutes?: number;
+  /**
+   * "Lo antes posible": anticipación mínima para pedir. Con ella el backend
+   * cierra solo un pedido `PENDIENTE_PAGO` sin pagar (F18), así que da la hora
+   * del aviso de pago. `getRestaurantConfig` cae a `pickupLeadMinutes` si un
+   * backend viejo no lo envía.
+   */
+  orderLeadMinutes?: number;
+  /**
+   * Límite de cancelación: minutos antes del retiro hasta los que se puede
+   * cancelar o cambiar el pedido. `getRestaurantConfig` cae a
+   * `pickupLeadMinutes` si un backend viejo no lo envía.
+   */
+  cancelLimitMinutes?: number;
   /**
    * Días que duran los almuerzos desde la última compra (`restaurant_config.credit_expiry_days`,
    * configurable por el admin). Lo lee "Tu compra" de la compra de almuerzos (F22c.1).

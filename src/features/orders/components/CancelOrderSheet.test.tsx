@@ -58,6 +58,13 @@ function renderSheet(props: Partial<React.ComponentProps<typeof CancelOrderSheet
 }
 
 describe('CancelOrderSheet', () => {
+  it.each(['CONFIRMADO', 'COMANDADO'] as const)('a %s order gives its consumed lunches back to the balance', async (estado) => {
+    renderSheet({ order: { ...order, estado } });
+
+    expect(await screen.findByText('Tus 4 almuerzos vuelven a tu saldo')).toBeInTheDocument();
+    expect(await screen.findByText('Pasás de 8 a 12 almuerzos disponibles.')).toBeInTheDocument();
+  });
+
   it('closes on Escape when not cancelling', async () => {
     const { onClose } = renderSheet({ cancelling: false });
 

@@ -100,7 +100,7 @@ describe('isRestaurantDayOnOrAfter', () => {
   });
 });
 
-// F18: "Pago pendiente" avisa la hora de corte (pickupAt − pickupLeadMinutes,
+// F18: "Pago pendiente" avisa la hora de corte (pickupAt − orderLeadMinutes,
 // en la zona del restaurante) a la que se cancela solo si Mercado Pago no
 // confirmó el pago.
 describe('formatOrderPayDeadlineLabel', () => {

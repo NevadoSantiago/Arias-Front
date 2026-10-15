@@ -97,7 +97,7 @@ describe('SelectedDayOrders — PENDIENTE_PAGO', () => {
     renderList(
       [order({ estado: 'PENDIENTE_PAGO', cancellable: true, pickupAt: '2026-09-24T16:00:00Z' })],
       undefined,
-      { pickupLeadMinutes: 20, onRequestPayNow },
+      { orderLeadMinutes: 20, onRequestPayNow },
     );
 
     expect(screen.getByText('Pago pendiente')).toBeInTheDocument();
