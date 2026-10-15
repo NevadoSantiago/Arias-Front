@@ -1,5 +1,12 @@
-import { Minus, Plus, UtensilsCrossed } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Minus, Plus } from 'lucide-react';
+import { packTagline } from '../packPricing';
+import {
+  CountBlock,
+  PriceBlock,
+  SelectedSeal,
+  TaglineRow,
+} from './PackCardParts';
+import { packCardFrameClasses, type PackCardLayout } from './packCardFrame';
 
 interface Props {
   checked: boolean;
@@ -10,17 +17,14 @@ interface Props {
   /** true solo cuando Sueltos está elegido y qty >= 4 (empuje opcional hacia Semana). */
   showNudge: boolean;
   onPickRecommended: () => void;
-  /**
-   * `row` (default, móvil): stepper a la izquierda y precio a la derecha.
-   * `stacked` (escritorio, F22c): stepper centrado y el precio debajo, para la tarjeta angosta de la grilla.
-   */
-  layout?: 'row' | 'stacked';
+  /** `row` (default, móvil) o `stacked` (escritorio): ver `CountBlock`. */
+  layout?: PackCardLayout;
 }
 
 /**
- * Tarjeta "Sueltos" — el pack `DAY` con selector 1..10 (F6, prototipo
- * `Packs.dc.html`). El precio SIEMPRE viene de `priceCents` del pack, nunca
- * hardcodeado acá: el label ya formateado se recibe por props.
+ * Tarjeta "Sueltos" — el pack `DAY`, con la misma cara que las de los paquetes.
+ * El selector 1..10 aparece solo cuando la tarjeta está elegida. El precio
+ * SIEMPRE viene de `priceCents` del pack: el label ya formateado llega por props.
  */
 export function LooseCard({
   checked,
@@ -32,90 +36,50 @@ export function LooseCard({
   onPickRecommended,
   layout = 'row',
 }: Props) {
-  const stacked = layout === 'stacked';
   return (
-    <div
-      className={cn(
-        'flex w-full flex-col gap-3 rounded-xl border-2 p-4',
-        checked ? 'border-primary-deep bg-background shadow-sm' : 'border-border bg-card',
-      )}
-    >
+    <div className={`${packCardFrameClasses(checked)} gap-3 px-4 py-5`}>
+      {checked && <SelectedSeal />}
       <button
         type="button"
         role="radio"
         aria-checked={checked}
         aria-label={`Almuerzos sueltos, ${unitPriceLabel} cada uno`}
         onClick={onSelect}
-        className={cn(
-          'flex min-h-11 w-full items-center gap-3 border-0 bg-transparent p-0 text-left font-sans text-foreground',
-          // Escritorio (F25): ícono y tilde arriba, el nombre en su propia línea debajo.
-          stacked && 'flex-wrap',
-        )}
+        className="flex w-full flex-col items-center gap-3 border-0 bg-transparent p-0 text-left font-sans text-foreground"
       >
-        <span
-          aria-hidden="true"
-          className={cn(
-            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
-            checked ? 'bg-primary-deep text-primary-foreground' : 'bg-muted text-primary-deep',
-          )}
-        >
-          <UtensilsCrossed className="h-[26px] w-[26px]" aria-hidden="true" />
-        </span>
-        <span className={cn('flex min-w-0 flex-1 flex-col gap-1', stacked && 'order-last basis-full')}>
-          <span className="font-display text-lg font-bold leading-tight">Sueltos</span>
-          <span className="text-[13px] text-muted-foreground">De a uno, cuando quieras</span>
-        </span>
-        <span
-          aria-hidden="true"
-          className={cn(
-            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2',
-            stacked && 'ml-auto',
-            checked ? 'border-0 bg-primary-deep text-primary-foreground' : 'border-muted-foreground text-transparent',
-          )}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12.5l4.5 4.5L19 7.5" />
-          </svg>
-        </span>
+        <CountBlock count={1} word="almuerzo" layout={layout} />
+        <TaglineRow>{packTagline(1)}</TaglineRow>
+        <PriceBlock price={unitPriceLabel} />
       </button>
 
-      <div className={cn('flex items-center gap-3', stacked ? 'flex-col' : 'justify-between')}>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => qty > 1 && onQtyChange(qty - 1)}
-            disabled={qty <= 1}
-            aria-label="Un almuerzo menos"
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground disabled:opacity-40"
-          >
-            <Minus className="h-5 w-5" aria-hidden="true" />
-          </button>
-          <span aria-live="polite" className="flex min-w-[48px] flex-col items-center gap-0.5">
-            <span className="font-display text-[32px] font-black leading-none">{qty}</span>
-            <span className="text-[10px] font-semibold uppercase tracking-brand text-muted-foreground">
-              {qty === 1 ? 'almuerzo' : 'almuerzos'}
+      {checked && (
+        <div className="flex w-full items-center justify-between gap-3 border-t border-dashed border-border pt-3">
+          <span className="text-[10px] font-semibold uppercase tracking-brand text-muted-foreground">Cantidad</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => qty > 1 && onQtyChange(qty - 1)}
+              disabled={qty <= 1}
+              aria-label="Un almuerzo menos"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground disabled:opacity-40"
+            >
+              <Minus className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <span aria-live="polite" className="min-w-[36px] text-center font-display text-[28px] font-black leading-none text-foreground">
+              {qty}
             </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => qty < 10 && onQtyChange(qty + 1)}
-            disabled={qty >= 10}
-            aria-label="Un almuerzo más"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-deep text-primary-foreground disabled:opacity-40"
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-          </button>
+            <button
+              type="button"
+              onClick={() => qty < 10 && onQtyChange(qty + 1)}
+              disabled={qty >= 10}
+              aria-label="Un almuerzo más"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-deep text-primary-foreground disabled:opacity-40"
+            >
+              <Plus className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
-        <div
-          className={cn(
-            'flex flex-col gap-0.5',
-            stacked ? 'w-full items-start border-t border-dashed border-border pt-3 text-left' : 'items-end text-right',
-          )}
-        >
-          <span className="text-lg font-bold leading-tight">{unitPriceLabel}</span>
-          <span className="text-[13px] text-muted-foreground">cada uno</span>
-        </div>
-      </div>
+      )}
 
       {showNudge && (
         <div className="flex items-center gap-2.5 rounded-lg border border-warning bg-warning/20 px-3.5 py-2.5">

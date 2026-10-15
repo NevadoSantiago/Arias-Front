@@ -28,7 +28,26 @@ describe('LooseCard', () => {
     const radio = screen.getByRole('radio', { name: /sueltos/i });
     expect(radio).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByText('$ 1.500')).toBeInTheDocument();
-    expect(screen.getByText('cada uno')).toBeInTheDocument();
+    expect(screen.getByText('por almuerzo')).toBeInTheDocument();
+    expect(screen.getByText('Resolvé hoy')).toBeInTheDocument();
+  });
+
+  it('shows the quantity stepper only while the card is selected', () => {
+    const { unmount } = render(
+      <LooseCard checked={false} onSelect={vi.fn()} qty={1} onQtyChange={vi.fn()} unitPriceLabel="$ 1.500" showNudge={false} onPickRecommended={vi.fn()} />,
+    );
+    expect(screen.queryByRole('button', { name: /un almuerzo más/i })).not.toBeInTheDocument();
+    unmount();
+
+    renderCard({ checked: true });
+    expect(screen.getByRole('button', { name: /un almuerzo más/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /un almuerzo menos/i })).toBeInTheDocument();
+    expect(screen.getByText('Cantidad')).toBeInTheDocument();
+  });
+
+  it('shows the selected seal only when checked', () => {
+    renderCard({ checked: true });
+    expect(document.querySelector('[data-part="selected-seal"]')).not.toBeNull();
   });
 
   it('calls onSelect when the radio is clicked', () => {
@@ -39,7 +58,7 @@ describe('LooseCard', () => {
   });
 
   it('increments and decrements the quantity within 1..10', () => {
-    const { onQtyChange } = renderCard({ qty: 5 });
+    const { onQtyChange } = renderCard({ qty: 5, checked: true });
 
     fireEvent.click(screen.getByRole('button', { name: /un almuerzo más/i }));
     expect(onQtyChange).toHaveBeenCalledWith(6);

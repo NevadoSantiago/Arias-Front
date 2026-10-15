@@ -103,18 +103,19 @@ describe('CreditsPacksPage', () => {
     // el resumen fijo de abajo — al menos una vez alcanza para probar que
     // el precio sale de `priceCents`, no hardcodeado.
     expect(screen.getAllByText(/1\.500/).length).toBeGreaterThan(0);
-    // WEEK: 700000 centavos = $ 7.000,00.
-    expect(screen.getAllByText(/7\.000/).length).toBeGreaterThan(0);
+    // WEEK: 700000 centavos / 5 = $ 1.400,00 por almuerzo; el total ($ 7.000) va en el nombre accesible.
+    expect(screen.getAllByText(/1\.400/).length).toBeGreaterThan(0);
+    expect(radios[1]).toHaveAccessibleName(/7\.000/);
   });
 
-  it('marks the pack with the highest discountPercent as "Recomendado" (documented rule)', async () => {
+  it('marks the pack with the highest discountPercent as "Mejor opción" (documented rule)', async () => {
     renderPage();
 
     await screen.findAllByRole('radio');
     const monthCard = screen.getByRole('radio', { name: /paquete mes/i });
-    expect(within(monthCard).getByText('Recomendado')).toBeInTheDocument();
+    expect(within(monthCard).getByText('Mejor opción')).toBeInTheDocument();
     const weekCard = screen.getByRole('radio', { name: /paquete semana/i });
-    expect(within(weekCard).queryByText('Recomendado')).not.toBeInTheDocument();
+    expect(within(weekCard).queryByText('Mejor opción')).not.toBeInTheDocument();
   });
 
   it('updates the sticky total when Sueltos quantity changes (price = DAY price × qty)', async () => {

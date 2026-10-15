@@ -80,7 +80,7 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
               onPickRecommended={() => {}}
             />
           )}
-          {namedPacks.map((pack, i) => (
+          {namedPacks.map((pack) => (
             <PackOptionCard
               key={pack.id}
               layout="stacked"
@@ -88,9 +88,8 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
               checked={selection?.kind === 'pack' && selection.packId === pack.id}
               onSelect={() => onSelect({ kind: 'pack', packId: pack.id })}
               recommended={recommended?.id === pack.id}
-              stackLayers={i === 0 ? 2 : 5}
               priceLabel={formatPrice(pack.priceCents)}
-              perLunchLabel={`${formatPrice(perLunchPriceCents(pack))} por almuerzo`}
+              perLunchLabel={formatPrice(perLunchPriceCents(pack))}
             />
           ))}
         </div>

@@ -22,9 +22,8 @@ function renderCard(props: Partial<Parameters<typeof PackOptionCard>[0]> = {}) {
       checked={false}
       onSelect={onSelect}
       recommended={false}
-      stackLayers={2}
       priceLabel="$ 7.000"
-      perLunchLabel="$ 1.400 por almuerzo"
+      perLunchLabel="$ 1.400"
       {...props}
     />,
   );
@@ -32,33 +31,43 @@ function renderCard(props: Partial<Parameters<typeof PackOptionCard>[0]> = {}) {
 }
 
 describe('PackOptionCard', () => {
-  it('shows the pack name, amount and prices from the pack data', () => {
+  it('shows the lunch count, the tagline and the per-lunch price from the pack data', () => {
     renderCard();
 
-    expect(screen.getByText('Paquete Semana')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('$ 7.000')).toBeInTheDocument();
-    expect(screen.getByText('$ 1.400 por almuerzo')).toBeInTheDocument();
+    expect(screen.getByText('almuerzos')).toBeInTheDocument();
+    expect(screen.getByText('Resolvé tu semana')).toBeInTheDocument();
+    expect(screen.getByText('$ 1.400')).toBeInTheDocument();
+    expect(screen.getByText('por almuerzo')).toBeInTheDocument();
   });
 
-  it('shows the discount line only when discountPercent is greater than 0', () => {
-    renderCard({ pack: { ...weekPack, discountPercent: 0 } });
-    expect(screen.queryByText(/ahorrás/i)).not.toBeInTheDocument();
+  it('uses the monthly tagline for 10 or more lunches', () => {
+    renderCard({ pack: { ...weekPack, nombre: 'Paquete Mes', creditAmount: 20 } });
+    expect(screen.getByText('¡Resolvé todo el mes!')).toBeInTheDocument();
   });
 
-  it('shows "Ahorrás N%" using the pack\'s own discountPercent', () => {
-    renderCard();
-    expect(screen.getByText('Ahorrás 10%')).toBeInTheDocument();
-  });
-
-  it('shows the "Recomendado" badge only when recommended is true', () => {
+  it('never shows savings, totals or the old badge', () => {
     renderCard({ recommended: true });
-    expect(screen.getByText('Recomendado')).toBeInTheDocument();
+    expect(screen.queryByText(/ahorrás/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('$ 7.000')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recomendado')).not.toBeInTheDocument();
   });
 
-  it('hides the badge when recommended is false', () => {
+  it('shows the "Mejor opción" ribbon only when recommended is true', () => {
+    const { unmount } = render(
+      <PackOptionCard pack={weekPack} checked={false} onSelect={vi.fn()} recommended priceLabel="$ 7.000" perLunchLabel="$ 1.400" />,
+    );
+    expect(screen.getByText('Mejor opción')).toHaveAttribute('data-part', 'recommended-ribbon');
+    unmount();
+
     renderCard({ recommended: false });
-    expect(screen.queryByText('Recomendado')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mejor opción')).not.toBeInTheDocument();
+  });
+
+  it('names the radio with the pack, the lunches and the total, without savings', () => {
+    renderCard();
+
+    expect(screen.getByRole('radio', { name: 'Paquete Semana, 5 almuerzos, $ 7.000' })).toBeInTheDocument();
   });
 
   it('reflects checked on the radio and calls onSelect when clicked', () => {
@@ -69,41 +78,33 @@ describe('PackOptionCard', () => {
     fireEvent.click(radio);
     expect(onSelect).toHaveBeenCalled();
   });
-  /**
-   * F25: en la tarjeta angosta de escritorio () el ícono y el
-   * tilde comparten la fila de arriba; "Recomendado" va debajo, fuera de esa
-   * fila, para que nunca quede pegado al tilde.
-   */
-  describe('stacked layout (narrow desktop cards)', () => {
-    it('renders the "Recomendado" badge outside the header row that holds the check', () => {
-      renderCard({ recommended: true, layout: 'stacked' });
 
-      const badge = screen.getByText('Recomendado');
-      const header = screen.getByTestId('pack-card-header');
-      expect(header).not.toContainElement(badge);
-      expect(badge).toHaveAttribute('data-part', 'recommended-badge');
-    });
+  it('shows the selected seal only when checked', () => {
+    const { unmount } = render(
+      <PackOptionCard pack={weekPack} checked onSelect={vi.fn()} recommended={false} priceLabel="$ 7.000" perLunchLabel="$ 1.400" />,
+    );
+    expect(document.querySelector('[data-part="selected-seal"]')).not.toBeNull();
+    unmount();
 
-    it('keeps the name and the badge together under the icon row', () => {
-      renderCard({ recommended: true, layout: 'stacked' });
-
-      const header = screen.getByTestId('pack-card-header');
-      expect(header).not.toContainElement(screen.getByText('Paquete Semana'));
-    });
-
-    it('stacks the price under the amount instead of side by side', () => {
-      renderCard({ layout: 'stacked' });
-
-      const price = screen.getByText('$ 7.000');
-      const amount = screen.getByText('5');
-      expect(price.closest('[data-part="price-block"]')).not.toBeNull();
-      expect(amount.closest('[data-part="price-block"]')).toBeNull();
-    });
+    renderCard({ checked: false });
+    expect(document.querySelector('[data-part="selected-seal"]')).toBeNull();
   });
 
-  it('keeps the row layout by default: the badge stays in the name column next to the check row (mobile)', () => {
-    renderCard({ recommended: true });
+  it('keeps the price in its own block in both layouts', () => {
+    renderCard({ layout: 'stacked' });
 
-    expect(screen.getByTestId('pack-card-header')).toContainElement(screen.getByText('Recomendado'));
+    expect(screen.getByText('$ 1.400').closest('[data-part="price-block"]')).not.toBeNull();
+    expect(screen.getByText('5').closest('[data-part="price-block"]')).toBeNull();
+  });
+
+  it('stacked layout puts the word under the numeral; row layout keeps them on one line', () => {
+    const { unmount } = render(
+      <PackOptionCard pack={weekPack} checked={false} onSelect={vi.fn()} recommended={false} priceLabel="$ 7.000" perLunchLabel="$ 1.400" layout="stacked" />,
+    );
+    expect(screen.getByText('5').closest('[data-part="count-block"]')).toHaveAttribute('data-layout', 'stacked');
+    unmount();
+
+    renderCard();
+    expect(screen.getByText('5').closest('[data-part="count-block"]')).toHaveAttribute('data-layout', 'row');
   });
 });

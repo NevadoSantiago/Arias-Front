@@ -126,16 +126,15 @@ export function CreditsPacksPage() {
             />
           )}
 
-          {namedPacks.map((pack, i) => (
+          {namedPacks.map((pack) => (
             <PackOptionCard
               key={pack.id}
               pack={pack}
               checked={effectiveSelection?.kind === 'pack' && effectiveSelection.packId === pack.id}
               onSelect={() => setSelection({ kind: 'pack', packId: pack.id })}
               recommended={recommended?.id === pack.id}
-              stackLayers={i === 0 ? 2 : 5}
               priceLabel={formatPrice(pack.priceCents)}
-              perLunchLabel={`${formatPrice(perLunchPriceCents(pack))} por almuerzo`}
+              perLunchLabel={formatPrice(perLunchPriceCents(pack))}
             />
           ))}
         </div>

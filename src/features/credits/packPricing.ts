@@ -26,3 +26,13 @@ export function pickRecommended(packs: CreditPack[]): CreditPack | null {
 export function perLunchPriceCents(pack: Pick<CreditPack, 'priceCents' | 'creditAmount'>): number {
   return Math.round(pack.priceCents / pack.creditAmount);
 }
+
+/**
+ * Lema de la tarjeta de un pack. El backend no lo manda: se deduce de la
+ * cantidad de almuerzos (1 hoy, hasta 9 la semana, 10 o mas el mes).
+ */
+export function packTagline(creditAmount: number): string {
+  if (creditAmount <= 1) return 'Resolvé hoy';
+  if (creditAmount < 10) return 'Resolvé tu semana';
+  return '¡Resolvé todo el mes!';
+}
