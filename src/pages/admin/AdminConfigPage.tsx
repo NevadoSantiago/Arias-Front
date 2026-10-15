@@ -24,6 +24,9 @@ function toPayload(c: RestaurantConfig): UpdateRestaurantConfigPayload {
   return {
     horaCorte: c.horaCorte,
     pickupLeadMinutes: c.pickupLeadMinutes,
+    // Un backend viejo puede no mandarlos: se cae al tiempo de preparación.
+    orderLeadMinutes: c.orderLeadMinutes ?? c.pickupLeadMinutes,
+    cancelLimitMinutes: c.cancelLimitMinutes ?? c.pickupLeadMinutes,
     creditExpiryDays: c.creditExpiryDays,
     // DEPRECATED: ya no se editan acá (reemplazados por la franja por día,
     // B5/F14) pero `UpdateRestaurantConfigRequest` los sigue exigiendo con
@@ -121,7 +124,15 @@ function RestaurantConfigForm({
     value: UpdateRestaurantConfigPayload[K],
   ) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const setMinutesField = <K extends 'pickupLeadMinutes' | 'creditExpiryDays' | 'pickupSlotMinutes' | 'pickupReminderMinutes'>(
+  const setMinutesField = <
+    K extends
+      | 'pickupLeadMinutes'
+      | 'orderLeadMinutes'
+      | 'cancelLimitMinutes'
+      | 'creditExpiryDays'
+      | 'pickupSlotMinutes'
+      | 'pickupReminderMinutes'
+  >(
     key: K,
     raw: string,
   ) => {
@@ -179,7 +190,41 @@ function RestaurantConfigForm({
               disabled={isSaving}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Retiro más temprano ofrecido y momento en que el pedido pasa a confirmado.
+              Momento en que el pedido programado pasa a confirmado y la cocina lo ve.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="orderLeadMinutes" className="uppercase tracking-brand text-xs">
+              Lo antes posible (min)
+            </Label>
+            <Input
+              id="orderLeadMinutes"
+              type="number"
+              min={1}
+              value={form.orderLeadMinutes}
+              onChange={(e) => setMinutesField('orderLeadMinutes', e.target.value)}
+              disabled={isSaving}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Mínimo de anticipación para pedir: primer horario de retiro que se ofrece.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="cancelLimitMinutes" className="uppercase tracking-brand text-xs">
+              Límite de cancelación (min)
+            </Label>
+            <Input
+              id="cancelLimitMinutes"
+              type="number"
+              min={1}
+              value={form.cancelLimitMinutes}
+              onChange={(e) => setMinutesField('cancelLimitMinutes', e.target.value)}
+              disabled={isSaving}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Hasta cuántos minutos antes del retiro el cliente puede cancelar o cambiar el pedido.
             </p>
           </div>
 

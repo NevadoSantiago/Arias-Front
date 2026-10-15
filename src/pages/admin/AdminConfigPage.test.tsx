@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AdminConfigPage } from './AdminConfigPage';
 import { getDisabledDates } from '@/features/orders/services/ordersApi';
@@ -30,6 +30,8 @@ const baseConfig: RestaurantConfig = {
   horaCorte: '10:00',
   timezone: 'America/Argentina/Buenos_Aires',
   pickupLeadMinutes: 20,
+  orderLeadMinutes: 15,
+  cancelLimitMinutes: 60,
   creditExpiryDays: 90,
   pickupWindowStart: '11:00',
   pickupWindowEnd: '23:00',
@@ -80,6 +82,7 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
   });
 
   it('falls back to the global window, all days open, when pickupSchedule is missing', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { pickupSchedule: _omit, ...withoutSchedule } = baseConfig;
     vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(withoutSchedule);
     vi.mocked(getDisabledDates).mockResolvedValue([]);
@@ -118,6 +121,7 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
   // global (`pickupWindowStart`/`End`) es null, el fallback no debe abrir
   // los días con horario nulo — deben quedar cerrados.
   it('shows all days closed when pickupSchedule and the global window are both missing', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { pickupSchedule: _omit, ...rest } = baseConfig;
     const withoutScheduleOrWindow = {
       ...rest,
@@ -257,6 +261,54 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
     expect(await region.findByText(/error al guardar/i)).toBeInTheDocument();
   });
 
+  it('renders the three lead fields with their values', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    await screen.findByRole('region', { name: /horarios de retiro/i });
+
+    expect(screen.getByLabelText('Tiempo de preparación (min)')).toHaveValue(20);
+    expect(screen.getByLabelText('Lo antes posible (min)')).toHaveValue(15);
+    expect(screen.getByLabelText('Límite de cancelación (min)')).toHaveValue(60);
+  });
+
+  it('sends the edited order lead and cancel limit in the PUT payload', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+    vi.mocked(updateRestaurantConfig).mockResolvedValueOnce(baseConfig);
+
+    renderPage();
+    await screen.findByRole('region', { name: /horarios de retiro/i });
+
+    const orderLead = screen.getByLabelText('Lo antes posible (min)');
+    fireEvent.change(orderLead, { target: { value: '25' } });
+    fireEvent.change(screen.getByLabelText('Límite de cancelación (min)'), { target: { value: '90' } });
+    fireEvent.submit(orderLead.closest('form')!);
+
+    await waitFor(() => expect(updateRestaurantConfig).toHaveBeenCalled());
+    expect(vi.mocked(updateRestaurantConfig).mock.calls[0][0]).toMatchObject({
+      pickupLeadMinutes: 20,
+      orderLeadMinutes: 25,
+      cancelLimitMinutes: 90,
+    });
+  });
+
+  it('defaults the new fields to pickupLeadMinutes when an older backend omits them', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue({
+      ...baseConfig,
+      orderLeadMinutes: undefined,
+      cancelLimitMinutes: undefined,
+    });
+    vi.mocked(getDisabledDates).mockResolvedValue([]);
+
+    renderPage();
+    await screen.findByRole('region', { name: /horarios de retiro/i });
+
+    expect(screen.getByLabelText('Lo antes posible (min)')).toHaveValue(20);
+    expect(screen.getByLabelText('Límite de cancelación (min)')).toHaveValue(20);
+  });
+
   it('still saves the existing config form fields, sending pickupWindowStart/End unchanged', async () => {
     vi.mocked(getRestaurantConfigAdmin).mockResolvedValue(baseConfig);
     vi.mocked(getDisabledDates).mockResolvedValue([]);
@@ -275,6 +327,8 @@ describe('AdminConfigPage — pickup schedule editor (B5/F14)', () => {
     expect(updateRestaurantConfig).toHaveBeenCalledWith({
       horaCorte: '10:00',
       pickupLeadMinutes: 30,
+      orderLeadMinutes: 15,
+      cancelLimitMinutes: 60,
       creditExpiryDays: 90,
       pickupWindowStart: '11:00',
       pickupWindowEnd: '23:00',

@@ -111,6 +111,10 @@ export interface RestaurantConfig {
   horaCorte: string; // HH:MM
   timezone: string;
   pickupLeadMinutes: number;
+  /** "Lo antes posible": anticipación mínima para pedir. Ausente en un backend viejo (tolerancia). */
+  orderLeadMinutes?: number;
+  /** Límite de cancelación: minutos antes del retiro hasta los que se puede cancelar. Ausente en un backend viejo. */
+  cancelLimitMinutes?: number;
   creditExpiryDays: number;
   /** @deprecated reemplazado por `pickupSchedule` (B5/F14) — se mantiene por compatibilidad con el PUT. */
   pickupWindowStart: string; // HH:MM
@@ -154,6 +158,8 @@ export async function getRestaurantConfigAdmin(): Promise<RestaurantConfig> {
 export interface UpdateRestaurantConfigPayload {
   horaCorte: string; // HH:MM
   pickupLeadMinutes: number;
+  orderLeadMinutes: number;
+  cancelLimitMinutes: number;
   creditExpiryDays: number;
   pickupWindowStart: string; // HH:MM
   pickupWindowEnd: string; // HH:MM
