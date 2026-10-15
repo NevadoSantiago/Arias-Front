@@ -1407,7 +1407,7 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
   });
 
   // F21.1: el salto del atajo es de una sola vez; cerrar la hoja lo descarta y
-  // al reabrirla el selector vuelve a la opción automática.
+  // al reabrirla el selector vuelve a la opción automática ("Lo antes posible").
   it('does not re-apply a stale "Sumarlo" jump after the review sheet is closed and reopened', async () => {
     vi.mocked(getPickupSlots).mockResolvedValue([`${TODAY_ISO}T15:00:00Z`, `${TODAY_ISO}T18:00:00Z`]);
     vi.mocked(getOrdersV2).mockResolvedValue([orderFor()]);
@@ -1427,7 +1427,8 @@ describe('B2cOrderPage — same-day rule: add to the order at the same time, new
     await waitFor(() => expect(screen.queryByText('¿A qué hora lo retirás?')).not.toBeInTheDocument());
     await openReview();
 
-    expect(await screen.findByRole('radio', { name: /última utilizada/i })).toHaveAttribute('aria-checked', 'true');
+    expect(await screen.findByRole('radio', { name: /lo antes posible/i })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: /última utilizada/i })).toHaveAttribute('aria-checked', 'false');
   });
 });
 

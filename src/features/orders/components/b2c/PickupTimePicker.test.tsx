@@ -67,23 +67,40 @@ describe('PickupTimePicker', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows "Última utilizada · HH:MM" with a history icon when the last-used time matches an available slot', async () => {
+  it('preselects "Lo antes posible" (first slot) even when the last-used time matches a slot, and keeps "Última utilizada" as an option', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    renderPicker({ lastUsedTimeOfDay: localHM(SLOT_B1) });
+    const { onSelect } = renderPicker({ lastUsedTimeOfDay: localHM(SLOT_B1) });
 
-    expect(
-      await screen.findByRole('radio', { name: new RegExp(`última utilizada.*${localHM(SLOT_B1)}`, 'i') }),
-    ).toBeInTheDocument();
+    const asap = await screen.findByRole('radio', { name: new RegExp(`lo antes posible.*${localHM(SLOT_A1)}`, 'i') });
+    const last = screen.getByRole('radio', { name: new RegExp(`última utilizada.*${localHM(SLOT_B1)}`, 'i') });
+    expect(asap).toHaveAttribute('aria-checked', 'true');
+    expect(last).toHaveAttribute('aria-checked', 'false');
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(SLOT_A1);
   });
 
-  it('shows the readout for today, appending "la última utilizada" only for the last-used option', async () => {
-    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1]);
+  it('selects the last-used slot when the customer picks the "Última utilizada" option', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    renderPicker({ isToday: true, lastUsedTimeOfDay: localHM(SLOT_A1) });
+    const { onSelect } = renderPicker({ lastUsedTimeOfDay: localHM(SLOT_B1) });
 
+    const last = await screen.findByRole('radio', { name: new RegExp(`última utilizada.*${localHM(SLOT_B1)}`, 'i') });
+    fireEvent.click(last);
+
+    expect(last).toHaveAttribute('aria-checked', 'true');
+    expect(onSelect).toHaveBeenLastCalledWith(SLOT_B1);
+  });
+
+  it('shows the readout for today, appending "la última utilizada" only once that option is picked', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_B1]);
+
+    renderPicker({ isToday: true, lastUsedTimeOfDay: localHM(SLOT_B1) });
+
+    expect(await screen.findByText(`Retirás hoy a las ${localHM(SLOT_A1)}`)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /última utilizada/i }));
     expect(
-      await screen.findByText(`Retirás hoy a las ${localHM(SLOT_A1)}, la última utilizada`),
+      screen.getByText(`Retirás hoy a las ${localHM(SLOT_B1)}, la última utilizada`),
     ).toBeInTheDocument();
   });
 

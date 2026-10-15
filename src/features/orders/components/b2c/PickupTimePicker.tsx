@@ -54,10 +54,10 @@ interface Props {
  * Selector de horario de retiro B2C — reemplaza a `PickupSlotSelector` (que
  * sigue existiendo, sin cambios, para lo que todavía no migró). Las
  * opciones salen ÚNICAMENTE de `getPickupSlots(fecha)`: nunca se genera un
- * horario en el cliente. Preselecciona automáticamente "Última utilizada" (si
- * la hora del último pedido no cancelado cae en un slot del día) o "Lo antes
- * posible" (el primer slot), y avisa al padre por `onSelect` sin esperar un
- * click — igual que el prototipo aprobado, donde el readout y el botón de
+ * horario en el cliente. Preselecciona SIEMPRE "Lo antes posible" (el primer
+ * slot). "Última utilizada" sigue disponible como atajo elegible cuando la hora
+ * del último pedido no cancelado cae en un slot del día, pero ya no se
+ * preselecciona. Avisa al padre por `onSelect` sin esperar un click — igual que el prototipo aprobado, donde el readout y el botón de
  * confirmar ya muestran un horario válido apenas cargan los slots.
  */
 export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOfDay, onSelect, jumpTo = null, selectOnly = false }: Props) {
@@ -88,15 +88,14 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
     return slotsInfo.find((s) => s.h === h && s.m === m) ?? null;
   }, [lastUsedTimeOfDay, slotsInfo]);
 
-  const firstOption = lastUsedMatch ?? slotsInfo[0] ?? null;
-  const isLastUsed = !!lastUsedMatch;
+  const firstOption = slotsInfo[0] ?? null;
 
-  const [mode, setMode] = useState<'auto' | 'custom'>('auto');
+  const [mode, setMode] = useState<'auto' | 'last' | 'custom'>('auto');
   const [customH, setCustomH] = useState<number | null>(null);
   const [customM, setCustomM] = useState<number | null>(null);
 
   // Cambiar de día invalida cualquier selección manual del día anterior —
-  // volvemos a la opción automática (última utilizada / lo antes posible).
+  // volvemos a la opción automática (lo antes posible).
   // Ajuste de estado durante el render (patrón recomendado por React para
   // "resetear estado cuando cambia una prop"), no en un efecto: evita el
   // render en cascada que produciría un `setState` síncrono dentro de un
@@ -147,7 +146,8 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
     setCustomM(null);
   }
 
-  const effective = mode === 'custom' && customSlot ? customSlot : firstOption;
+  const effective =
+    mode === 'custom' && customSlot ? customSlot : mode === 'last' && lastUsedMatch ? lastUsedMatch : firstOption;
 
   // En `selectOnly` el modo automático no es una elección del usuario: no se
   // reporta (F19.1), para no hacer pasar el primer slot por un horario elegido.
@@ -206,7 +206,7 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
   };
 
   const activateCustom = () => {
-    if (mode === 'auto') {
+    if (mode !== 'custom') {
       setCustomH(effective!.h);
       setCustomM(effective!.m);
       setMode('custom');
@@ -217,7 +217,7 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
   const readoutText =
     (isToday ? 'Retirás hoy a las ' : `Retirás el ${dayShortLabel} a las `) +
     readoutLabel +
-    (mode === 'auto' && isLastUsed ? ', la última utilizada' : '');
+    (mode === 'last' ? ', la última utilizada' : '');
 
   return (
     <div className="space-y-2">
@@ -244,15 +244,37 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
             >
               {mode === 'auto' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
             </span>
-            {isLastUsed ? (
-              <History className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
-            ) : (
-              <Zap className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
-            )}
-            <span className="flex-1 text-left text-sm font-bold">
-              {isLastUsed ? 'Última utilizada' : 'Lo antes posible'}
-            </span>
+            <Zap className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
+            <span className="flex-1 text-left text-sm font-bold">Lo antes posible</span>
             <span className="text-base font-bold">{formatHM(firstOption.h, firstOption.m)}</span>
+          </button>
+        )}
+
+        {!selectOnly && lastUsedMatch && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === 'last'}
+            onClick={() => setMode('last')}
+            className={cn(
+              'flex min-h-[52px] items-center gap-2.5 rounded-lg border-2 px-3.5',
+              mode === 'last'
+                ? 'border-primary-deep bg-card text-foreground'
+                : 'border-border bg-card text-muted-foreground',
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
+                mode === 'last' ? 'border-primary-deep' : 'border-muted-foreground',
+              )}
+            >
+              {mode === 'last' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
+            </span>
+            <History className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
+            <span className="flex-1 text-left text-sm font-bold">Última utilizada</span>
+            <span className="text-base font-bold">{formatHM(lastUsedMatch.h, lastUsedMatch.m)}</span>
           </button>
         )}
 
@@ -283,7 +305,7 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
             </button>
           )}
 
-          <div className={cn('flex items-center gap-1', mode === 'auto' && !selectOnly && 'opacity-50')}>
+          <div className={cn('flex items-center gap-1', mode !== 'custom' && !selectOnly && 'opacity-50')}>
             <label htmlFor="pickup-hour" className="sr-only">
               Hora de retiro
             </label>
