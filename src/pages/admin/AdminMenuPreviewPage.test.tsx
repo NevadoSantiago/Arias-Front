@@ -30,7 +30,8 @@ vi.mock('@/features/admin/services/adminApi', async () => {
 const config: RestaurantConfig = {
   horaCorte: '10:00',
   timezone: 'America/Argentina/Buenos_Aires',
-  pickupLeadMinutes: 20,
+  pickupLeadMinutes: 40,
+  orderLeadMinutes: 20,
   creditExpiryDays: 90,
   pickupWindowStart: '11:00',
   pickupWindowEnd: '15:00',
@@ -80,6 +81,19 @@ describe('AdminMenuPreviewPage — pickup hours (F5)', () => {
     expect(card.queryByText(/próximo horario disponible/i)).not.toBeInTheDocument();
     expect(card.queryByText(/horarios restantes/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/cierre de pedidos/i)).not.toBeInTheDocument();
+  });
+
+  it('offers slots from the order lead, not from the preparation time', async () => {
+    renderPage();
+
+    expect(await screen.findByText(/el primer horario disponible es 20 min después/i)).toBeInTheDocument();
+  });
+
+  it('falls back to the preparation time when the backend sends no order lead', async () => {
+    vi.mocked(getRestaurantConfigAdmin).mockResolvedValue({ ...config, orderLeadMinutes: undefined });
+    renderPage();
+
+    expect(await screen.findByText(/el primer horario disponible es 40 min después/i)).toBeInTheDocument();
   });
 
   it('asks the disabled dates for the schedulable weeks of the restaurant timezone', async () => {

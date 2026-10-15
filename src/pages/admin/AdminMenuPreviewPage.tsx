@@ -130,10 +130,12 @@ export function AdminMenuPreviewPage() {
     );
   }
 
+  // "Lo antes posible"; un backend viejo sin el campo usa la preparación.
+  const leadMinutes = config.orderLeadMinutes ?? config.pickupLeadMinutes;
   const pickupHours = buildPickupHours({
     now,
     timezone: config.timezone,
-    leadMinutes: config.pickupLeadMinutes,
+    leadMinutes,
     slotMinutes: config.pickupSlotMinutes,
     schedule: config.pickupSchedule ?? [],
     disabledDates: disabledDates ?? [],
@@ -162,7 +164,7 @@ export function AdminMenuPreviewPage() {
         <WeekPickupStrip
           hours={pickupHours}
           slotMinutes={config.pickupSlotMinutes}
-          leadMinutes={config.pickupLeadMinutes}
+          leadMinutes={leadMinutes}
         />
       </div>
 

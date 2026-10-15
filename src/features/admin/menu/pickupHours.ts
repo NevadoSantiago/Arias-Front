@@ -16,7 +16,7 @@ export interface PickupHoursInput {
   now: Date;
   /** IANA zone of the restaurant (`restaurant_config.timezone`). */
   timezone: string;
-  /** `pickupLeadMinutes`: nothing earlier than now + lead is offered. */
+  /** `orderLeadMinutes` ("lo antes posible"): nothing earlier than now + lead is offered. */
   leadMinutes: number;
   /** `pickupSlotMinutes`: distance between two slots, counted from the window start. */
   slotMinutes: number;
