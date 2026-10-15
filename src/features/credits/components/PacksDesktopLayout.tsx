@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatPrice, perLunchPriceCents } from '../packPricing';
 import { expiryAfterPurchase, type PackCatalog, type PurchasePlan, type PurchaseSelection } from '../purchaseModel';
 import { useCreditExpiryDays } from '../hooks/useCreditExpiryDays';
+import howBuyingWorks from '@/assets/credits/pasos-compra-recorte.jpeg';
 import { LooseCard } from './LooseCard';
 import { PackNudge } from './PackNudge';
 import { PackOptionCard } from './PackOptionCard';
@@ -54,6 +55,12 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
             Cuantos más llevás, menos pagás cada uno. Cada almuerzo es un plato del menú.
           </p>
         </div>
+
+        <img
+          src={howBuyingWorks}
+          alt="Cómo funciona: 1. Comprá tus almuerzos, 2. Elegí qué comer, 3. Indicá el horario y retirá."
+          className="mx-auto block h-auto w-full max-w-[720px] rounded-xl border border-border"
+        />
 
         <div
           role="radiogroup"

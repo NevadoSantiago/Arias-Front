@@ -77,10 +77,16 @@ describe('CreditsPacksPage', () => {
     expect(await screen.findByText(/vencen a los 45 días de tu última compra/i)).toBeInTheDocument();
   });
 
-  it('shows the "how buying works" image on mobile', async () => {
+  it('shows the "how it works" steps image on mobile, right below the subtitle', async () => {
     renderPage();
 
-    expect(await screen.findByRole('img', { name: /cómo funciona la compra de almuerzos/i })).toBeInTheDocument();
+    const img = await screen.findByRole('img', { name: /cómo funciona/i });
+    expect(img).toBeInTheDocument();
+    const heading = screen.getByRole('heading', { name: /comprar almuerzos/i });
+    const group = screen.getByRole('radiogroup', { name: 'Elegí qué comprar' });
+    expect(heading.compareDocumentPosition(img) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(img.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole('img', { name: /cómo funciona/i })).toHaveLength(1);
   });
 
   it('shows Sueltos first, then the other packs ordered by ordenDisplay, with prices from priceCents', async () => {

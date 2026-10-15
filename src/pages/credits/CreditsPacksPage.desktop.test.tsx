@@ -53,11 +53,13 @@ describe('CreditsPacksPage on desktop (F22c)', () => {
     vi.useRealTimers();
   });
 
-  it('does not show the mobile "how buying works" image', async () => {
+  it('shows the "how it works" steps image, above the cards', async () => {
     renderPage();
 
-    await screen.findByText('Sueltos');
-    expect(screen.queryByRole('img', { name: /cómo funciona la compra de almuerzos/i })).not.toBeInTheDocument();
+    const img = await screen.findByRole('img', { name: /cómo funciona/i });
+    const group = screen.getByRole('radiogroup', { name: 'Elegí qué comprar' });
+    expect(img.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole('img', { name: /cómo funciona/i })).toHaveLength(1);
   });
 
   it('lays Sueltos, Semana and Mes out as three side-by-side cards, Semana preselected', async () => {

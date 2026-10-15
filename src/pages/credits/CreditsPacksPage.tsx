@@ -9,7 +9,7 @@ import { formatPrice, perLunchPriceCents } from '@/features/credits/packPricing'
 import { PacksDesktopLayout } from '@/features/credits/components/PacksDesktopLayout';
 import { useCreditExpiryDays } from '@/features/credits/hooks/useCreditExpiryDays';
 import { useIsDesktop } from '@/lib/useMediaQuery';
-import howBuyingWorks from '@/assets/credits/pasos-compra.jpeg';
+import howBuyingWorks from '@/assets/credits/pasos-compra-recorte.jpeg';
 
 /**
  * Ruta `/credits/packs` — catálogo de Sueltos + paquetes (F6, prototipo `Packs.dc.html`).
@@ -105,6 +105,12 @@ export function CreditsPacksPage() {
           </p>
         </div>
 
+        <img
+          src={howBuyingWorks}
+          alt="Cómo funciona: 1. Comprá tus almuerzos, 2. Elegí qué comer, 3. Indicá el horario y retirá."
+          className="mb-5 block h-auto w-full rounded-xl border border-border"
+        />
+
         <div role="radiogroup" aria-label="Elegí qué comprar" className="flex flex-col gap-3">
           {dayPack && (
             <LooseCard
@@ -148,14 +154,6 @@ export function CreditsPacksPage() {
             <span>Vencen a los {expiryDays} días de tu última compra. Cada compra renueva el plazo.</span>
           </li>
         </ul>
-
-        {/* Pieza gráfica de marca (solo celular): cómo funcionan los paquetes y los tres pasos. */}
-        <img
-          src={howBuyingWorks}
-          alt="Cómo funciona la compra de almuerzos: elegí 1, 5 o 20; cuantos más comprás, menos pagás cada uno. Después elegí qué comer, indicá el horario y retirala."
-          loading="lazy"
-          className="mt-6 block h-auto w-full rounded-xl border border-border"
-        />
       </div>
 
       <div className="sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-border bg-card px-4 py-3">
