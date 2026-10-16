@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { History, Zap } from 'lucide-react';
+import { Clock, Lightbulb, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PickupSuggestion } from './pickupSuggestion';
 import { getPickupSlots } from '../../services/ordersApi';
@@ -56,9 +56,10 @@ interface Props {
  * sigue existiendo, sin cambios, para lo que todavía no migró). Las
  * opciones salen ÚNICAMENTE de `getPickupSlots(fecha)`: nunca se genera un
  * horario en el cliente. Preselecciona SIEMPRE "Lo antes posible" (el primer
- * slot). "Última utilizada" sigue disponible como atajo elegible cuando la hora
- * del último pedido no cancelado cae en un slot del día, pero ya no se
- * preselecciona. Avisa al padre por `onSelect` sin esperar un click — igual que el prototipo aprobado, donde el readout y el botón de
+ * slot, con un rayo). La tercera opción (lamparita) es la sugerencia: "Como el
+ * último {día}" si hay un pedido anterior del mismo día de la semana, o "Última
+ * utilizada"; solo aparece si su hora cae en un slot del día y nunca se
+ * preselecciona. "Elegir horario" lleva un reloj. Avisa al padre por `onSelect` sin esperar un click — igual que el prototipo aprobado, donde el readout y el botón de
  * confirmar ya muestran un horario válido apenas cargan los slots.
  */
 export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, onSelect, jumpTo = null, selectOnly = false }: Props) {
@@ -80,7 +81,7 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, on
   const minutesForHour = (h: number) =>
     slotsInfo.filter((s) => s.h === h).map((s) => s.m).sort((a, b) => a - b);
 
-  const lastUsedMatch = useMemo(() => {
+  const suggestionMatch = useMemo(() => {
     if (!suggestion) return null;
     const match = suggestion.time.trim().match(/^(\d{1,2}):(\d{2})$/);
     if (!match) return null;
@@ -91,7 +92,7 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, on
 
   const firstOption = slotsInfo[0] ?? null;
 
-  const [mode, setMode] = useState<'auto' | 'last' | 'custom'>('auto');
+  const [mode, setMode] = useState<'auto' | 'suggested' | 'custom'>('auto');
   const [customH, setCustomH] = useState<number | null>(null);
   const [customM, setCustomM] = useState<number | null>(null);
 
@@ -148,7 +149,7 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, on
   }
 
   const effective =
-    mode === 'custom' && customSlot ? customSlot : mode === 'last' && lastUsedMatch ? lastUsedMatch : firstOption;
+    mode === 'custom' && customSlot ? customSlot : mode === 'suggested' && suggestionMatch ? suggestionMatch : firstOption;
 
   // En `selectOnly` el modo automático no es una elección del usuario: no se
   // reporta (F19.1), para no hacer pasar el primer slot por un horario elegido.
@@ -218,7 +219,11 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, on
   const readoutText =
     (isToday ? 'Retirás hoy a las ' : `Retirás el ${dayShortLabel} a las `) +
     readoutLabel +
-    (mode === 'last' ? ', la última utilizada' : '');
+    (mode === 'suggested' && suggestion
+      ? suggestion.source === 'sameWeekday'
+        ? `, como el último ${suggestion.weekdayLabel}`
+        : ', la última utilizada'
+      : '');
 
   return (
     <div className="space-y-2">
@@ -251,15 +256,15 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, on
           </button>
         )}
 
-        {!selectOnly && lastUsedMatch && (
+        {!selectOnly && suggestionMatch && suggestion && (
           <button
             type="button"
             role="radio"
-            aria-checked={mode === 'last'}
-            onClick={() => setMode('last')}
+            aria-checked={mode === 'suggested'}
+            onClick={() => setMode('suggested')}
             className={cn(
               'flex min-h-[52px] items-center gap-2.5 rounded-lg border-2 px-3.5',
-              mode === 'last'
+              mode === 'suggested'
                 ? 'border-primary-deep bg-card text-foreground'
                 : 'border-border bg-card text-muted-foreground',
             )}
@@ -268,14 +273,16 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, on
               aria-hidden="true"
               className={cn(
                 'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
-                mode === 'last' ? 'border-primary-deep' : 'border-muted-foreground',
+                mode === 'suggested' ? 'border-primary-deep' : 'border-muted-foreground',
               )}
             >
-              {mode === 'last' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
+              {mode === 'suggested' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
             </span>
-            <History className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
-            <span className="flex-1 text-left text-sm font-bold">Última utilizada</span>
-            <span className="text-base font-bold">{formatHM(lastUsedMatch.h, lastUsedMatch.m)}</span>
+            <Lightbulb className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
+            <span className="flex-1 text-left text-sm font-bold">
+              {suggestion.source === 'sameWeekday' ? `Como el último ${suggestion.weekdayLabel}` : 'Última utilizada'}
+            </span>
+            <span className="text-base font-bold">{formatHM(suggestionMatch.h, suggestionMatch.m)}</span>
           </button>
         )}
 
@@ -302,6 +309,7 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, on
               >
                 {mode === 'custom' && <span className="h-2.5 w-2.5 rounded-full bg-primary-deep" />}
               </span>
+              <Clock className="h-[18px] w-[18px] shrink-0 text-primary-deep" aria-hidden="true" />
               Elegir horario
             </button>
           )}

@@ -104,6 +104,40 @@ describe('PickupTimePicker', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows "Como el último jueves · HH:MM" with a bulb, not preselected, and appends the weekday suffix once picked', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_B1]);
+
+    renderPicker({ suggestion: { time: localHM(SLOT_B1), source: 'sameWeekday', weekdayLabel: 'jueves' } });
+
+    const radio = await screen.findByRole('radio', { name: new RegExp(`como el último jueves.*${localHM(SLOT_B1)}`, 'i') });
+    expect(radio).toHaveAttribute('aria-checked', 'false');
+    expect(radio.querySelector('.lucide-lightbulb')).not.toBeNull();
+    expect(screen.queryByRole('radio', { name: /última utilizada/i })).not.toBeInTheDocument();
+
+    fireEvent.click(radio);
+    expect(screen.getByText(`Retirás hoy a las ${localHM(SLOT_B1)}, como el último jueves`)).toBeInTheDocument();
+  });
+
+  it('hides the weekday suggestion when its time matches no slot of the day', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_B1]);
+
+    renderPicker({ suggestion: { time: '23:59', source: 'sameWeekday', weekdayLabel: 'jueves' } });
+
+    await screen.findByRole('radio', { name: /lo antes posible/i });
+    expect(screen.queryByRole('radio', { name: /como el último/i })).not.toBeInTheDocument();
+  });
+
+  it('puts a bolt on "Lo antes posible", a bulb on the last-order suggestion and a clock on "Elegir horario"', async () => {
+    vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_B1]);
+
+    renderPicker({ suggestion: { time: localHM(SLOT_B1), source: 'lastOrder', weekdayLabel: 'jueves' } });
+
+    const asap = await screen.findByRole('radio', { name: /lo antes posible/i });
+    expect(asap.querySelector('.lucide-zap')).not.toBeNull();
+    expect(screen.getByRole('radio', { name: /última utilizada/i }).querySelector('.lucide-lightbulb')).not.toBeNull();
+    expect(screen.getByRole('radio', { name: /elegir horario/i }).querySelector('.lucide-clock')).not.toBeNull();
+  });
+
   it('shows the readout for a future day without the "usual time" suffix on the ASAP option', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1]);
 
