@@ -111,6 +111,7 @@ export function AdminOrdersByPickupPage() {
           leadMinutes={kitchen.leadMinutes}
           slotMinutes={kitchen.slotMinutes}
           busy={kitchen.busy}
+          onConfirmar={kitchen.confirmar}
           onComandar={kitchen.comandar}
           onEntregar={kitchen.entregar}
         />

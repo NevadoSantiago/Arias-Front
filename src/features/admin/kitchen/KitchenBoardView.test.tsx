@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { PickupOrder } from '@/features/admin/services/adminApi';
 import { buildKitchenBoard } from './kitchenBoard';
 import { KitchenBoardView } from './KitchenBoardView';
@@ -23,7 +23,7 @@ const order = (id: number, pickup: string): PickupOrder => ({
   deliveredAt: null,
 });
 
-function renderBoard(orders: PickupOrder[]) {
+function renderBoard(orders: PickupOrder[], onConfirmar = vi.fn()) {
   const board = buildKitchenBoard(orders, {
     now: new Date(at('12:03')),
     timezone: TZ,
@@ -38,6 +38,7 @@ function renderBoard(orders: PickupOrder[]) {
       slotMinutes={10}
       busy={false}
       onComandar={vi.fn()}
+      onConfirmar={onConfirmar}
       onEntregar={vi.fn()}
     />,
   );
@@ -58,5 +59,26 @@ describe('KitchenBoardView — confirmed box', () => {
     expect(screen.getByText('12:20')).toBeInTheDocument();
     expect(screen.queryByText('12:10')).not.toBeInTheDocument();
     expect(screen.queryByText(/sin pedidos para este horario/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('KitchenBoardView — scheduled box', () => {
+  const pending = (id: number, pickup: string): PickupOrder => ({ ...order(id, pickup), estado: 'PENDIENTE' });
+
+  it('offers a Confirmar button per scheduled order that confirms just that order', () => {
+    const onConfirmar = vi.fn();
+    renderBoard([pending(8, '13:10'), pending(9, '13:30')], onConfirmar);
+
+    fireEvent.click(screen.getByRole('button', { name: /confirmar pedido n° 9/i }));
+
+    expect(onConfirmar).toHaveBeenCalledTimes(1);
+    expect(onConfirmar.mock.calls[0][0]).toHaveLength(1);
+    expect(onConfirmar.mock.calls[0][0][0].id).toBe(9);
+    expect(screen.getAllByText(/^Se confirma /)).toHaveLength(2);
+  });
+
+  it('tells the admin they can confirm by hand', () => {
+    renderBoard([pending(8, '13:10')]);
+    expect(screen.getByText(/pasan solos a confirmados a la hora indicada, o confirmalos vos/i)).toBeInTheDocument();
   });
 });

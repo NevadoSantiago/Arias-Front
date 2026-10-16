@@ -9,6 +9,7 @@ interface KitchenBoardViewProps {
   slotMinutes: number;
   /** Disables every action while a move is in flight, so a double click cannot fire it twice. */
   busy: boolean;
+  onConfirmar: (orders: BoardOrder[]) => void;
   onComandar: (orders: BoardOrder[]) => void;
   onEntregar: (orders: BoardOrder[]) => void;
 }
@@ -333,7 +334,7 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
   );
 }
 
-function ScheduledBox({ board }: KitchenBoardViewProps) {
+function ScheduledBox({ board, busy, onConfirmar }: KitchenBoardViewProps) {
   const list = board.scheduled;
   return (
     <section
@@ -348,7 +349,7 @@ function ScheduledBox({ board }: KitchenBoardViewProps) {
           </h2>
           <CountBadge n={list.length} className="h-[26px] bg-warning-foreground text-[13px]" />
         </div>
-        <span className="text-xs text-muted-foreground">Pasan solos a confirmados</span>
+        <span className="text-xs text-muted-foreground">Pasan solos a confirmados a la hora indicada, o confirmalos vos.</span>
       </div>
       {list.length === 0 ? (
         <p className="rounded-md border border-dashed border-warning/50 p-3 text-center text-sm text-muted-foreground">
@@ -369,9 +370,21 @@ function ScheduledBox({ board }: KitchenBoardViewProps) {
                 <Items order={o} className="text-[15px] font-semibold leading-snug" badgeClassName="bg-warning-foreground" />
                 <OrderNote notas={o.notas} />
               </div>
-              <span className="whitespace-nowrap text-xs text-muted-foreground">
-                Se confirma {o.confirmAtLabel}
-              </span>
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                  Se confirma {o.confirmAtLabel}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Confirmar pedido N° ${o.id}`}
+                  disabled={busy}
+                  onClick={() => onConfirmar([o])}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded border border-warning-foreground px-3.5 text-[13px] font-semibold uppercase tracking-brand text-warning-foreground hover:bg-warning-foreground/10 disabled:opacity-60"
+                >
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                  Confirmar
+                </button>
+              </div>
             </li>
           ))}
         </ul>

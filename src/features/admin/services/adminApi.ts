@@ -615,6 +615,18 @@ export async function getOrdersByPickup(fecha?: string): Promise<PickupOrder[]> 
   return data.flatMap((g) => g.orders);
 }
 
+/**
+ * PENDIENTE -> CONFIRMADO by hand (SUPER_ADMIN). It consumes the customer's credits and has no
+ * undo. One id uses the single endpoint, several use the all-or-nothing batch.
+ */
+export async function markOrdersConfirmado(ids: number[]): Promise<void> {
+  if (ids.length === 1) {
+    await api.put(`${BASE}/orders/${ids[0]}/confirmar`);
+  } else {
+    await api.put(`${BASE}/orders/confirmar`, { orderIds: ids });
+  }
+}
+
 /** CONFIRMADO -> COMANDADO. One id uses the single endpoint, several use the all-or-nothing batch. */
 export async function markOrdersComandado(ids: number[]): Promise<void> {
   if (ids.length === 1) {

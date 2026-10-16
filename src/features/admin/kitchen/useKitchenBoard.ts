@@ -5,6 +5,7 @@ import {
   getOrdersByPickup,
   getRestaurantConfigAdmin,
   markOrdersComandado,
+  markOrdersConfirmado,
   markOrdersEntregado,
   undoOrderKitchenState,
 } from '@/features/admin/services/adminApi';
@@ -19,7 +20,7 @@ const UNDO_VISIBLE_MS = 20_000;
 
 const ORDERS_KEY = ['adminOrdersByPickup'] as const;
 
-type MoveKind = 'comandar' | 'entregar';
+type MoveKind = 'confirmar' | 'comandar' | 'entregar';
 
 interface UndoState {
   ids: number[];
@@ -49,7 +50,7 @@ export function useNow(intervalMs: number): Date {
 }
 
 function moveMessage(kind: MoveKind, orders: BoardOrder[]): string {
-  const target = kind === 'comandar' ? 'comandados' : 'entregados';
+  const target = kind === 'confirmar' ? 'confirmados' : kind === 'comandar' ? 'comandados' : 'entregados';
   return orders.length === 1
     ? `Pedido N° ${orders[0].id} pasó a ${target}`
     : `${orders.length} pedidos pasaron a ${target}`;
@@ -87,8 +88,15 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
 
   const move = useMutation({
     mutationFn: ({ kind, ids }: { kind: MoveKind; ids: number[]; message: string }) =>
-      kind === 'comandar' ? markOrdersComandado(ids) : markOrdersEntregado(ids),
-    onSuccess: (_data, { ids, message }) => setUndo({ ids, message }),
+      kind === 'confirmar'
+        ? markOrdersConfirmado(ids)
+        : kind === 'comandar'
+          ? markOrdersComandado(ids)
+          : markOrdersEntregado(ids),
+    // Confirming consumes credits and has no undo endpoint, so it never raises the undo bar.
+    onSuccess: (_data, { kind, ids, message }) => {
+      if (kind !== 'confirmar') setUndo({ ids, message });
+    },
     onError: () => toast.error('No se pudo actualizar el pedido. Revisá el tablero e intentá de nuevo.'),
     onSettled: refresh,
   });
@@ -123,6 +131,8 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
     undo,
     dismissUndo: () => setUndo(null),
     runUndo: () => undo && undoMove.mutate(undo.ids),
+    confirmar: (list: BoardOrder[]) =>
+      move.mutate({ kind: 'confirmar', ids: list.map((o) => o.id), message: moveMessage('confirmar', list) }),
     comandar: (list: BoardOrder[]) =>
       move.mutate({ kind: 'comandar', ids: list.map((o) => o.id), message: moveMessage('comandar', list) }),
     entregar: (list: BoardOrder[]) =>

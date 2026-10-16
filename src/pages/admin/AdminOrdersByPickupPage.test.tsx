@@ -8,6 +8,7 @@ import {
   getOrdersByPickup,
   getRestaurantConfigAdmin,
   markOrdersComandado,
+  markOrdersConfirmado,
   markOrdersEntregado,
   undoOrderKitchenState,
   type PickupOrder,
@@ -25,6 +26,7 @@ vi.mock('@/features/admin/services/adminApi', async () => {
     getOrdersByPickup: vi.fn(),
     getRestaurantConfigAdmin: vi.fn(),
     markOrdersComandado: vi.fn(),
+    markOrdersConfirmado: vi.fn(),
     markOrdersEntregado: vi.fn(),
     undoOrderKitchenState: vi.fn(),
   };
@@ -114,6 +116,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(at('12:03')));
   vi.mocked(markOrdersComandado).mockResolvedValue(undefined);
+  vi.mocked(markOrdersConfirmado).mockResolvedValue(undefined);
   vi.mocked(markOrdersEntregado).mockResolvedValue(undefined);
   vi.mocked(undoOrderKitchenState).mockResolvedValue(undefined);
 });
@@ -211,6 +214,14 @@ describe('AdminOrdersByPickupPage (kitchen dashboard)', () => {
     const box = await screen.findByRole('region', { name: /pedidos programados/i });
     expect(within(box).getByText('Se confirma 12:50')).toBeInTheDocument();
     expect(within(box).getByText('13:10')).toBeInTheDocument();
+  });
+
+  it('confirms a scheduled order by hand, without an undo bar', async () => {
+    renderPage([order(9, 'PENDIENTE', '13:10')]);
+    const box = await screen.findByRole('region', { name: /pedidos programados/i });
+    fireEvent.click(within(box).getByRole('button', { name: /confirmar pedido n° 9/i }));
+    await waitFor(() => expect(markOrdersConfirmado).toHaveBeenCalledWith([9]));
+    expect(screen.queryByRole('button', { name: /deshacer/i })).not.toBeInTheDocument();
   });
 
   it('keeps delivered orders collapsed until expanded', async () => {
