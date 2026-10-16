@@ -20,6 +20,7 @@ import { OrderDayIllustration } from '@/features/orders/components/b2c/OrderDayI
 import { OrderReviewPanel } from '@/features/orders/components/b2c/OrderReviewPanel';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
 import type { OrderReviewProps } from '@/features/orders/components/b2c/orderReviewProps';
+import { suggestPickupTime } from '@/features/orders/components/b2c/pickupSuggestion';
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
 import { formatOrderTimeLabel } from '@/features/orders/components/orderDateLabels';
 import { useCancelOrder } from '@/features/orders/hooks/useCancelOrder';
@@ -283,18 +284,12 @@ export function B2cOrderPage() {
   const dayHeadingLabel = isToday ? 'hoy' : dayShortLabel;
 
   /**
-   * Hora local "HH:MM" del último pedido NO cancelado (mayor `id`) — decisión
-   * F2/F3 de la feature. Sin columna nueva: se deriva de `getOrdersV2` acá
-   * mismo, y se pasa como una hora suelta (no una fecha) porque
-   * `PickupTimePicker` la compara contra los slots del día seleccionado.
+   * Horario sugerido para el día elegido: el del último pedido no cancelado de
+   * ese mismo día de la semana (anterior a la fecha) o, si no hay, el del
+   * último pedido. Se deriva de `getOrdersV2` acá mismo; `PickupTimePicker`
+   * lo compara contra los slots del día seleccionado.
    */
-  const lastUsedTimeOfDay = useMemo(() => {
-    const nonCancelled = (myOrders ?? []).filter((o) => o.estado !== 'CANCELADO');
-    if (nonCancelled.length === 0) return null;
-    const latest = nonCancelled.reduce((a, b) => (b.id > a.id ? b : a));
-    const d = new Date(latest.pickupAt);
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  }, [myOrders]);
+  const suggestion = useMemo(() => suggestPickupTime(myOrders ?? [], selectedDate), [myOrders, selectedDate]);
 
   const pickupAt = pickupSelection?.date === selectedDate ? pickupSelection.time : null;
   const pickupTimeLabel = pickupAt
@@ -688,7 +683,7 @@ export function B2cOrderPage() {
     isToday,
     dayShortLabel,
     fecha: selectedDate,
-    lastUsedTimeOfDay,
+    suggestion,
     onSelectPickup: (time) => setPickupSelection({ date: selectedDate, time }),
     addToOrder: modifiableOrderForSelectedDay ? { pickupAt: modifiableOrderForSelectedDay.pickupAt } : null,
     pickupTimeLabel,

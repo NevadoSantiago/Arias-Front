@@ -1,11 +1,12 @@
 import type { CartLine } from '../../hooks/useCart';
+import type { PickupSuggestion } from './pickupSuggestion';
 
 /** Props de la revisión del pedido: las comparten la hoja móvil y el panel de escritorio. */
 export interface OrderReviewProps {
   isToday: boolean;
   dayShortLabel: string;
   fecha: string;
-  lastUsedTimeOfDay: string | null;
+  suggestion: PickupSuggestion | null;
   onSelectPickup: (pickupAt: string) => void;
   /**
    * Pedido modificable del día cuyo horario es IGUAL al elegido (F16, F21) —

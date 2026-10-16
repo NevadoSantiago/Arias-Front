@@ -33,7 +33,7 @@ function baseProps(overrides: Partial<Parameters<typeof OrderReviewSheet>[0]> = 
     isToday: true,
     dayShortLabel: 'jueves 24',
     fecha: '2026-05-21',
-    lastUsedTimeOfDay: null,
+    suggestion: null,
     onSelectPickup: vi.fn(),
     addToOrder: null,
     newOrderNotice: null,

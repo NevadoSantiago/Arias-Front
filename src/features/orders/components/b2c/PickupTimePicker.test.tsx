@@ -33,7 +33,7 @@ function renderPicker(props: Partial<Parameters<typeof PickupTimePicker>[0]> = {
         fecha="2026-05-21"
         isToday={true}
         dayShortLabel="jueves 21"
-        lastUsedTimeOfDay={null}
+        suggestion={null}
         onSelect={onSelect}
         {...props}
       />
@@ -50,7 +50,7 @@ describe('PickupTimePicker', () => {
   it('shows "Lo antes posible · HH:MM" (first slot) with a bolt icon when there is no matching last-used time', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    renderPicker({ lastUsedTimeOfDay: null });
+    renderPicker({ suggestion: null });
 
     const radio = await screen.findByRole('radio', { name: new RegExp(`lo antes posible.*${localHM(SLOT_A1)}`, 'i') });
     expect(radio).toHaveAttribute('aria-checked', 'true');
@@ -60,7 +60,7 @@ describe('PickupTimePicker', () => {
   it('falls back to ASAP when the last-used time of day does not match any slot for this day', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    renderPicker({ lastUsedTimeOfDay: '23:59' });
+    renderPicker({ suggestion: { time: '23:59', source: 'lastOrder', weekdayLabel: 'jueves' } });
 
     expect(
       await screen.findByRole('radio', { name: new RegExp(`lo antes posible.*${localHM(SLOT_A1)}`, 'i') }),
@@ -70,7 +70,7 @@ describe('PickupTimePicker', () => {
   it('preselects "Lo antes posible" (first slot) even when the last-used time matches a slot, and keeps "Última utilizada" as an option', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    const { onSelect } = renderPicker({ lastUsedTimeOfDay: localHM(SLOT_B1) });
+    const { onSelect } = renderPicker({ suggestion: { time: localHM(SLOT_B1), source: 'lastOrder', weekdayLabel: 'jueves' } });
 
     const asap = await screen.findByRole('radio', { name: new RegExp(`lo antes posible.*${localHM(SLOT_A1)}`, 'i') });
     const last = screen.getByRole('radio', { name: new RegExp(`última utilizada.*${localHM(SLOT_B1)}`, 'i') });
@@ -83,7 +83,7 @@ describe('PickupTimePicker', () => {
   it('selects the last-used slot when the customer picks the "Última utilizada" option', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    const { onSelect } = renderPicker({ lastUsedTimeOfDay: localHM(SLOT_B1) });
+    const { onSelect } = renderPicker({ suggestion: { time: localHM(SLOT_B1), source: 'lastOrder', weekdayLabel: 'jueves' } });
 
     const last = await screen.findByRole('radio', { name: new RegExp(`última utilizada.*${localHM(SLOT_B1)}`, 'i') });
     fireEvent.click(last);
@@ -95,7 +95,7 @@ describe('PickupTimePicker', () => {
   it('shows the readout for today, appending "la última utilizada" only once that option is picked', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_B1]);
 
-    renderPicker({ isToday: true, lastUsedTimeOfDay: localHM(SLOT_B1) });
+    renderPicker({ isToday: true, suggestion: { time: localHM(SLOT_B1), source: 'lastOrder', weekdayLabel: 'jueves' } });
 
     expect(await screen.findByText(`Retirás hoy a las ${localHM(SLOT_A1)}`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: /última utilizada/i }));
@@ -107,7 +107,7 @@ describe('PickupTimePicker', () => {
   it('shows the readout for a future day without the "usual time" suffix on the ASAP option', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1]);
 
-    renderPicker({ isToday: false, dayShortLabel: 'lunes 28', lastUsedTimeOfDay: null });
+    renderPicker({ isToday: false, dayShortLabel: 'lunes 28', suggestion: null });
 
     expect(
       await screen.findByText(`Retirás el lunes 28 a las ${localHM(SLOT_A1)}`),
@@ -117,7 +117,7 @@ describe('PickupTimePicker', () => {
   it('calls onSelect with the default option\'s exact backend-provided instant', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2]);
 
-    const { onSelect } = renderPicker({ lastUsedTimeOfDay: null });
+    const { onSelect } = renderPicker({ suggestion: null });
 
     await screen.findByRole('radio', { name: /lo antes posible/i });
     expect(onSelect).toHaveBeenCalledWith(SLOT_A1);
@@ -126,7 +126,7 @@ describe('PickupTimePicker', () => {
   it('lets the customer pick an hour/minute, filters minutes by hour and deselects the first option', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    const { onSelect } = renderPicker({ lastUsedTimeOfDay: null });
+    const { onSelect } = renderPicker({ suggestion: null });
 
     await screen.findByRole('radio', { name: /lo antes posible/i });
 
@@ -156,7 +156,7 @@ describe('PickupTimePicker', () => {
   it('snaps the minute to the hour\'s first available minute when the hour change invalidates it', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2, SLOT_B1]);
 
-    const { onSelect } = renderPicker({ lastUsedTimeOfDay: null });
+    const { onSelect } = renderPicker({ suggestion: null });
     await screen.findByRole('radio', { name: /lo antes posible/i });
 
     const hourSelect = screen.getByLabelText(/hora de retiro/i) as HTMLSelectElement;
@@ -170,7 +170,7 @@ describe('PickupTimePicker', () => {
   it('lets the customer pick a specific minute within the same hour', async () => {
     vi.mocked(getPickupSlots).mockResolvedValueOnce([SLOT_A1, SLOT_A2]);
 
-    const { onSelect } = renderPicker({ lastUsedTimeOfDay: null });
+    const { onSelect } = renderPicker({ suggestion: null });
     await screen.findByRole('radio', { name: /lo antes posible/i });
 
     const minuteSelect = screen.getByLabelText(/^minutos$/i) as HTMLSelectElement;
@@ -219,7 +219,7 @@ describe('PickupTimePicker', () => {
           fecha="2026-05-21"
           isToday={true}
           dayShortLabel="jueves 21"
-          lastUsedTimeOfDay={null}
+          suggestion={null}
           onSelect={onSelect}
         />
       </QueryClientProvider>,

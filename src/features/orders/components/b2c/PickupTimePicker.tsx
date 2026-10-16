@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { History, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { PickupSuggestion } from './pickupSuggestion';
 import { getPickupSlots } from '../../services/ordersApi';
 
 interface SlotInfo {
@@ -29,8 +30,8 @@ interface Props {
   isToday: boolean;
   /** Etiqueta corta del día ("jueves 21") usada en el readout para días futuros. */
   dayShortLabel: string;
-  /** Hora local "HH:MM" del último pedido NO cancelado (mayor `id`), o null si no hay. */
-  lastUsedTimeOfDay: string | null;
+  /** Horario sugerido (mismo día de la semana o último pedido), o null si no hay. */
+  suggestion: PickupSuggestion | null;
   /** ISO-8601 exacto del slot elegido, tal como lo devolvió `getPickupSlots`. */
   onSelect: (pickupAt: string) => void;
   /**
@@ -60,7 +61,7 @@ interface Props {
  * preselecciona. Avisa al padre por `onSelect` sin esperar un click — igual que el prototipo aprobado, donde el readout y el botón de
  * confirmar ya muestran un horario válido apenas cargan los slots.
  */
-export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOfDay, onSelect, jumpTo = null, selectOnly = false }: Props) {
+export function PickupTimePicker({ fecha, isToday, dayShortLabel, suggestion, onSelect, jumpTo = null, selectOnly = false }: Props) {
   const { data: slots, isLoading, isError, refetch } = useQuery({
     queryKey: ['pickupSlots', fecha],
     queryFn: () => getPickupSlots(fecha),
@@ -80,13 +81,13 @@ export function PickupTimePicker({ fecha, isToday, dayShortLabel, lastUsedTimeOf
     slotsInfo.filter((s) => s.h === h).map((s) => s.m).sort((a, b) => a - b);
 
   const lastUsedMatch = useMemo(() => {
-    if (!lastUsedTimeOfDay) return null;
-    const match = lastUsedTimeOfDay.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!suggestion) return null;
+    const match = suggestion.time.trim().match(/^(\d{1,2}):(\d{2})$/);
     if (!match) return null;
     const h = Number(match[1]);
     const m = Number(match[2]);
     return slotsInfo.find((s) => s.h === h && s.m === m) ?? null;
-  }, [lastUsedTimeOfDay, slotsInfo]);
+  }, [suggestion, slotsInfo]);
 
   const firstOption = slotsInfo[0] ?? null;
 

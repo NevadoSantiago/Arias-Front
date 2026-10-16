@@ -156,7 +156,7 @@ function ChangePickupTimeContent({
             fecha={order.fecha}
             isToday={false}
             dayShortLabel=""
-            lastUsedTimeOfDay={null}
+            suggestion={null}
             onSelect={setPicked}
             jumpTo={startAt}
             selectOnly

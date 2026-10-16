@@ -24,7 +24,7 @@ export function OrderReviewPanel({
   isToday,
   dayShortLabel,
   fecha,
-  lastUsedTimeOfDay,
+  suggestion,
   onSelectPickup,
   addToOrder,
   pickupTimeLabel,
@@ -81,7 +81,7 @@ export function OrderReviewPanel({
                 fecha={fecha}
                 isToday={isToday}
                 dayShortLabel={dayShortLabel}
-                lastUsedTimeOfDay={lastUsedTimeOfDay}
+                suggestion={suggestion}
                 onSelect={onSelectPickup}
                 jumpTo={pickupJumpTo}
               />
