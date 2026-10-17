@@ -269,7 +269,8 @@ describe('B2cOrderPage — mobile, day with an order', () => {
     expect(screen.queryByTestId('daily-illustration')).not.toBeInTheDocument();
 
     await selectDish();
-    expect(await screen.findByRole('button', { name: /ver pedido/i })).toBeInTheDocument();
+    // En celular el primer plato abre solo la hoja "Tu pedido" (la barra queda detrás).
+    expect(await screen.findByRole('dialog', { name: /tu pedido/i })).toBeInTheDocument();
   });
 
   it('keeps the empty cart bar on a day without an order', async () => {

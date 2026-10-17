@@ -269,6 +269,8 @@ describe('B2cOrderPage — mobile layout is unchanged (F22a)', () => {
     expect(detail).toHaveAttribute('data-presentation', 'sheet');
 
     fireEvent.click(await screen.findByRole('button', { name: /agregar al pedido/i }));
-    expect(await screen.findByRole('button', { name: /ver pedido/i })).toBeInTheDocument();
+    // En celular el primer plato abre solo la hoja "Tu pedido".
+    expect(await screen.findByRole('dialog', { name: /tu pedido/i })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Tu pedido' })).not.toBeInTheDocument();
   });
 });

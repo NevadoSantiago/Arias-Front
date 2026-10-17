@@ -408,6 +408,7 @@ export function B2cOrderPage() {
     const side = selection.sideId
       ? selectedDish.allowedSides.find((s) => s.id === selection.sideId) ?? null
       : null;
+    const wasEmpty = cart.lines.length === 0;
     const localId = cart.addItem({
       dish: selectedDish,
       sideId: selection.sideId,
@@ -416,6 +417,9 @@ export function B2cOrderPage() {
     });
     if (tourActive) tourLineRef.current = localId;
     setSelectedDish(null);
+    // En celular, el primer plato lleva directo a "Tu pedido"; los siguientes no la reabren.
+    // Con el tour activo no: tiene su propio paso para "Ver pedido" y la hoja taparía el recorrido.
+    if (wasEmpty && !isDesktop && !tourActive) setReviewOpen(true);
   };
 
   /**

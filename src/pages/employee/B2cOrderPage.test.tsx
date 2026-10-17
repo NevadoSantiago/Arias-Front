@@ -120,7 +120,12 @@ async function addDishToCart() {
   fireEvent.click(await screen.findByRole('button', { name: /agregar al pedido/i }));
 }
 
+/**
+ * En celular la hoja "Tu pedido" se abre sola al agregar el primer plato; para
+ * los demás casos se abre con "Ver pedido". Tolera ambos: si ya está abierta, no hace nada.
+ */
 async function openReview() {
+  if (screen.queryByRole('dialog', { name: /tu pedido/i })) return;
   fireEvent.click(await screen.findByRole('button', { name: /ver pedido/i }));
 }
 
@@ -158,6 +163,28 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   afterEach(() => {
     useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
     vi.clearAllMocks();
+  });
+
+  it('opens "Tu pedido" by itself after the first dish is added on a phone', async () => {
+    renderPage();
+
+    await addDishToCart();
+
+    expect(await screen.findByRole('dialog', { name: /tu pedido/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: /horario de retiro/i })).toBeInTheDocument();
+  });
+
+  it('does not reopen "Tu pedido" when a later dish is added after closing it', async () => {
+    renderPage();
+    await addDishToCart();
+    const sheet = await screen.findByRole('dialog', { name: /tu pedido/i });
+    fireEvent.keyDown(sheet, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument());
+
+    await addDishToCart();
+
+    await screen.findByRole('button', { name: /ver pedido/i });
+    expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument();
   });
 
   it('shows no daily illustration on phones (it is desktop only)', async () => {
@@ -395,7 +422,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
    * seguía en `true` — agregar el próximo plato la reabría sin que el
    * usuario lo pidiera.
    */
-  it('does not reopen the review sheet automatically after removing the only line and adding a dish again', async () => {
+  it('reopens the review sheet only because the emptied cart makes the next dish the first one again', async () => {
     renderPage();
 
     await addDishToCart();
@@ -410,7 +437,8 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
 
     await addDishToCart();
 
-    expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument();
+    // Con el carrito vacío, el plato que se agrega es de nuevo el primero (ver "opens by itself").
+    expect(await screen.findByRole('dialog', { name: /tu pedido/i })).toBeInTheDocument();
   });
 });
 
@@ -881,6 +909,8 @@ describe('B2cOrderPage — the cart is independent per day (F12)', () => {
     renderPage();
 
     await addDishToCart();
+    const sheet = await screen.findByRole('dialog', { name: /tu pedido/i });
+    fireEvent.keyDown(sheet, { key: 'Escape' });
     expect(await screen.findByRole('button', { name: /ver pedido/i })).toBeInTheDocument();
 
     fireEvent.click(dayButton(FUTURE_ISO)!);

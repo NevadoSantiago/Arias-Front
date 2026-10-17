@@ -127,6 +127,16 @@ describe('B2cOrderPage — onboarding tour hooks', () => {
     expect(document.querySelector('[data-tour="dish"]')).toBeNull();
   });
 
+  it('does not open "Tu pedido" by itself after the first dish while the tour is active', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /milanesa napolitana/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: /papas fritas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /agregar al pedido/i }));
+
+    await screen.findByRole('button', { name: /ver pedido/i });
+    expect(screen.queryByRole('dialog', { name: /tu pedido/i })).not.toBeInTheDocument();
+  });
+
   it('lets the tour close the sheets and empty the cart it built', async () => {
     const { controls } = renderPage();
     fireEvent.click(await screen.findByRole('button', { name: /milanesa napolitana/i }));
