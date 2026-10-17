@@ -28,6 +28,10 @@ const schema = z.object({
     .string()
     .min(8, 'La contraseña tiene que tener al menos 8 caracteres')
     .max(72, 'La contraseña es demasiado larga'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Las contraseñas no coinciden',
+  path: ['confirmPassword'],
 });
 type FormData = z.infer<typeof schema>;
 
@@ -47,6 +51,7 @@ const FIELD_MESSAGES: Record<keyof FormData, string> = {
   phone: 'Revisá el teléfono ingresado.',
   nickname: 'Ese apodo no es válido — probá con otro.',
   password: 'La contraseña no es válida.',
+  confirmPassword: 'Las contraseñas no coinciden',
 };
 
 function mapServerFieldErrors(detail: string): Partial<Record<keyof FormData, string>> {
@@ -90,7 +95,15 @@ export function RegisterForm() {
   const onSubmit = async (data: FormData) => {
     setServerError(null);
     try {
-      await performRegister({ ...data, lastName: data.lastName || undefined });
+      // confirmPassword is a client-side check only; never sent to the backend.
+      await performRegister({
+        firstName: data.firstName,
+        lastName: data.lastName || undefined,
+        email: data.email,
+        phone: data.phone,
+        nickname: data.nickname,
+        password: data.password,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Ocurrió un error. Probá de nuevo.';
       const fieldErrors = mapServerFieldErrors(message);
@@ -195,7 +208,7 @@ export function RegisterForm() {
 
         <div className="space-y-2">
           <Label htmlFor="password" className="uppercase tracking-brand text-xs">
-            Contraseña
+            Nueva contraseña
           </Label>
           <PasswordInput
             id="password"
@@ -207,6 +220,21 @@ export function RegisterForm() {
             <p className="text-destructive text-xs mt-1">{errors.password.message}</p>
           ) : (
             <p className="text-muted-foreground text-xs mt-1">Mínimo 8 caracteres</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword" className="uppercase tracking-brand text-xs">
+            Repita la contraseña
+          </Label>
+          <PasswordInput
+            id="confirmPassword"
+            autoComplete="new-password"
+            aria-invalid={!!errors.confirmPassword}
+            {...registerField('confirmPassword')}
+          />
+          {errors.confirmPassword && (
+            <p className="text-destructive text-xs mt-1">{errors.confirmPassword.message}</p>
           )}
         </div>
 

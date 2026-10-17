@@ -43,7 +43,8 @@ describe('RegisterForm', () => {
   it('validates the password length client-side before submitting', async () => {
     renderForm();
     fillValidFormExceptPassword();
-    fireEvent.change(screen.getByLabelText(/^contraseña$/i), { target: { value: 'short' } });
+    fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'short' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'short' } });
 
     fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
 
@@ -51,11 +52,35 @@ describe('RegisterForm', () => {
     expect(register).not.toHaveBeenCalled();
   });
 
+  it('shows a mismatch error and does not submit when the passwords differ', async () => {
+    renderForm();
+    fillValidFormExceptPassword();
+    fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password124' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
+
+    expect(await screen.findByText('Las contraseñas no coinciden')).toBeInTheDocument();
+    expect(register).not.toHaveBeenCalled();
+  });
+
+  it('gives each password field its own show/hide toggle', () => {
+    renderForm();
+
+    const toggles = screen.getAllByRole('button', { name: 'Mostrar contraseña' });
+    expect(toggles).toHaveLength(2);
+
+    fireEvent.click(toggles[1]);
+    expect(screen.getByLabelText(/^repita la contraseña$/i)).toHaveAttribute('type', 'text');
+    expect(screen.getByLabelText(/^nueva contraseña$/i)).toHaveAttribute('type', 'password');
+  });
+
   it('navigates to the verify-email step and never logs the user in on success', async () => {
     vi.mocked(register).mockResolvedValueOnce(undefined);
     renderForm();
     fillValidFormExceptPassword();
-    fireEvent.change(screen.getByLabelText(/^contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
 
     fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
 
@@ -68,6 +93,7 @@ describe('RegisterForm', () => {
       nickname: 'Anita',
       password: 'password123',
     });
+    expect(vi.mocked(register).mock.calls[0][0]).not.toHaveProperty('confirmPassword');
   });
 
   it('accepts a 10-digit phone typed with spaces and dashes and sends only the digits', async () => {
@@ -75,7 +101,8 @@ describe('RegisterForm', () => {
     renderForm();
     fillValidFormExceptPassword();
     fireEvent.change(screen.getByLabelText(/^teléfono$/i), { target: { value: '11 5987-6547' } });
-    fireEvent.change(screen.getByLabelText(/^contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
 
     fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
 
@@ -89,7 +116,8 @@ describe('RegisterForm', () => {
       renderForm();
       fillValidFormExceptPassword();
       fireEvent.change(screen.getByLabelText(/^teléfono$/i), { target: { value: phone } });
-      fireEvent.change(screen.getByLabelText(/^contraseña$/i), { target: { value: 'password123' } });
+      fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
 
       fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
 
@@ -102,7 +130,8 @@ describe('RegisterForm', () => {
     vi.mocked(register).mockRejectedValueOnce(new Error('phone: must not be blank'));
     renderForm();
     fillValidFormExceptPassword();
-    fireEvent.change(screen.getByLabelText(/^contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
 
     fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
 
