@@ -31,7 +31,7 @@ function renderForm() {
 function fillValidFormExceptPassword() {
   fireEvent.change(screen.getByLabelText(/^nombre$/i), { target: { value: 'Ana' } });
   fireEvent.change(screen.getByLabelText(/^email$/i), { target: { value: 'ana@example.com' } });
-  fireEvent.change(screen.getByLabelText(/^teléfono$/i), { target: { value: '1159876547' } });
+  fireEvent.change(screen.getByLabelText(/^celular$/i), { target: { value: '1159876547' } });
   fireEvent.change(screen.getByLabelText(/cómo querés que te llamemos/i), { target: { value: 'Anita' } });
 }
 
@@ -89,25 +89,54 @@ describe('RegisterForm', () => {
       firstName: 'Ana',
       lastName: undefined,
       email: 'ana@example.com',
-      phone: '1159876547',
+      phone: '+5491159876547',
       nickname: 'Anita',
       password: 'password123',
     });
     expect(vi.mocked(register).mock.calls[0][0]).not.toHaveProperty('confirmPassword');
   });
 
-  it('accepts a 10-digit phone typed with spaces and dashes and sends only the digits', async () => {
+  it('accepts a 10-digit phone typed with spaces and dashes and sends it as E.164', async () => {
     vi.mocked(register).mockResolvedValueOnce(undefined);
     renderForm();
     fillValidFormExceptPassword();
-    fireEvent.change(screen.getByLabelText(/^teléfono$/i), { target: { value: '11 5987-6547' } });
+    fireEvent.change(screen.getByLabelText(/^celular$/i), { target: { value: '11 5987-6547' } });
     fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
     fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
 
     fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
 
     await vi.waitFor(() => expect(register).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(register).mock.calls[0][0].phone).toBe('1159876547');
+    expect(vi.mocked(register).mock.calls[0][0].phone).toBe('+5491159876547');
+  });
+
+  it('sends the E.164 number of the selected country', async () => {
+    vi.mocked(register).mockResolvedValueOnce(undefined);
+    renderForm();
+    fillValidFormExceptPassword();
+    expect(screen.getByLabelText('País')).toHaveValue('AR');
+    fireEvent.change(screen.getByLabelText('País'), { target: { value: 'UY' } });
+    fireEvent.change(screen.getByLabelText(/^celular$/i), { target: { value: '99 123 456' } });
+    fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
+
+    await vi.waitFor(() => expect(register).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(register).mock.calls[0][0].phone).toBe('+59899123456');
+  });
+
+  it('attaches a server phone error to the number field', async () => {
+    vi.mocked(register).mockRejectedValueOnce(new Error('Ese teléfono ya está asociado a una cuenta'));
+    renderForm();
+    fillValidFormExceptPassword();
+    fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
+    fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
+
+    expect(await screen.findByText(/ese teléfono ya está asociado/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^celular$/i)).toHaveAttribute('aria-invalid', 'true');
   });
 
   it.each(['115987654', '11598765478', '+54 9 11 5987-6547'])(
@@ -115,7 +144,7 @@ describe('RegisterForm', () => {
     async (phone) => {
       renderForm();
       fillValidFormExceptPassword();
-      fireEvent.change(screen.getByLabelText(/^teléfono$/i), { target: { value: phone } });
+      fireEvent.change(screen.getByLabelText(/^celular$/i), { target: { value: phone } });
       fireEvent.change(screen.getByLabelText(/^nueva contraseña$/i), { target: { value: 'password123' } });
     fireEvent.change(screen.getByLabelText(/^repita la contraseña$/i), { target: { value: 'password123' } });
 

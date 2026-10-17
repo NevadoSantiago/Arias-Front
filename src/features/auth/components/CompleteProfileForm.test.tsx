@@ -29,7 +29,7 @@ function renderForm() {
 }
 
 function submit(phone: string) {
-  fireEvent.change(screen.getByLabelText(/^teléfono$/i), { target: { value: phone } });
+  fireEvent.change(screen.getByLabelText(/^celular$/i), { target: { value: phone } });
   fireEvent.change(screen.getByLabelText(/cómo querés que te llamemos/i), { target: { value: 'Anita' } });
   fireEvent.click(screen.getByRole('button', { name: /continuar/i }));
 }
@@ -42,20 +42,34 @@ describe('CompleteProfileForm — phone', () => {
   it('asks for a 10-digit mobile with a numeric keyboard', () => {
     renderForm();
 
-    const input = screen.getByLabelText(/^teléfono$/i);
+    const input = screen.getByLabelText(/^celular$/i);
     expect(input).toHaveAttribute('placeholder', '1159876547');
     expect(input).toHaveAttribute('inputmode', 'numeric');
     expect(screen.getByText(/sin 0 ni 15/i)).toBeInTheDocument();
   });
 
-  it('sends only the 10 digits when the phone is typed with spaces and dashes', async () => {
+  it('sends the E.164 number when the phone is typed with spaces and dashes', async () => {
     vi.mocked(completeProfile).mockResolvedValueOnce({ role: 'EMPLOYEE' } as never);
     renderForm();
 
     submit('11 5987-6547');
 
     await waitFor(() => expect(completeProfile).toHaveBeenCalledTimes(1));
-    expect(completeProfile).toHaveBeenCalledWith({ phone: '1159876547', nickname: 'Anita' });
+    expect(completeProfile).toHaveBeenCalledWith({ phone: '+5491159876547', nickname: 'Anita' });
+  });
+
+  it('sends the E.164 number of the selected country', async () => {
+    vi.mocked(completeProfile).mockResolvedValueOnce({ role: 'EMPLOYEE' } as never);
+    renderForm();
+
+    expect(screen.getByLabelText('País')).toHaveValue('AR');
+    fireEvent.change(screen.getByLabelText('País'), { target: { value: 'UY' } });
+    expect(screen.getByLabelText(/^celular$/i)).not.toHaveAttribute('placeholder', '1159876547');
+    expect(screen.queryByText(/sin 0 ni 15/i)).not.toBeInTheDocument();
+    submit('99123456');
+
+    await waitFor(() => expect(completeProfile).toHaveBeenCalledTimes(1));
+    expect(completeProfile).toHaveBeenCalledWith({ phone: '+59899123456', nickname: 'Anita' });
   });
 
   it.each(['115987654', '11598765478', '+54 9 11 5987-6547'])('rejects %s', async (phone) => {

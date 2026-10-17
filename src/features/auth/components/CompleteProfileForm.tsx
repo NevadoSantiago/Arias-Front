@@ -1,20 +1,22 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuthActions } from '../hooks/useAuthActions';
-import { phoneSchema } from '../lib/phone';
+import { buildE164, phoneFields, refinePhone } from '../lib/phone';
+import { DEFAULT_COUNTRY } from '../lib/countries';
+import { PhoneField } from './PhoneField';
 
 const schema = z.object({
-  phone: phoneSchema,
+  ...phoneFields,
   nickname: z
     .string()
     .min(2, 'El apodo tiene que tener al menos 2 caracteres')
     .max(50),
-});
+}).superRefine(refinePhone);
 type FormData = z.infer<typeof schema>;
 
 /**
@@ -29,15 +31,20 @@ export function CompleteProfileForm() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { phoneCountry: DEFAULT_COUNTRY },
   });
+  const phoneCountry = useWatch({ control, name: 'phoneCountry' });
 
   const onSubmit = async (data: FormData) => {
     setServerError(null);
     try {
-      await performCompleteProfile(data);
+      const phone = buildE164(data.phoneCountry, data.phoneNumber);
+      // The schema already rejected invalid numbers, so this is always ok.
+      await performCompleteProfile({ phone: phone.ok ? phone.value : '', nickname: data.nickname });
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Ocurrió un error. Probá de nuevo.');
     }
@@ -45,26 +52,13 @@ export function CompleteProfileForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-      <div className="space-y-2">
-        <Label htmlFor="phone" className="uppercase tracking-brand text-xs">
-          Teléfono
-        </Label>
-        <Input
-          id="phone"
-          type="tel"
-          inputMode="numeric"
-          autoComplete="tel"
-          autoFocus
-          placeholder="1159876547"
-          aria-invalid={!!errors.phone}
-          {...register('phone')}
-        />
-        {errors.phone ? (
-          <p className="text-destructive text-xs mt-1">{errors.phone.message}</p>
-        ) : (
-          <p className="text-muted-foreground text-xs mt-1">Sin 0 ni 15. Ej: 1159876547</p>
-        )}
-      </div>
+      <PhoneField
+        countryRegistration={register('phoneCountry')}
+        numberRegistration={register('phoneNumber')}
+        country={phoneCountry}
+        error={errors.phoneNumber?.message}
+        autoFocus
+      />
 
       <div className="space-y-2">
         <Label htmlFor="nickname" className="uppercase tracking-brand text-xs">

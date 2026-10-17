@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { useAuthActions } from '../hooks/useAuthActions';
-import { phoneSchema } from '../lib/phone';
+import { buildE164, phoneFields, refinePhone } from '../lib/phone';
+import { DEFAULT_COUNTRY } from '../lib/countries';
+import { PhoneField } from './PhoneField';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 import { GoogleSignInSection } from './GoogleSignInSection';
 import { GoogleWelcomeScreen } from './GoogleWelcomeScreen';
@@ -19,7 +21,7 @@ const schema = z.object({
     .max(100),
   lastName: z.string().max(100).optional().or(z.literal('')),
   email: z.string().min(1, 'Ingresá tu email').email('El formato del email no es válido').max(255),
-  phone: phoneSchema,
+  ...phoneFields,
   nickname: z
     .string()
     .min(2, 'El apodo tiene que tener al menos 2 caracteres')
@@ -29,10 +31,12 @@ const schema = z.object({
     .min(8, 'La contraseña tiene que tener al menos 8 caracteres')
     .max(72, 'La contraseña es demasiado larga'),
   confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Las contraseñas no coinciden',
-  path: ['confirmPassword'],
-});
+})
+  .superRefine(refinePhone)
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  });
 type FormData = z.infer<typeof schema>;
 
 /**
@@ -48,7 +52,8 @@ const FIELD_MESSAGES: Record<keyof FormData, string> = {
   firstName: 'Revisá el nombre ingresado.',
   lastName: 'Revisá el apellido ingresado.',
   email: 'Revisá el email ingresado.',
-  phone: 'Revisá el teléfono ingresado.',
+  phoneCountry: 'Revisá el país ingresado.',
+  phoneNumber: 'Revisá el teléfono ingresado.',
   nickname: 'Ese apodo no es válido — probá con otro.',
   password: 'La contraseña no es válida.',
   confirmPassword: 'Las contraseñas no coinciden',
@@ -57,7 +62,9 @@ const FIELD_MESSAGES: Record<keyof FormData, string> = {
 function mapServerFieldErrors(detail: string): Partial<Record<keyof FormData, string>> {
   const structural: Partial<Record<keyof FormData, string>> = {};
   for (const part of detail.split(';')) {
-    const field = part.split(':')[0]?.trim();
+    const rawField = part.split(':')[0]?.trim();
+    // The backend names the field `phone`; in the form it is `phoneNumber`.
+    const field = rawField === 'phone' ? 'phoneNumber' : rawField;
     if (field && field in FIELD_MESSAGES) {
       structural[field as keyof FormData] = FIELD_MESSAGES[field as keyof FormData];
     }
@@ -70,12 +77,18 @@ function mapServerFieldErrors(detail: string): Partial<Record<keyof FormData, st
   // asociado a una cuenta") — el mensaje del backend ya es user-facing.
   const lower = detail.toLowerCase();
   if (lower.includes('teléfono') || lower.includes('telefono')) {
-    return { phone: detail };
+    return { phoneNumber: detail };
   }
   if (lower.includes('apodo')) {
     return { nickname: detail };
   }
   return {};
+}
+
+function phoneE164(data: FormData): string {
+  const result = buildE164(data.phoneCountry, data.phoneNumber);
+  // The schema already rejected invalid numbers, so this is always ok.
+  return result.ok ? result.value : '';
 }
 
 export function RegisterForm() {
@@ -87,10 +100,13 @@ export function RegisterForm() {
     register: registerField,
     handleSubmit,
     setError,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { phoneCountry: DEFAULT_COUNTRY },
   });
+  const phoneCountry = useWatch({ control, name: 'phoneCountry' });
 
   const onSubmit = async (data: FormData) => {
     setServerError(null);
@@ -100,7 +116,7 @@ export function RegisterForm() {
         firstName: data.firstName,
         lastName: data.lastName || undefined,
         email: data.email,
-        phone: data.phone,
+        phone: phoneE164(data),
         nickname: data.nickname,
         password: data.password,
       });
@@ -171,25 +187,12 @@ export function RegisterForm() {
           {errors.email && <p className="text-destructive text-xs mt-1">{errors.email.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="phone" className="uppercase tracking-brand text-xs">
-            Teléfono
-          </Label>
-          <Input
-            id="phone"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel"
-            placeholder="1159876547"
-            aria-invalid={!!errors.phone}
-            {...registerField('phone')}
-          />
-          {errors.phone ? (
-            <p className="text-destructive text-xs mt-1">{errors.phone.message}</p>
-          ) : (
-            <p className="text-muted-foreground text-xs mt-1">Sin 0 ni 15. Ej: 1159876547</p>
-          )}
-        </div>
+        <PhoneField
+          countryRegistration={registerField('phoneCountry')}
+          numberRegistration={registerField('phoneNumber')}
+          country={phoneCountry}
+          error={errors.phoneNumber?.message}
+        />
 
         <div className="space-y-2">
           <Label htmlFor="nickname" className="uppercase tracking-brand text-xs">
