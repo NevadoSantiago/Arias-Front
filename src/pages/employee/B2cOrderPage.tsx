@@ -92,28 +92,37 @@ function isoWeekdayOf(date: string): number {
   return day === 0 ? 7 : day;
 }
 
-type PickupWindowDisplay = { kind: 'open'; start: string; end: string } | { kind: 'closed' } | null;
+type PickupAvailability = { kind: 'open' } | { kind: 'closed' };
+
+/** "HH:MM" de `now` en hora local (mismo formato que `windowEnd`, comparable como texto). */
+function localHHMM(now: Date): string {
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
 
 /**
- * Franja de retiro a mostrar para el día SELECCIONADO (F14b) — reemplaza el
- * par global deprecated `pickupWindowStart/End` (F2/F3.1) por
- * `pickupSchedule` del día de la semana correspondiente. Tolerante a un
- * backend viejo sin `pickupSchedule`: cae al par global, y si tampoco está,
- * no muestra nada (mismo comportamiento que antes de F14).
+ * Si el retiro del día SELECCIONADO figura como cerrado (F14b): el día de la
+ * semana está cerrado en `pickupSchedule`, o es hoy y la hora actual ya llegó
+ * al fin de la franja. No se muestra el rango: solo "Cerrado" cuando aplica.
+ * Tolerante a un backend viejo sin `pickupSchedule`: cae al par global
+ * deprecated `pickupWindowStart/End` y, si tampoco está, queda abierto.
  */
-function pickupWindowDisplayFor(config: RestaurantConfig | undefined, selectedDate: string): PickupWindowDisplay {
-  if (!config) return null;
+function pickupAvailabilityFor(
+  config: RestaurantConfig | undefined,
+  selectedDate: string,
+  todayStr: string,
+  now: Date,
+): PickupAvailability {
+  if (!config) return { kind: 'open' };
   const day = config.pickupSchedule?.find((d) => d.dayOfWeek === isoWeekdayOf(selectedDate));
+  let windowEnd: string | null | undefined;
   if (day) {
-    if (day.open && day.windowStart && day.windowEnd) {
-      return { kind: 'open', start: day.windowStart, end: day.windowEnd };
-    }
-    return { kind: 'closed' };
+    if (!day.open || !day.windowStart || !day.windowEnd) return { kind: 'closed' };
+    windowEnd = day.windowEnd;
+  } else if (config.pickupWindowStart && config.pickupWindowEnd) {
+    windowEnd = config.pickupWindowEnd;
   }
-  if (config.pickupWindowStart && config.pickupWindowEnd) {
-    return { kind: 'open', start: config.pickupWindowStart, end: config.pickupWindowEnd };
-  }
-  return null;
+  if (windowEnd && selectedDate === todayStr && localHHMM(now) >= windowEnd) return { kind: 'closed' };
+  return { kind: 'open' };
 }
 
 interface DoneData {
@@ -742,23 +751,12 @@ export function B2cOrderPage() {
                 {isToday ? 'Menú de hoy' : 'Pedido programado'}
               </span>
 
-              {(() => {
-                const windowDisplay = pickupWindowDisplayFor(config, selectedDate);
-                if (!windowDisplay) return null;
-                return (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                    <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
-                    {windowDisplay.kind === 'open' ? (
-                      <span>
-                        <span className="sr-only">Horario de retiro: </span>
-                        {windowDisplay.start} – {windowDisplay.end}
-                      </span>
-                    ) : (
-                      <span>Cerrado ese día</span>
-                    )}
-                  </span>
-                );
-              })()}
+              {pickupAvailabilityFor(config, selectedDate, todayStr, now).kind === 'closed' && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
+                  <span>Cerrado</span>
+                </span>
+              )}
             </div>
           </div>
 

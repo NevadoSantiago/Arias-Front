@@ -526,7 +526,8 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
     expect(screen.queryByText('¿Qué querés comer hoy?')).not.toBeInTheDocument();
   });
 
-  it('shows the pickup window from the restaurant config next to a clock icon', async () => {
+  it('never renders the pickup hours range, and shows nothing while inside the window', async () => {
+    vi.setSystemTime(new Date('2026-06-01T12:00:00')); // lunes, dentro del rango
     vi.mocked(getOrdersV2).mockResolvedValue([]);
     vi.mocked(getRestaurantConfig).mockResolvedValue({
       horaCorte: '10:00',
@@ -536,7 +537,14 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     renderPage();
 
-    expect(await screen.findByText('11:30 – 22:45')).toBeInTheDocument();
+    expect(await screen.findByText('Menú de hoy')).toBeInTheDocument();
+    await waitFor(() => expect(getRestaurantConfig).toHaveBeenCalled());
+    expect(screen.queryByText(/11:30/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/22:45/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/horario de retiro:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cerrado/i)).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   /**
@@ -547,7 +555,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
    * ese día tiene un chip de "hoy" propio cuando cae en fin de semana (F13);
    * el lunes de la semana siguiente ya es clickeable desde ese mismo chip.
    */
-  it("shows the selected day's own window from pickupSchedule (Saturday, then Monday)", async () => {
+  it('shows no hours range nor the closed label for an open day inside its window (Saturday, then Monday)', async () => {
     vi.setSystemTime(new Date('2026-09-26T09:00:00'));
     vi.mocked(getOrdersV2).mockResolvedValue([]);
     vi.mocked(getRestaurantConfig).mockResolvedValue({
@@ -567,19 +575,24 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     renderPage();
 
-    expect(await screen.findByText('10:00 – 15:00')).toBeInTheDocument();
+    // Sábado 09:00, la ventana (10:00-15:00) todavía no terminó: ni rango ni "Cerrado".
+    expect(await screen.findByText('Menú de hoy')).toBeInTheDocument();
+    expect(screen.queryByText(/10:00/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cerrado/i)).not.toBeInTheDocument();
 
     const mondayButton = screen.getByText('Lu').closest('button');
     fireEvent.click(mondayButton!);
 
-    expect(await screen.findByText('08:00 – 20:00')).toBeInTheDocument();
-    expect(screen.queryByText('10:00 – 15:00')).not.toBeInTheDocument();
+    expect(await screen.findByText('Pedido programado')).toBeInTheDocument();
+    expect(screen.queryByText(/08:00/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/20:00/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cerrado/i)).not.toBeInTheDocument();
 
     vi.useRealTimers();
   });
 
   /** F14b: un día cerrado en `pickupSchedule` muestra un texto de cerrado en vez de un rango. */
-  it('shows a closed message instead of a time range for a closed weekday', async () => {
+  it('shows "Cerrado" for a closed weekday', async () => {
     vi.setSystemTime(new Date('2026-06-01T09:00:00')); // lunes
     vi.mocked(getOrdersV2).mockResolvedValue([]);
     vi.mocked(getRestaurantConfig).mockResolvedValue({
@@ -599,14 +612,16 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     renderPage();
 
-    expect(await screen.findByText(/cerrado ese día/i)).toBeInTheDocument();
+    expect(await screen.findByText('Cerrado')).toBeInTheDocument();
+    expect(screen.queryByText(/ese día/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/–/)).not.toBeInTheDocument();
 
     vi.useRealTimers();
   });
 
-  /** F14b: tolerancia a un backend viejo sin `pickupSchedule` — cae al par global. */
-  it('falls back to the global pickupWindowStart/End when pickupSchedule is missing', async () => {
+  /** Backend viejo sin `pickupSchedule`: usa el par global solo para decidir "Cerrado". */
+  it('falls back to the global window to decide "Cerrado" when pickupSchedule is missing', async () => {
+    vi.setSystemTime(new Date('2026-06-02T23:00:00')); // martes, después del cierre global
     vi.mocked(getOrdersV2).mockResolvedValue([]);
     vi.mocked(getRestaurantConfig).mockResolvedValue({
       horaCorte: '10:00',
@@ -616,7 +631,41 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     renderPage();
 
-    expect(await screen.findByText('11:30 – 22:45')).toBeInTheDocument();
+    expect(await screen.findByText('Cerrado')).toBeInTheDocument();
+    expect(screen.queryByText(/22:45/)).not.toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  it('shows "Cerrado" today once the window already ended, and not for a future open day', async () => {
+    vi.setSystemTime(new Date('2026-06-02T21:00:00')); // martes 21:00
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+    const open = (dayOfWeek: number) => ({ dayOfWeek, open: true, windowStart: '11:00', windowEnd: '20:00' });
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00',
+      pickupWindowStart: '11:00',
+      pickupWindowEnd: '20:00',
+      pickupSchedule: [
+        open(1),
+        open(2),
+        open(3),
+        open(4),
+        open(5),
+        open(6),
+        { dayOfWeek: 7, open: false, windowStart: null, windowEnd: null },
+      ],
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('Cerrado')).toBeInTheDocument();
+    expect(screen.queryByText(/20:00/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByText('Mi')[0].closest('button')!); // miércoles, futuro y abierto
+    expect(await screen.findByText('Pedido programado')).toBeInTheDocument();
+    expect(screen.queryByText('Cerrado')).not.toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 });
 
