@@ -318,14 +318,16 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
                   </button>
                 </div>
               ))}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => onEntregar(stale)}
-                className="mt-2 min-h-[44px] self-end rounded bg-[#2B5C8F] px-[18px] text-xs font-semibold uppercase tracking-brand text-primary-foreground hover:bg-[#244E79] disabled:opacity-60"
-              >
-                {stale.length === 1 ? 'Marcar como entregado' : `Marcar los ${stale.length} como entregados`}
-              </button>
+              {stale.length > 1 && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onEntregar(stale)}
+                  className="mt-2 min-h-[44px] self-end rounded bg-[#2B5C8F] px-[18px] text-xs font-semibold uppercase tracking-brand text-primary-foreground hover:bg-[#244E79] disabled:opacity-60"
+                >
+                  {`Marcar los ${stale.length} como entregados`}
+                </button>
+              )}
             </div>
           )}
         </div>

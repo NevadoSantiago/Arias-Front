@@ -82,3 +82,26 @@ describe('KitchenBoardView — scheduled box', () => {
     expect(screen.getByText(/pasan solos a confirmados a la hora indicada, o confirmalos vos/i)).toBeInTheDocument();
   });
 });
+
+describe('KitchenBoardView — commanded box, stale list', () => {
+  const stale = (id: number) => ({ ...order(id, '11:00'), estado: 'COMANDADO' as const, comandadoAt: at('10:50') });
+
+  const openStaleList = () => fireEvent.click(screen.getByRole('button', { name: /Retiro hace más de/ }));
+
+  it('offers a single Entregado button when only one stale order is listed', () => {
+    renderBoard([stale(1)]);
+    openStaleList();
+
+    expect(screen.getByRole('button', { name: 'Entregado, pedido N° 1' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Marcar como entregado' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the bulk button when two or more stale orders are listed', () => {
+    renderBoard([stale(1), stale(2)]);
+    openStaleList();
+
+    expect(screen.getByRole('button', { name: 'Entregado, pedido N° 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregado, pedido N° 2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Marcar los 2 como entregados' })).toBeInTheDocument();
+  });
+});
