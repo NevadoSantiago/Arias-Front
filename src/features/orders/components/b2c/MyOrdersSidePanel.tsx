@@ -1,6 +1,7 @@
 import { Clock3, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import pedidoConfirmado from '@/assets/illustrations/PedidoConfirmado-transparente.svg';
+import { GINGHAM_STYLE } from '@/lib/gingham';
 import { formatLunches } from '../../lunches';
 
 interface Props {
@@ -30,29 +31,28 @@ export function MyOrdersSidePanel({ available, committed, cancelLimitMinutes }: 
     <aside aria-label="Resumen" className="sticky top-6 flex flex-col gap-4">
       <section
         aria-labelledby="my-orders-balance-title"
-        className="flex flex-col gap-3.5 rounded-xl bg-foreground p-5 text-background"
+        className="flex flex-col gap-3.5 rounded-xl border-[1.5px] p-5 shadow-[0_2px_10px_rgba(26,17,15,0.08)]"
+        style={GINGHAM_STYLE}
       >
-        <h2
-          id="my-orders-balance-title"
-          className="m-0 text-[11px] font-semibold uppercase tracking-brand opacity-80"
-        >
+        <h2 id="my-orders-balance-title" className="m-0 text-[11px] font-semibold uppercase tracking-brand text-[#67514C]">
           Tu saldo
         </h2>
         <div className="flex items-baseline gap-2.5">
-          <span className="font-display text-[52px] font-black leading-none">{available ?? '–'}</span>
-          <span className="text-sm opacity-80">almuerzos para pedir</span>
+          <span className="font-display text-[52px] font-black leading-none text-primary-deep">{available ?? '–'}</span>
+          <span className="text-sm text-[#67514C]">almuerzos para pedir</span>
         </div>
         {committed !== null && (
-          <div className="flex items-center gap-2.5 text-[13.5px] opacity-90">
+          <div className="flex items-center gap-2.5 text-[13.5px] text-[#67514C]">
             <span aria-hidden="true" className="h-3 w-3 flex-none rounded-[3px] bg-primary" />
             <span>
-              <strong className="font-bold">{formatLunches(committed)}</strong> reservados en pedidos programados
+              <strong className="font-bold text-[#1A110F]">{formatLunches(committed)}</strong> reservados en pedidos
+              programados
             </span>
           </div>
         )}
         <Link
           to="/credits"
-          className="flex h-[46px] items-center justify-center rounded-md border-[1.5px] border-background/30 text-[13.5px] font-bold text-background no-underline"
+          className="flex h-[46px] items-center justify-center rounded-md border-[1.5px] border-primary-deep/40 bg-[#FFFCF5]/70 text-[13.5px] font-bold text-primary-deep no-underline"
         >
           Ver mis almuerzos
         </Link>

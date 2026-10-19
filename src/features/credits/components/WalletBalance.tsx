@@ -1,5 +1,6 @@
 import { CalendarDays, ChevronRight, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { GINGHAM_STYLE, PAPER } from '@/lib/gingham';
 import { cn } from '@/lib/utils';
 import { useWallet } from '../hooks/useWallet';
 
@@ -7,21 +8,8 @@ const RADIUS = 64;
 const STROKE = 14;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-/** Colores de la caja de saldo (tablero v28): caja clara con el mantel de Arias. */
-const PAPER = '#FFFCF5';
-const INK = '#1A110F';
+/** Color del segmento "disponibles" del anillo (tablero v28). */
 const AVAILABLE_COLOR = '#F4B5B6';
-
-/** Mantel a cuadros rojo suave: franjas de 12px que se repiten cada 24px, en horizontal y en vertical. */
-const GINGHAM_STYLE = {
-  backgroundColor: PAPER,
-  backgroundImage: [
-    'repeating-linear-gradient(90deg, rgba(220,44,46,0.08) 0 12px, transparent 12px 24px)',
-    'repeating-linear-gradient(0deg, rgba(220,44,46,0.08) 0 12px, transparent 12px 24px)',
-  ].join(', '),
-  borderColor: 'rgba(220,44,46,0.28)',
-  color: INK,
-} as const;
 
 function formatExpiry(expiresAt: string): string {
   return new Date(expiresAt).toLocaleDateString('es-AR', {
