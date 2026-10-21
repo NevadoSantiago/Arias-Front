@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { WalletBalance } from './WalletBalance';
@@ -9,14 +9,14 @@ vi.mock('../services/creditsApi', () => ({
   getWallet: vi.fn(),
 }));
 
-function renderWithClient() {
+function renderWithClient(onBuy?: () => void) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <WalletBalance />
+        <WalletBalance onBuy={onBuy} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -122,16 +122,17 @@ describe('WalletBalance', () => {
     expect(screen.queryByText(/vencen el/i)).not.toBeInTheDocument();
   });
 
-  it('links "Comprar más almuerzos" to /credits/packs', async () => {
+  it('"Comprar más almuerzos" is a button that calls onBuy', async () => {
     vi.mocked(getWallet).mockResolvedValueOnce({
       available: 3,
       committed: 0,
       expiresAt: null,
     });
 
-    renderWithClient();
+    const onBuy = vi.fn();
+    renderWithClient(onBuy);
 
-    const link = await screen.findByRole('link', { name: /comprar más almuerzos/i });
-    expect(link).toHaveAttribute('href', '/credits/packs');
+    fireEvent.click(await screen.findByRole('button', { name: /comprar más almuerzos/i }));
+    expect(onBuy).toHaveBeenCalledTimes(1);
   });
 });

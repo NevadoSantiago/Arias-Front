@@ -63,6 +63,16 @@ describe('BuyLunchesAside', () => {
     expect(screen.getByRole('complementary', { name: 'Comprar más almuerzos' })).toBeInTheDocument();
   });
 
+  it('shows the homemade "how it works" block between the title and the cards', async () => {
+    renderAside();
+
+    const block = await screen.findByRole('region', { name: /cómo funciona/i });
+    const title = screen.getByRole('heading', { name: 'Comprar más almuerzos' });
+    const group = screen.getByRole('radiogroup');
+    expect(title.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(block.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('summarizes the product, the total and the balance change', async () => {
     renderAside();
 
@@ -171,8 +181,10 @@ describe('BuyLunchesAside', () => {
 
   it('never says "créditos"', async () => {
     renderAside();
-    await screen.findByTestId('buy-summary');
-    expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
+    const summary = await screen.findByTestId('buy-summary');
+    // El bloque "¿Cómo funciona?" explica "1 almuerzo = 1 crédito" a propósito; el resto del panel no lo dice.
+    expect(within(summary).queryByText(/crédito/i)).not.toBeInTheDocument();
+    expect(within(screen.getByRole('radiogroup')).queryByText(/crédito/i)).not.toBeInTheDocument();
   });
 
   it('no longer repeats the "se suman a tu saldo" and expiry-days notes in the box', async () => {

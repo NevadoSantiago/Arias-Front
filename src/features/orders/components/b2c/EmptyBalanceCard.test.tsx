@@ -15,6 +15,6 @@ describe('EmptyBalanceCard', () => {
     expect(screen.queryByText(/crédito/i)).not.toBeInTheDocument();
 
     const link = screen.getByRole('link', { name: /comprar almuerzos/i });
-    expect(link).toHaveAttribute('href', '/credits/packs');
+    expect(link).toHaveAttribute('href', '/credits?comprar=1');
   });
 });

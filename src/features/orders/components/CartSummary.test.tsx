@@ -71,6 +71,6 @@ describe('CartSummary', () => {
 
     expect(screen.getByText(/no te alcanzan los almuerzos disponibles/i)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /comprá un paquete/i });
-    expect(link).toHaveAttribute('href', '/credits/packs');
+    expect(link).toHaveAttribute('href', '/credits?comprar=1');
   });
 });

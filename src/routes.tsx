@@ -13,7 +13,6 @@ import { TodayOrderPage } from '@/pages/employee/TodayOrderPage';
 import { OrderSummaryPage } from '@/pages/employee/OrderSummaryPage';
 import { MyOrdersPage } from '@/pages/orders/MyOrdersPage';
 import { CreditsWalletPage } from '@/pages/credits/CreditsWalletPage';
-import { CreditsPacksPage } from '@/pages/credits/CreditsPacksPage';
 import { CreditsCheckoutReturnPage } from '@/pages/credits/CreditsCheckoutReturnPage';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 import { AdminConfigPage } from '@/pages/admin/AdminConfigPage';
@@ -105,7 +104,7 @@ export const router = createBrowserRouter([
         ),
         children: [
           { path: '/credits', element: <CreditsWalletPage /> },
-          { path: '/credits/packs', element: <CreditsPacksPage /> },
+          { path: '/credits/packs', element: <Navigate to="/credits?comprar=1" replace /> },
           { path: '/compras/:purchaseId/procesando', element: <CreditsCheckoutReturnPage /> },
           { path: '/credits/checkout/exito', element: <CreditsCheckoutReturnPage /> },
           { path: '/credits/checkout/pendiente', element: <CreditsCheckoutReturnPage /> },

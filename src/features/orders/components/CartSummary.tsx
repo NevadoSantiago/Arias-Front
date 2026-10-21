@@ -53,7 +53,7 @@ export function CartSummary({ lines, onRemove, insufficientBalance }: Props) {
       {insufficientBalance && (
         <div className="p-3 rounded-md border border-warning/50 bg-warning/10 text-xs text-foreground">
           No te alcanzan los almuerzos disponibles para este pedido.{' '}
-          <Link to="/credits/packs" className="text-primary font-medium underline">
+          <Link to="/credits?comprar=1" className="text-primary font-medium underline">
             Comprá un paquete
           </Link>
         </div>

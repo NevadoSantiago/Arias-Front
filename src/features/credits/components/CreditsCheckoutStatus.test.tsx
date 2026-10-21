@@ -209,7 +209,7 @@ describe('CreditsCheckoutStatus', () => {
     expect(screen.getByText('Almuerzos en tu saldo')).toBeInTheDocument();
   });
 
-  it('offers a retry link to /credits/packs when the payment was rejected', async () => {
+  it('offers a retry link to /credits?comprar=1 when the payment was rejected', async () => {
     vi.mocked(getPurchase).mockResolvedValue({ ...pendingPurchase, status: 'REJECTED' });
 
     renderWithClient('p1');
@@ -219,7 +219,7 @@ describe('CreditsCheckoutStatus', () => {
 
     expect(screen.getByText(/el pago no se pudo completar/i)).toBeInTheDocument();
     const retryLink = screen.getByRole('link', { name: /intentar de nuevo/i });
-    expect(retryLink).toHaveAttribute('href', '/credits/packs');
+    expect(retryLink).toHaveAttribute('href', '/credits?comprar=1');
   });
 
   it('offers links to order and to the wallet once the purchase is approved', async () => {

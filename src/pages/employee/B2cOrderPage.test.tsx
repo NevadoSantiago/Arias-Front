@@ -387,7 +387,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
   /**
    * Corrección F7.1: `B2cOrderPage` usaba la clave `['creditWallet']`,
    * distinta de `['creditsWallet']` (el `useWallet` que respaldan el chip
-   * del header y `WalletBalance`, y `CreditsPacksPage`) — invalidar tras un
+   * del header y `WalletBalance`, y `BuyLunchesSheet`) — invalidar tras un
    * pedido no refrescaba el chip. Ahora comparten la misma clave.
    */
   it('invalidates the shared wallet cache key after a successful order, so the header stays in sync', async () => {

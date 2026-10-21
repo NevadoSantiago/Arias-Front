@@ -29,7 +29,7 @@ describe('credits — onboarding tour target for "buy more lunches"', () => {
 
     renderInApp(<WalletBalance />);
 
-    expect(await screen.findByRole('link', { name: /comprar más almuerzos/i })).toHaveAttribute('data-tour', 'buy');
+    expect(await screen.findByRole('button', { name: /comprar más almuerzos/i })).toHaveAttribute('data-tour', 'buy');
   });
 
   it('marks the purchase side panel on desktop, where there is no link to buy', () => {

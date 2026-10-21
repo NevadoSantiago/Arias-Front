@@ -316,7 +316,7 @@ function buildView(purchase: CreditPurchase, isDirect: boolean, gaveUp: boolean)
       },
       primary: isDirect
         ? { to: '/orders/today', label: 'Volver a pedir' }
-        : { to: '/credits/packs', label: 'Intentar de nuevo' },
+        : { to: '/credits?comprar=1', label: 'Intentar de nuevo' },
       secondary: { to: '/credits', label: 'Volver a mis almuerzos' },
       rootClass: gap4,
     };

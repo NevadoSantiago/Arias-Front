@@ -38,11 +38,14 @@ function ringSegments(available: number, committed: number) {
 
 interface Props {
   /**
-   * `card` (default, móvil): tarjeta apilada con "Comprar más almuerzos" que lleva a Paquetes.
+   * `card` (default, móvil): tarjeta apilada con "Comprar más almuerzos", que dispara `onBuy`
+   * (la página abre la hoja de compra).
    * `wide` (escritorio, F22c): anillo y cifras en horizontal, con "Pedir un almuerzo";
-   * la compra vive en el panel lateral de la página, así que no hay enlace a Paquetes.
+   * la compra vive en el panel lateral de la página, así que no hay botón de compra.
    */
   variant?: 'card' | 'wide';
+  /** Solo `card`: se llama al tocar "Comprar más almuerzos". */
+  onBuy?: () => void;
 }
 
 /**
@@ -52,7 +55,7 @@ interface Props {
  * total (spec `credits-ui`, decisión F2 de `design.md`) — el texto nunca
  * dice "créditos" (siempre "almuerzos").
  */
-export function WalletBalance({ variant = 'card' }: Props = {}) {
+export function WalletBalance({ variant = 'card', onBuy }: Props = {}) {
   const wide = variant === 'wide';
   const { data: wallet, isLoading, isError } = useWallet();
 
@@ -144,14 +147,15 @@ export function WalletBalance({ variant = 'card' }: Props = {}) {
         </>
       )}
 
-      <Link
-        to="/credits/packs"
+      <button
+        type="button"
         data-tour="buy"
-        className="flex h-[54px] items-center justify-center gap-2 rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground no-underline"
+        onClick={onBuy}
+        className="flex h-[54px] items-center justify-center gap-2 rounded-md bg-primary-deep text-sm font-bold uppercase tracking-brand text-primary-foreground"
       >
         <Plus className="h-[18px] w-[18px]" aria-hidden="true" />
         Comprar más almuerzos
-      </Link>
+      </button>
     </div>
   );
 }

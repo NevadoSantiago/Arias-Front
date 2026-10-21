@@ -137,7 +137,7 @@ describe('CreditsCheckoutStatus on desktop (F22d)', () => {
     const left = within(statusColumn());
     expect(left.getByRole('heading', { level: 1, name: 'No se pudo completar el pago' })).toBeInTheDocument();
     expect(left.getByRole('alert')).toHaveTextContent('No se acreditó ningún almuerzo');
-    expect(left.getByRole('link', { name: 'Intentar de nuevo' })).toHaveAttribute('href', '/credits/packs');
+    expect(left.getByRole('link', { name: 'Intentar de nuevo' })).toHaveAttribute('href', '/credits?comprar=1');
     expect(within(detailsColumn()).getByText('Rechazado')).toBeInTheDocument();
   });
 

@@ -7,6 +7,8 @@ import { planPurchase, resolveSelection, type PurchaseSelection } from '../purch
 import { PackNudge } from './PackNudge';
 import { LooseSummaryCard } from './LooseSummaryCard';
 import { PackSummaryCard } from './PackSummaryCard';
+import { HowItWorks } from './HowItWorks';
+import { catalogAmounts } from '../howItWorksCopy';
 
 const MIN_QTY = 1;
 const NUDGE_FROM = 4;
@@ -14,9 +16,9 @@ const NUDGE_FROM = 4;
 /**
  * Panel "Comprar más almuerzos" de Mis almuerzos en escritorio (F22c, prototipo
  * `DesktopCredits.dc.html`): elegís Sueltos / Semana / Mes y comprás EN EL LUGAR,
- * sin pasar por la página de Paquetes. Usa el mismo catálogo (`/packs`), el mismo
- * plan de compra (`planPurchase`) y la misma mutación con redirección a Mercado
- * Pago que `CreditsPacksPage`, así que los resultados de la compra son los mismos.
+ * sin pasar por otra página. Usa el mismo catálogo (`/packs`), el mismo plan de
+ * compra (`planPurchase`) y la misma mutación con redirección a Mercado Pago que
+ * `BuyLunchesSheet` (celular), así que los resultados de la compra son los mismos.
  */
 export function BuyLunchesAside() {
   const { catalog, isLoading, isError, isEmpty } = usePackCatalog();
@@ -50,6 +52,8 @@ export function BuyLunchesAside() {
 
       {!isLoading && !isError && !isEmpty && (
         <>
+          <HowItWorks packAmounts={catalogAmounts(catalog)} />
+
           <div role="radiogroup" aria-labelledby="buy-lunches-title" className="flex flex-col gap-3">
             {dayPack && (
               <LooseSummaryCard

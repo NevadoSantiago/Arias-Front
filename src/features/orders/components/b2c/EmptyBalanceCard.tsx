@@ -16,7 +16,7 @@ export function EmptyBalanceCard() {
         Cargá almuerzos para pedir tu plato. Con un paquete, cada almuerzo te sale más barato.
       </p>
       <Link
-        to="/credits/packs"
+        to="/credits?comprar=1"
         className="mt-1 flex h-11 items-center rounded-md bg-primary-deep px-5 text-sm font-bold text-primary-foreground no-underline"
       >
         Comprar almuerzos

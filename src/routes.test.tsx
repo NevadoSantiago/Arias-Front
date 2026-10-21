@@ -38,6 +38,17 @@ describe('admin routes', () => {
   });
 });
 
+describe('credits routes', () => {
+  it('redirects the old packs page to the purchase sheet on "Mis almuerzos"', () => {
+    const el = find('/credits/packs')?.element;
+    expect(isValidElement(el) && el.type).toBe(Navigate);
+    expect(isValidElement(el) && (el.props as { to: string; replace?: boolean })).toMatchObject({
+      to: '/credits?comprar=1',
+      replace: true,
+    });
+  });
+});
+
 describe('onboarding tour', () => {
   it('mounts the tour provider above every route, so it survives navigation between screens', () => {
     const root = router.routes.find((r) => r.path === undefined && !!r.children?.length && r.children.some((c) => c.path === '/' || c.path === '*'));

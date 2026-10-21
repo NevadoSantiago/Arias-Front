@@ -157,7 +157,7 @@ describe('OrderPayDirectSheet', () => {
       renderSheet({ walletAvailable: 1, totalLunches: 2 });
 
       expect(await screen.findByText(/paquete semana/i)).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Ver paquetes' })).toHaveAttribute('href', '/credits/packs');
+      expect(screen.getByRole('link', { name: 'Ver paquetes' })).toHaveAttribute('href', '/credits?comprar=1');
     });
 
     it('keeps the full-order copy and amount with an empty balance', async () => {
@@ -185,7 +185,7 @@ describe('OrderPayDirectSheet', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the cheaper pack callout with the savings and a link to /credits/packs', async () => {
+  it('shows the cheaper pack callout with the savings and a link to /credits?comprar=1', async () => {
     vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
     renderSheet({ totalLunches: 2 });
 
@@ -193,7 +193,7 @@ describe('OrderPayDirectSheet', () => {
     // varios nodos — se compara contra el textContent completo del párrafo.
     const packName = await screen.findByText('Paquete Semana');
     expect(packName.closest('span')).toHaveTextContent(/cada almuerzo te sale \$\s?1\.200,00 \(ahorrás 20%\)/i);
-    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits/packs');
+    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits?comprar=1');
   });
 
   it('hides the callout when no named pack is cheaper per lunch than DAY', async () => {
@@ -245,7 +245,7 @@ describe('OrderPayDirectSheet', () => {
     ).toBeInTheDocument();
     const payButton = screen.getByRole('button', { name: /con mercado pago/i });
     expect(payButton).toBeDisabled();
-    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits/packs');
+    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits?comprar=1');
   });
 
   it('disables the pay button and explains the price could not be calculated when getPacks fails', async () => {
@@ -256,7 +256,7 @@ describe('OrderPayDirectSheet', () => {
       await screen.findByText(/no pudimos calcular el precio\. probá de nuevo en un momento o comprá un paquete/i),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /con mercado pago/i })).toBeDisabled();
-    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits/packs');
+    expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits?comprar=1');
   });
 
   it('shows a disabled loading state while packs are still loading', () => {

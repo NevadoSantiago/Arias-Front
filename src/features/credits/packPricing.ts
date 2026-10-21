@@ -9,7 +9,7 @@ export function formatPrice(priceCents: number): string {
  * Elige el pack "Recomendado" entre los packs con nombre (no Sueltos): el
  * que tiene el mayor `discountPercent` — el mejor valor real para el
  * cliente, no una posición fija en la lista. Ante empate, gana el de menor
- * `ordenDisplay`. Extraído de `CreditsPacksPage` (F6) a un módulo compartido
+ * `ordenDisplay`. Extraído de `BuyLunchesSheet` (F6) a un módulo compartido
  * para que el aviso de F18 ("Con el <pack> cada almuerzo te sale...") en el
  * flujo de pago directo lo reutilice en vez de reimplementar la regla.
  */
@@ -22,7 +22,7 @@ export function pickRecommended(packs: CreditPack[]): CreditPack | null {
   }, packs[0]);
 }
 
-/** Precio por almuerzo de un pack, mismo redondeo que usa `CreditsPacksPage` para mostrarlo. */
+/** Precio por almuerzo de un pack, mismo redondeo que usa `BuyLunchesSheet` para mostrarlo. */
 export function perLunchPriceCents(pack: Pick<CreditPack, 'priceCents' | 'creditAmount'>): number {
   return Math.round(pack.priceCents / pack.creditAmount);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { WalletBalance } from './WalletBalance';
@@ -21,12 +21,12 @@ function renderBalance(props: Parameters<typeof WalletBalance>[0] = {}) {
 const wallet = { available: 12, committed: 1, expiresAt: '2026-12-02T12:00:00Z' };
 
 describe('WalletBalance variants (F22c)', () => {
-  it('default (mobile): the buy link goes to the Packs page and there is no "Pedir un almuerzo"', async () => {
+  it('default (mobile): the buy action is a button (opens the purchase sheet) and there is no "Pedir un almuerzo"', async () => {
     vi.mocked(getWallet).mockResolvedValue(wallet);
-    renderBalance();
-
-    const buy = await screen.findByRole('link', { name: /comprar más almuerzos/i });
-    expect(buy).toHaveAttribute('href', '/credits/packs');
+    const onBuy = vi.fn();
+    renderBalance({ onBuy });
+    fireEvent.click(await screen.findByRole('button', { name: /comprar más almuerzos/i }));
+    expect(onBuy).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('link', { name: /pedir un almuerzo/i })).not.toBeInTheDocument();
   });
 
@@ -37,7 +37,7 @@ describe('WalletBalance variants (F22c)', () => {
     expect(await screen.findByText('Disponibles')).toBeInTheDocument();
     expect(screen.getByText('Reservado')).toBeInTheDocument();
     expect(screen.getByText(/vencen el/i)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /comprar más almuerzos/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /comprar más almuerzos/i })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /pedir un almuerzo/i })).toHaveAttribute('href', '/orders/today');
     expect(screen.getByRole('region', { name: 'Tu saldo' })).toBeInTheDocument();
   });

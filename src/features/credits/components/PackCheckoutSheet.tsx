@@ -31,7 +31,7 @@ function ProductIcon({ icon }: { icon: PackCheckoutSelection['icon'] }) {
 
 /**
  * Hoja "Revisá tu compra" (F6, prototipo `Packs.dc.html`) — se abre desde
- * "Continuar" en `CreditsPacksPage`. El precio y el descuento vienen
+ * "Continuar" en `BuyLunchesSheet`. El precio y el descuento vienen
  * calculados por el padre a partir de `priceCents`/`discountPercent` del
  * pack; acá solo se presentan.
  */

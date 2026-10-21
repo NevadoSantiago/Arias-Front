@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { CreditsWalletPage } from './CreditsWalletPage';
 import { mockMatchMedia } from '@/test/matchMedia';
 import { getMovements, getPacks, getPendingPurchases, getWallet } from '@/features/credits/services/creditsApi';
@@ -23,12 +23,18 @@ vi.mock('@/features/orders/services/ordersApi', async () => {
   return { ...actual, resumeDirectCheckoutV2: vi.fn() };
 });
 
-function renderPage() {
+function LocationProbe() {
+  const { pathname, search } = useLocation();
+  return <output data-testid="location">{pathname + search}</output>;
+}
+
+function renderPage(entry = '/credits') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <CreditsWalletPage />
+        <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -50,16 +56,49 @@ describe('CreditsWalletPage', () => {
     vi.clearAllMocks();
   });
 
-  it('on mobile it is unchanged: balance card with the buy link to Packs, no aside, no catalog request', async () => {
+  it('on mobile it shows the balance card with a buy button, no aside, no catalog request until the sheet opens', async () => {
     media = mockMatchMedia(false);
     renderPage();
 
-    expect(await screen.findByRole('link', { name: /comprar más almuerzos/i })).toHaveAttribute('href', '/credits/packs');
+    expect(await screen.findByRole('button', { name: /comprar más almuerzos/i })).toBeInTheDocument();
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(getPacks).not.toHaveBeenCalled();
   });
 
-  it('on desktop it buys in place from an aside and drops the link to the Packs page', async () => {
+  it('on mobile the buy button opens the full-screen purchase sheet with the catalog', async () => {
+    media = mockMatchMedia(false);
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /comprar más almuerzos/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /comprar almuerzos/i });
+    expect(await within(dialog).findAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByTestId('location')).toHaveTextContent('/credits');
+  });
+
+  it('on mobile ?comprar=1 opens the sheet on load, and closing it removes the param', async () => {
+    media = mockMatchMedia(false);
+    renderPage('/credits?comprar=1');
+
+    expect(await screen.findByRole('dialog', { name: /comprar almuerzos/i })).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('/credits?comprar=1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/credits$/);
+  });
+
+  it('on desktop ?comprar=1 is ignored: the aside is already visible and no sheet opens', async () => {
+    media = mockMatchMedia(true);
+    renderPage('/credits?comprar=1');
+
+    expect(await screen.findByRole('complementary', { name: 'Comprar más almuerzos' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('on desktop it buys in place from an aside and has no buy button on the balance', async () => {
     media = mockMatchMedia(true);
     renderPage();
 
@@ -68,7 +107,7 @@ describe('CreditsWalletPage', () => {
     expect(await screen.findByRole('region', { name: 'Tu saldo' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Mis almuerzos' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Movimientos' })).toBeInTheDocument();
-    expect(document.querySelector('a[href="/credits/packs"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^comprar más almuerzos$/i })).not.toBeInTheDocument();
   });
 });
 
@@ -119,7 +158,7 @@ describe('CreditsWalletPage — pending Mercado Pago payments (D6)', () => {
     vi.mocked(getPendingPurchases).mockResolvedValue([]);
     renderPage();
 
-    await screen.findByRole('link', { name: /comprar más almuerzos/i });
+    await screen.findByRole('button', { name: /comprar más almuerzos/i });
     await waitFor(() => expect(getPendingPurchases).toHaveBeenCalled());
     expect(screen.queryByRole('region', { name: /pago pendiente|pagos pendientes/i })).not.toBeInTheDocument();
   });
@@ -130,7 +169,7 @@ describe('CreditsWalletPage — pending Mercado Pago payments (D6)', () => {
     renderPage();
 
     const region = await screen.findByRole('region', { name: 'Pago pendiente' });
-    const buyLink = screen.getByRole('link', { name: /comprar más almuerzos/i });
+    const buyLink = screen.getByRole('button', { name: /comprar más almuerzos/i });
     expect(follows(buyLink, region)).toBe(true);
     expect(follows(region, screen.getByRole('heading', { name: 'Historial' }))).toBe(true);
     expect(region).toHaveAttribute('data-layout', 'card');
@@ -180,7 +219,7 @@ describe('CreditsWalletPage — pending Mercado Pago payments (D6)', () => {
     vi.mocked(getPendingPurchases).mockRejectedValue(new Error('boom'));
     renderPage();
 
-    expect(await screen.findByRole('link', { name: /comprar más almuerzos/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /comprar más almuerzos/i })).toBeInTheDocument();
     await waitFor(() => expect(getPendingPurchases).toHaveBeenCalled());
     expect(screen.queryByRole('region', { name: /pago pendiente|pagos pendientes/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

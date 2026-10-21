@@ -212,7 +212,7 @@ export function OrderPayDirectSheet({
                   {formatPrice(recommendedPerLunchCents!)} (ahorrás {recommended.discountPercent}%).
                 </span>
                 <Link
-                  to="/credits/packs"
+                  to="/credits?comprar=1"
                   className="flex h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep"
                 >
                   Ver paquetes
@@ -226,7 +226,7 @@ export function OrderPayDirectSheet({
               <p role="alert" className="m-0 text-[13.5px] leading-relaxed text-foreground">
                 No pudimos calcular el precio. Probá de nuevo en un momento o comprá un paquete.
               </p>
-              <Link to="/credits/packs" className="flex h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep">
+              <Link to="/credits?comprar=1" className="flex h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep">
                 Ver paquetes
               </Link>
             </div>

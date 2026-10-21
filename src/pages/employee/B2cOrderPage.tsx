@@ -244,7 +244,7 @@ export function B2cOrderPage() {
    * Saldo de almuerzos — solo para mostrar (tarjeta de saldo cero, cálculo
    * "Te quedan N"); nunca decide si se puede confirmar. Usa `useWallet`
    * (clave `['creditsWallet']`) para compartir la misma caché que el chip
-   * del header y `CreditsPacksPage` — antes esta pantalla usaba
+   * del header y `BuyLunchesSheet` — antes esta pantalla usaba
    * `['creditWallet']`, una clave distinta que dejaba el chip desactualizado
    * tras confirmar un pedido (F7.1).
    */

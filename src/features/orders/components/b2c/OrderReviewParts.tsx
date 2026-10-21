@@ -86,7 +86,7 @@ export function BalanceBox({
             ? `Podés usar ${usable === 1 ? 'tu almuerzo' : `tus ${usable} almuerzos`} y pagar ${missing} con Mercado Pago, o comprar un paquete y ahorrar.`
             : 'Podés pagar solo este pedido con Mercado Pago, o comprar un paquete y ahorrar.'}
         </span>
-        <Link to="/credits/packs" className="flex h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep">
+        <Link to="/credits?comprar=1" className="flex h-11 w-fit items-center text-[13.5px] font-bold text-primary-deep">
           Comprar almuerzos
         </Link>
       </div>
