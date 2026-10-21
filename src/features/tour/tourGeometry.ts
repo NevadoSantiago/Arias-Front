@@ -27,12 +27,14 @@ const GAP_TO_TARGET = 14;
 /** Hueco mayor en los pasos "tocá": entre el recorte y el globito cabe la flecha que señala el elemento. */
 export const TAP_GAP_TO_TARGET = 52;
 
-/** Recorte de la capa oscura alrededor del elemento: con aire, dentro de la pantalla y con radio acotado. */
-export function computeCutout(rect: Rect, viewport: Viewport, radius: number, pad = 6): Cutout {
+/** Recorte de la capa oscura alrededor del elemento: con aire, dentro de la pantalla y con radio acotado.
+ * Con `maxHeight`, un elemento más alto se recorta a esa altura, anclado arriba. */
+export function computeCutout(rect: Rect, viewport: Viewport, radius: number, pad = 6, maxHeight?: number): Cutout {
   const left = Math.max(MARGIN, rect.x - pad);
   const top = Math.max(MARGIN, rect.y - pad);
   const right = Math.min(viewport.width - MARGIN, rect.x + rect.w + pad);
-  const bottom = Math.min(viewport.height - MARGIN, rect.y + rect.h + pad);
+  let bottom = Math.min(viewport.height - MARGIN, rect.y + rect.h + pad);
+  if (maxHeight !== undefined && bottom - top > maxHeight) bottom = top + maxHeight;
   const width = right - left;
   const height = bottom - top;
   return { left, top, right, bottom, width, height, radius: Math.min(radius, height / 2) };

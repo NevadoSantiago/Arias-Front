@@ -54,6 +54,20 @@ describe('buildTourSteps', () => {
   });
 });
 
+describe('sides step cutout cap', () => {
+  it.each([false, true])('caps the sides cutout and scrolls it to the start (isDesktop: %s)', (isDesktop) => {
+    const sides = buildTourSteps({ isDesktop }).find((s) => s.id === 'sides');
+
+    expect(sides).toMatchObject({ kind: 'spot', maxHeightRatio: 0.45, scroll: 'start' });
+  });
+
+  it('does not cap any other spot step', () => {
+    const capped = buildTourSteps({ isDesktop: false }).filter((s) => s.kind === 'spot' && s.maxHeightRatio !== undefined);
+
+    expect(capped.map((s) => s.id)).toEqual(['sides']);
+  });
+});
+
 describe('stepCounter', () => {
   it('counts only the spotlight steps, so the cards carry no counter', () => {
     const steps = buildTourSteps({ isDesktop: false });

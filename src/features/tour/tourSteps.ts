@@ -54,6 +54,8 @@ export interface TourSpotStep extends BaseStep {
   guide: TourGuide;
   /** Cómo traer el elemento a la vista al llegar al paso. */
   scroll?: ScrollLogicalPosition;
+  /** Fracción del alto de la pantalla que el recorte puede usar como máximo (anclado arriba del elemento). */
+  maxHeightRatio?: number;
 }
 
 export type TourStep = TourCardStep | TourSpotStep;
@@ -116,7 +118,8 @@ export function buildTourSteps({ isDesktop }: { isDesktop: boolean }): TourStep[
       mode: 'tap',
       radius: 10,
       guide: 'duda',
-      scroll: 'center',
+      scroll: 'start',
+      maxHeightRatio: 0.45,
       title: '¿Con qué lo acompañás?',
       text: 'Algunos platos vienen con guarnición o salsa. Tocá la que quieras.',
     }),

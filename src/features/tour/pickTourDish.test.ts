@@ -30,6 +30,28 @@ describe('pickTourDish', () => {
     expect(picked).toEqual({ dishId: 2, hasSide: true });
   });
 
+  const sides = (n: number, enabled = true) =>
+    Array.from({ length: n }, (_, i) => ({ id: i + 1, nombre: `Side ${i + 1}`, tipo: 'GUARNICION' as const, enabled }));
+
+  it('prefers the dish with the fewest enabled sides over an earlier one with more', () => {
+    const picked = pickTourDish([withSide(1, { allowedSides: sides(6) }), withSide(2, { allowedSides: sides(2) })], { checkStock: true });
+
+    expect(picked).toEqual({ dishId: 2, hasSide: true });
+  });
+
+  it('keeps screen order when dishes tie on the number of enabled sides', () => {
+    const picked = pickTourDish([withSide(1, { allowedSides: sides(2) }), withSide(2, { allowedSides: sides(2) })], { checkStock: true });
+
+    expect(picked).toEqual({ dishId: 1, hasSide: true });
+  });
+
+  it('does not count disabled sides toward the total', () => {
+    const fewEnabledManyDisabled = [...sides(2), ...sides(5, false).map((s) => ({ ...s, id: s.id + 10 }))];
+    const picked = pickTourDish([withSide(1, { allowedSides: sides(4) }), withSide(2, { allowedSides: fewEnabledManyDisabled })], { checkStock: true });
+
+    expect(picked).toEqual({ dishId: 2, hasSide: true });
+  });
+
   it('falls back to the first in-stock dish when none has a side', () => {
     const picked = pickTourDish([make(1, { stockActual: 0 }), make(2), make(3)], { checkStock: true });
 

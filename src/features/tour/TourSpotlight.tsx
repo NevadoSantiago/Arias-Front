@@ -101,7 +101,7 @@ export function TourSpotlight({
     return <div data-tour-block className="pointer-events-auto fixed inset-0 z-[100]" />;
   }
 
-  const cut = computeCutout(rect, viewport, step.radius);
+  const cut = computeCutout(rect, viewport, step.radius, undefined, step.maxHeightRatio ? viewport.height * step.maxHeightRatio : undefined);
   const tap = step.mode === 'tap';
   const place = placeTooltip(cut, viewport, tap ? TAP_GAP_TO_TARGET : undefined);
   // En los pasos de mirar y probar la capa oscura avanza; en los de tocar solo bloquea.

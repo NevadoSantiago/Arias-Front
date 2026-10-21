@@ -21,6 +21,25 @@ describe('computeCutout', () => {
 
     expect(cut).toMatchObject({ left: 4, top: 4, right: 386, bottom: 840 });
   });
+
+  it('caps a tall target at maxHeight, anchored at its top', () => {
+    const cut = computeCutout({ x: 12, y: 120, w: 366, h: 700 }, phone, 10, 6, 380);
+
+    expect(cut).toMatchObject({ top: 114, bottom: 494, height: 380 });
+  });
+
+  it('leaves a target shorter than maxHeight unchanged', () => {
+    const cut = computeCutout({ x: 12, y: 120, w: 366, h: 200 }, phone, 10, 6, 380);
+
+    expect(cut).toMatchObject({ top: 114, bottom: 326, height: 212 });
+  });
+
+  it('never lets the radius exceed half the capped height', () => {
+    const cut = computeCutout({ x: 12, y: 120, w: 366, h: 700 }, phone, 999, 6, 40);
+
+    expect(cut.height).toBe(40);
+    expect(cut.radius).toBe(20);
+  });
 });
 
 describe('placeTooltip', () => {
