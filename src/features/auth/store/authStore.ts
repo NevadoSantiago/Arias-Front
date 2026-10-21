@@ -39,11 +39,18 @@ interface AuthState {
   user: AuthUser | null;
   /** True mientras estamos chequeando si hay sesión viva (al cargar la app). */
   bootstrapping: boolean;
+  /**
+   * El backend otorgó el almuerzo de bienvenida en un alta con Google y el
+   * perfil todavía está incompleto: la felicitación se muestra recién al
+   * terminar "Completá tu perfil". Solo en memoria — nunca se persiste.
+   */
+  pendingWelcomeLunch: boolean;
 
   setAuth: (accessToken: string, user: AuthUser) => void;
   setAccessToken: (accessToken: string) => void;
   setUser: (user: AuthUser) => void;
   setBootstrapping: (b: boolean) => void;
+  setPendingWelcomeLunch: (v: boolean) => void;
   clear: () => void;
 }
 
@@ -51,12 +58,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   user: null,
   bootstrapping: true,
+  pendingWelcomeLunch: false,
 
   setAuth: (accessToken, user) => set({ accessToken, user }),
   setAccessToken: (accessToken) => set({ accessToken }),
   setUser: (user) => set({ user }),
   setBootstrapping: (bootstrapping) => set({ bootstrapping }),
-  clear: () => set({ accessToken: null, user: null }),
+  setPendingWelcomeLunch: (pendingWelcomeLunch) => set({ pendingWelcomeLunch }),
+  clear: () => set({ accessToken: null, user: null, pendingWelcomeLunch: false }),
 }));
 
 /** Selector helper para componentes que solo necesitan saber si hay sesión. */

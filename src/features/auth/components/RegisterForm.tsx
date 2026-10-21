@@ -12,7 +12,6 @@ import { DEFAULT_COUNTRY } from '../lib/countries';
 import { PhoneField } from './PhoneField';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 import { GoogleSignInSection } from './GoogleSignInSection';
-import { GoogleWelcomeScreen } from './GoogleWelcomeScreen';
 
 const schema = z.object({
   firstName: z
@@ -132,10 +131,6 @@ export function RegisterForm() {
       }
     }
   };
-
-  if (google.welcome) {
-    return <GoogleWelcomeScreen google={google} />;
-  }
 
   return (
     <>

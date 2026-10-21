@@ -86,11 +86,11 @@ export function useAuthActions() {
 
   /**
    * Alta/login con Google: siempre emite sesión. Devuelve el destino
-   * calculado y `welcomeLunchGranted` en vez de navegar directamente, para
-   * que la pantalla de registro pueda mostrar la felicitación por el
-   * almuerzo de bienvenida antes de continuar — igual que
-   * {@link performVerifyEmail}. `welcomeLunchGranted` viene tal cual de la
-   * respuesta de `/auth/google`, nunca de `/me`.
+   * calculado en vez de navegar directamente. Si el backend otorgó el
+   * almuerzo de bienvenida (`welcomeLunchGranted`, tal cual de la respuesta de
+   * `/auth/google`, nunca de `/me`) y el perfil está incompleto, deja
+   * `pendingWelcomeLunch` armado: la felicitación se muestra al terminar
+   * "Completá tu perfil" (ver {@link performCompleteProfile}).
    */
   const performGoogleLogin = async (
     idToken: string
@@ -99,16 +99,23 @@ export function useAuthActions() {
     useAuthStore.getState().setAccessToken(accessToken);
     const user = await me();
     setAuth(accessToken, user);
+    useAuthStore.getState().setPendingWelcomeLunch(welcomeLunchGranted && !user.profileComplete);
     refreshWallet();
     return { welcomeLunchGranted, profileComplete: user.profileComplete, role: user.role };
   };
 
-  /** Completa teléfono/apodo tras un alta por Google y recién ahí deja avanzar a la app. */
+  /**
+   * Completa teléfono/apodo tras un alta por Google y recién ahí deja avanzar a la app.
+   * Con `pendingWelcomeLunch` NO navega: `CompleteProfilePage` muestra primero la
+   * felicitación y navega desde su "Continuar".
+   */
   const performCompleteProfile = async (payload: CompleteProfilePayload) => {
     const user = await completeProfile(payload);
     useAuthStore.getState().setUser(user);
     refreshWallet();
-    navigate(homeForRole(user.role), { replace: true });
+    if (!useAuthStore.getState().pendingWelcomeLunch) {
+      navigate(homeForRole(user.role), { replace: true });
+    }
   };
 
   /** Logout: revoca cookie en backend, limpia store, navega a /login. */

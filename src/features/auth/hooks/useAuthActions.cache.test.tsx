@@ -49,7 +49,7 @@ function setup() {
 
 describe('useAuthActions — cache freshness', () => {
   afterEach(() => {
-    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false });
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false, pendingWelcomeLunch: false });
     vi.clearAllMocks();
   });
 
@@ -60,6 +60,27 @@ describe('useAuthActions — cache freshness', () => {
     await result.current.performGoogleLogin('id');
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditsWallet'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['creditMovements'] });
+  });
+
+  it('arms the pending welcome lunch only when granted and the profile is incomplete', async () => {
+    vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 't', welcomeLunchGranted: true });
+    vi.mocked(me).mockResolvedValueOnce({ ...user, profileComplete: false });
+    const { result } = setup();
+    await result.current.performGoogleLogin('id');
+    expect(useAuthStore.getState().pendingWelcomeLunch).toBe(true);
+  });
+
+  it('does not arm the pending welcome lunch when the profile is already complete or nothing was granted', async () => {
+    vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 't', welcomeLunchGranted: true });
+    vi.mocked(me).mockResolvedValueOnce(user);
+    const { result } = setup();
+    await result.current.performGoogleLogin('id');
+    expect(useAuthStore.getState().pendingWelcomeLunch).toBe(false);
+
+    vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 't', welcomeLunchGranted: false });
+    vi.mocked(me).mockResolvedValueOnce({ ...user, profileComplete: false });
+    await result.current.performGoogleLogin('id');
+    expect(useAuthStore.getState().pendingWelcomeLunch).toBe(false);
   });
 
   it('refreshes the wallet after verifying the email', async () => {

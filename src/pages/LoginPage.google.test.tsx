@@ -85,7 +85,7 @@ describe('LoginPage — Google sign-in', () => {
   });
 
   afterEach(() => {
-    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false });
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false, pendingWelcomeLunch: false });
     vi.unstubAllEnvs();
     vi.mocked(googleLogin).mockReset();
     vi.mocked(me).mockReset();
@@ -134,14 +134,15 @@ describe('LoginPage — Google sign-in', () => {
     expect(await screen.findByText('Completar perfil')).toBeInTheDocument();
   });
 
-  it('shows the welcome-lunch screen first when the backend granted it', async () => {
+  it('skips the welcome screen and goes to complete-profile when the backend granted the lunch', async () => {
     vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 'tok', welcomeLunchGranted: true });
-    vi.mocked(me).mockResolvedValueOnce(baseUser);
+    vi.mocked(me).mockResolvedValueOnce({ ...baseUser, profileComplete: false });
     await renderLogin();
 
     fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }));
 
-    expect(await screen.findByText(/¡listo, bienvenido a arias!/i)).toBeInTheDocument();
+    expect(await screen.findByText('Completar perfil')).toBeInTheDocument();
+    expect(screen.queryByText(/¡listo, bienvenido a arias!/i)).not.toBeInTheDocument();
   });
 
   it('shows the company-account notice and pre-fills the email on the excluded 403', async () => {

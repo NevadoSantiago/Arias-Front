@@ -7,7 +7,7 @@ import type { Role } from '../store/authStore';
 
 export const GOOGLE_GENERIC_ERROR = 'No pudimos iniciar sesión con Google. Probá de nuevo.';
 
-interface Welcome {
+interface SignInResult {
   profileComplete: boolean;
   role: Role;
 }
@@ -18,31 +18,25 @@ export type GoogleSignInProblem =
   | { kind: 'error' };
 
 /**
- * Flujo de Google compartido por login y registro: canjea el ID token, muestra
- * la felicitación por el almuerzo de bienvenida si el backend la otorgó en
- * ESTA llamada (gateada por `welcomeLunchGranted`, nunca derivada de `/me`,
- * como máximo una vez porque este estado no se persiste) y navega según el
- * perfil. Los rechazos se exponen como `problem`; un popup cancelado no
+ * Flujo de Google compartido por login y registro: canjea el ID token y navega
+ * según el perfil. La felicitación por el almuerzo de bienvenida NO se muestra
+ * acá: `performGoogleLogin` deja `pendingWelcomeLunch` armado y aparece al
+ * terminar "Completá tu perfil". Los rechazos se exponen como `problem`; un popup cancelado no
  * dispara ningún callback, así que la pantalla queda como estaba.
  */
 export function useGoogleSignIn() {
   const navigate = useNavigate();
   const { performGoogleLogin } = useAuthActions();
   const [problem, setProblem] = useState<GoogleSignInProblem | null>(null);
-  const [welcome, setWelcome] = useState<Welcome | null>(null);
 
-  const goAfterSignIn = (result: Welcome) =>
+  const goAfterSignIn = (result: SignInResult) =>
     navigate(result.profileComplete ? homeForRole(result.role) : '/complete-profile', { replace: true });
 
   const onSuccess = async (idToken: string) => {
     setProblem(null);
     try {
       const result = await performGoogleLogin(idToken);
-      if (result.welcomeLunchGranted) {
-        setWelcome(result);
-      } else {
-        goAfterSignIn(result);
-      }
+      goAfterSignIn(result);
     } catch (err) {
       setProblem(
         isGoogleAccountNotAllowed(err)
@@ -54,11 +48,7 @@ export function useGoogleSignIn() {
 
   const onError = () => setProblem({ kind: 'error' });
 
-  const continueAfterWelcome = () => {
-    if (welcome) goAfterSignIn(welcome);
-  };
-
-  return { onSuccess, onError, problem, welcome, continueAfterWelcome };
+  return { onSuccess, onError, problem };
 }
 
 export type GoogleSignIn = ReturnType<typeof useGoogleSignIn>;

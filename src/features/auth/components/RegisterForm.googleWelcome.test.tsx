@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../store/authStore';
@@ -48,52 +48,57 @@ async function renderWithGoogleConfigured() {
   const { RegisterForm } = await import('./RegisterForm');
   return render(
     <QueryClientProvider client={new QueryClient()}>
-    <MemoryRouter>
-      <RegisterForm />
-    </MemoryRouter>
+      <MemoryRouter initialEntries={['/register']}>
+        <Routes>
+          <Route path="/register" element={<RegisterForm />} />
+          <Route path="/complete-profile" element={<p>Completar perfil</p>} />
+          <Route path="/orders/today" element={<p>Home empleado</p>} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-describe('RegisterForm — Google welcome-lunch congratulations screen', () => {
+describe('RegisterForm — Google welcome lunch is deferred until the profile is complete', () => {
   afterEach(() => {
-    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false });
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false, pendingWelcomeLunch: false });
     vi.unstubAllEnvs();
     vi.mocked(googleLogin).mockReset();
     vi.mocked(me).mockReset();
   });
 
-  it('shows the welcome-lunch screen when the backend grants it on first-time Google sign-in', async () => {
-    vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 'tok', welcomeLunchGranted: true });
-    vi.mocked(me).mockResolvedValueOnce(baseUser);
-
-    await renderWithGoogleConfigured();
-    fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }));
-
-    expect(await screen.findByText(/¡listo, bienvenido a arias!/i)).toBeInTheDocument();
-    expect(screen.getByText(/iniciaste sesión con google/i)).toBeInTheDocument();
-  });
-
-  it('never shows the welcome-lunch screen on a returning Google sign-in', async () => {
-    vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 'tok', welcomeLunchGranted: false });
-    vi.mocked(me).mockResolvedValueOnce(baseUser);
-
-    await renderWithGoogleConfigured();
-    fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }));
-
-    await waitFor(() => expect(me).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText(/¡listo, bienvenido a arias!/i)).not.toBeInTheDocument();
-  });
-
-  it('never derives the welcome-lunch flag from /me — only the exact googleLogin response controls it', async () => {
-    // /me never reports welcomeLunchGranted (it doesn't have that field) — this
-    // asserts the screen is driven strictly by the googleLogin response.
+  it('does not show the welcome screen after a granted Google sign-in; it goes to complete-profile and arms the flag', async () => {
     vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 'tok', welcomeLunchGranted: true });
     vi.mocked(me).mockResolvedValueOnce({ ...baseUser, profileComplete: false });
 
     await renderWithGoogleConfigured();
     fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }));
 
-    expect(await screen.findByText(/¡listo, bienvenido a arias!/i)).toBeInTheDocument();
+    expect(await screen.findByText('Completar perfil')).toBeInTheDocument();
+    expect(screen.queryByText(/¡listo, bienvenido a arias!/i)).not.toBeInTheDocument();
+    expect(useAuthStore.getState().pendingWelcomeLunch).toBe(true);
+  });
+
+  it('goes straight to the home and leaves the flag off when the profile was already complete', async () => {
+    vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 'tok', welcomeLunchGranted: true });
+    vi.mocked(me).mockResolvedValueOnce(baseUser);
+
+    await renderWithGoogleConfigured();
+    fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }));
+
+    expect(await screen.findByText('Home empleado')).toBeInTheDocument();
+    expect(screen.queryByText(/¡listo, bienvenido a arias!/i)).not.toBeInTheDocument();
+    expect(useAuthStore.getState().pendingWelcomeLunch).toBe(false);
+  });
+
+  it('never arms the flag on a returning Google sign-in', async () => {
+    vi.mocked(googleLogin).mockResolvedValueOnce({ accessToken: 'tok', welcomeLunchGranted: false });
+    vi.mocked(me).mockResolvedValueOnce({ ...baseUser, profileComplete: false });
+
+    await renderWithGoogleConfigured();
+    fireEvent.click(screen.getByRole('button', { name: /continuar con google/i }));
+
+    expect(await screen.findByText('Completar perfil')).toBeInTheDocument();
+    expect(useAuthStore.getState().pendingWelcomeLunch).toBe(false);
   });
 });

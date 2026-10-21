@@ -1,14 +1,19 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { CompleteProfileForm } from '@/features/auth/components/CompleteProfileForm';
 import { homeForRole } from '@/features/auth/components/ProtectedRoute';
+import { WelcomeLunchScreen } from '@/features/auth/components/WelcomeLunchScreen';
 import { useAuthStore } from '@/features/auth/store/authStore';
 
 export function CompleteProfilePage() {
   const user = useAuthStore((s) => s.user);
+  const pendingWelcomeLunch = useAuthStore((s) => s.pendingWelcomeLunch);
+  const setPendingWelcomeLunch = useAuthStore((s) => s.setPendingWelcomeLunch);
+  const navigate = useNavigate();
 
   // Si ya tiene el perfil completo (ej: volvió a esta URL con el back del
-  // navegador), no tiene sentido mostrar el formulario de nuevo.
-  if (user?.profileComplete) {
+  // navegador), no tiene sentido mostrar el formulario de nuevo — salvo que
+  // acabe de completarlo y falte mostrarle la felicitación por el almuerzo.
+  if (user?.profileComplete && !pendingWelcomeLunch) {
     return <Navigate to={homeForRole(user.role)} replace />;
   }
 
@@ -29,16 +34,28 @@ export function CompleteProfilePage() {
       <div className="flex-1 flex items-start justify-center px-6 pt-4 pb-8 lg:pt-12">
         <div className="w-full max-w-md">
           <div className="bg-card rounded-lg border border-border p-6 lg:p-8 shadow-sm">
-            <div className="mb-6 lg:mb-8">
-              <h2 className="font-display text-foreground text-3xl font-bold mb-2">
-                Completá tu perfil
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                Nos falta tu teléfono y cómo querés que te llamemos en el ticket.
-              </p>
-            </div>
+            {user?.profileComplete && pendingWelcomeLunch ? (
+              <WelcomeLunchScreen
+                description="Completaste tu perfil y te regalamos 1 almuerzo de bienvenida 🎉"
+                onContinue={() => {
+                  setPendingWelcomeLunch(false);
+                  navigate(homeForRole(user.role), { replace: true });
+                }}
+              />
+            ) : (
+              <>
+                <div className="mb-6 lg:mb-8">
+                  <h2 className="font-display text-foreground text-3xl font-bold mb-2">
+                    Completá tu perfil
+                  </h2>
+                  <p className="text-muted-foreground text-sm">
+                    Nos falta tu teléfono y cómo querés que te llamemos en el ticket.
+                  </p>
+                </div>
 
-            <CompleteProfileForm />
+                <CompleteProfileForm />
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -82,14 +82,12 @@ export function TourWelcomeCard({ title, text, onStart, onSkip }: WelcomeProps) 
 interface FinalProps {
   title: string;
   text: string;
-  /** Sin platos para pedir no hay nada que empezar: se cierra con "Entendido". */
-  canOrder: boolean;
   onDone: () => void;
   onPrev: () => void;
 }
 
 /** Último cuadro del tour. */
-export function TourFinalCard({ title, text, canOrder, onDone, onPrev }: FinalProps) {
+export function TourFinalCard({ title, text, onDone, onPrev }: FinalProps) {
   const titleId = useId();
   return (
     <CardFrame titleId={titleId}>
@@ -104,7 +102,7 @@ export function TourFinalCard({ title, text, canOrder, onDone, onPrev }: FinalPr
       </h2>
       <p className="m-0 text-sm leading-relaxed text-muted-foreground">{text}</p>
       <button type="button" onClick={onDone} className={`${PRIMARY_BUTTON} mt-1.5`}>
-        {canOrder ? 'Empezar a pedir' : 'Entendido'}
+        Empezar a pedir
       </button>
       <div className="flex w-full justify-start">
         <button type="button" onClick={onPrev} className="h-11 px-1 text-[13px] font-semibold text-muted-foreground">

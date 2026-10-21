@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { checkEmail } from '../services/authApi';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 import { GoogleSignInSection } from './GoogleSignInSection';
-import { GoogleWelcomeScreen } from './GoogleWelcomeScreen';
 
 const schema = z.object({
   email: z.string().min(1, 'Ingresá tu email').email('El formato del email no es válido'),
@@ -49,10 +48,6 @@ export function EmailStep({ initialEmail = '', onFirstLogin, onPassword }: Props
       onPassword(data.email);
     }
   };
-
-  if (google.welcome) {
-    return <GoogleWelcomeScreen google={google} />;
-  }
 
   return (
     <>

@@ -19,7 +19,7 @@ import { findTourTarget } from './useTargetRect';
 interface Session {
   userId: number;
   stepId: TourStepId;
-  /** No había platos para pedir: el tour termina antes, con un cierre distinto. */
+  /** No había platos para pedir: el tour termina antes; solo afecta la navegación (Anterior vuelve al logo). */
   noOrder: boolean;
   /** Repetición a pedido: no vuelve a marcar el tour como visto ni limpia el carrito del cliente. */
   replay?: boolean;
@@ -27,11 +27,6 @@ interface Session {
 
 /** Pasos en los que ya hay un plato en el carrito (agregado por el cliente durante el tour). */
 const WITH_CART_ITEM: TourStepId[] = ['cart', 'picker', 'balance-box', 'confirm', 'final'];
-
-const NO_ORDER_COPY = {
-  title: '¡Listo! Ya conocés Arias',
-  text: 'Hoy no hay platos para pedir, pero cuando haya menú vas a poder armar tu pedido desde acá.',
-};
 
 /** "Hoy no se puede pedir, así que te llevamos al jueves 15 de octubre." Fecha parseada como LOCAL, nunca como UTC. */
 function movedNote(date: string): string {
@@ -292,9 +287,8 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
             />
           ) : (
             <TourFinalCard
-              title={session.noOrder ? NO_ORDER_COPY.title : step.title}
-              text={session.noOrder ? NO_ORDER_COPY.text : step.text}
-              canOrder={!session.noOrder}
+              title={step.title}
+              text={step.text}
               onDone={finish}
               onPrev={prev}
             />

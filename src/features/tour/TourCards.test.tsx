@@ -15,7 +15,7 @@ describe('tour cards keep the characters inside', () => {
 
   it('final card: no negative margin on the illustration', () => {
     const { container } = render(
-      <TourFinalCard title="t" text="x" canOrder onDone={vi.fn()} onPrev={vi.fn()} />,
+      <TourFinalCard title="t" text="x" onDone={vi.fn()} onPrev={vi.fn()} />,
     );
 
     expect(container.querySelector('img')!.className).not.toMatch(/-mt-/);
@@ -23,17 +23,18 @@ describe('tour cards keep the characters inside', () => {
   });
 
   it('final card: only the primary button and "Anterior", no way to keep browsing', () => {
-    render(<TourFinalCard title="t" text="x" canOrder onDone={vi.fn()} onPrev={vi.fn()} />);
+    render(<TourFinalCard title="t" text="x" onDone={vi.fn()} onPrev={vi.fn()} />);
 
     expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Empezar a pedir', 'Anterior']);
     expect(screen.queryByText(/seguir mirando el menú/i)).not.toBeInTheDocument();
   });
 
-  it('final card: "Entendido" and the same handler when there is nothing to order', () => {
+  it('final card: always "Empezar a pedir" and calls the handler', () => {
     const onDone = vi.fn();
-    render(<TourFinalCard title="t" text="x" canOrder={false} onDone={onDone} onPrev={vi.fn()} />);
+    render(<TourFinalCard title="t" text="x" onDone={onDone} onPrev={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }));
+    expect(screen.queryByRole('button', { name: 'Entendido' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Empezar a pedir' }));
 
     expect(onDone).toHaveBeenCalledTimes(1);
   });
