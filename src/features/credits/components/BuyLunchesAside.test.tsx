@@ -58,8 +58,8 @@ describe('BuyLunchesAside', () => {
     expect(radios[2]).toHaveAccessibleName(/paquete mes/i);
     expect(radios[1]).toHaveAttribute('aria-checked', 'true');
     expect(radios[0]).toHaveAttribute('aria-checked', 'false');
-    expect(radios[1]).toHaveTextContent(/7\.000/);
-    expect(radios[2]).toHaveTextContent(/24\.000/);
+    expect(radios[1]).toHaveAccessibleName(/7\.000/);
+    expect(radios[2]).toHaveAccessibleName(/24\.000/);
     expect(screen.getByRole('complementary', { name: 'Comprar más almuerzos' })).toBeInTheDocument();
   });
 
@@ -88,6 +88,35 @@ describe('BuyLunchesAside', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/credits');
   });
 
+  it('renders summary cards: lema (fallback tagline when null), price per lunch, no pack total inside the radiogroup', async () => {
+    vi.mocked(getPacks).mockResolvedValue([dayPack, { ...weekPack, lema: 'Para la semana' }, monthPack]);
+    renderAside();
+    await screen.findByTestId('buy-summary');
+
+    const group = screen.getByRole('radiogroup');
+    expect(within(group).getByText('Para la semana')).toBeInTheDocument();
+    expect(within(group).getAllByText('Precio por almuerzo')).toHaveLength(3);
+    expect(within(group).queryByText(/7\.000/)).not.toBeInTheDocument();
+    expect(within(group).queryByText(/24\.000/)).not.toBeInTheDocument();
+    expect(within(group).queryByText(/c\/u|ahorrás/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/7\.000/)).toHaveLength(1);
+    expect(screen.getByTestId('buy-summary')).toHaveTextContent(/7\.000/);
+  });
+
+  it('marks the recommended pack with "Mejor opción"', async () => {
+    renderAside();
+    await screen.findByTestId('buy-summary');
+    expect(screen.getAllByText('Mejor opción')).toHaveLength(1);
+  });
+
+  it('changing the Sueltos quantity updates the summary total', async () => {
+    renderAside();
+    fireEvent.click(await screen.findByRole('radio', { name: /sueltos/i }));
+    expect(screen.getByTestId('buy-summary')).toHaveTextContent(/1\.500/);
+    fireEvent.click(more());
+    expect(screen.getByTestId('buy-summary')).toHaveTextContent(/3\.000/);
+  });
+
   it('shows the Sueltos stepper only when Sueltos is selected, limited to 1..10', async () => {
     renderAside();
     await screen.findAllByRole('radio');
@@ -97,7 +126,7 @@ describe('BuyLunchesAside', () => {
     expect(less()).toBeDisabled();
     for (let i = 0; i < 9; i++) fireEvent.click(more());
     expect(more()).toBeDisabled();
-    expect(within(screen.getByRole('group', { name: '¿Cuántos?' })).getByText('10')).toBeInTheDocument();
+    expect(screen.getByText('10')).toBeInTheDocument();
     fireEvent.click(less());
     expect(more()).toBeEnabled();
   });

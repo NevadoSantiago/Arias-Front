@@ -1,34 +1,15 @@
 import { useState } from 'react';
-import { Lock, Minus, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { formatLunches } from '@/features/orders/lunches';
+import { Lock } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { usePackCatalog, usePackPurchase } from '../hooks/usePackPurchase';
-import { formatPrice, perLunchPriceCents } from '../packPricing';
+import { formatPrice, packTagline, perLunchPriceCents } from '../packPricing';
 import { planPurchase, resolveSelection, type PurchaseSelection } from '../purchaseModel';
 import { PackNudge } from './PackNudge';
+import { LooseSummaryCard } from './LooseSummaryCard';
+import { PackSummaryCard } from './PackSummaryCard';
 
 const MIN_QTY = 1;
-const MAX_QTY = 10;
 const NUDGE_FROM = 4;
-
-/** Punto del radio: el mismo control visual para las tres opciones. */
-function RadioDot({ on }: { on: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2',
-        on ? 'border-primary-deep' : 'border-muted-foreground',
-      )}
-    >
-      <span className={cn('h-2.5 w-2.5 rounded-full', on ? 'bg-primary-deep' : 'bg-transparent')} />
-    </span>
-  );
-}
-
-const rowBox = (on: boolean) =>
-  cn('rounded-[10px] bg-background', on ? 'border-2 border-primary-deep' : 'border border-border');
 
 /**
  * Panel "Comprar más almuerzos" de Mis almuerzos en escritorio (F22c, prototipo
@@ -69,95 +50,32 @@ export function BuyLunchesAside() {
 
       {!isLoading && !isError && !isEmpty && (
         <>
-          <div role="radiogroup" aria-labelledby="buy-lunches-title" className="flex flex-col gap-2">
+          <div role="radiogroup" aria-labelledby="buy-lunches-title" className="flex flex-col gap-3">
             {dayPack && (
-              <div className={cn('flex flex-col', rowBox(loose))}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={loose}
-                  aria-label={`Almuerzos sueltos, ${formatPrice(dayPack.priceCents)} cada uno`}
-                  onClick={() => setSelection({ kind: 'loose' })}
-                  className="flex min-h-[60px] w-full items-center gap-3 border-0 bg-transparent px-3 py-2.5 text-left font-sans text-foreground"
-                >
-                  <RadioDot on={loose} />
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="font-display text-base font-bold">Sueltos</span>
-                    <span className="text-[12.5px] text-muted-foreground">De {MIN_QTY} a {MAX_QTY} almuerzos</span>
-                  </span>
-                  <span className="whitespace-nowrap text-sm font-bold">{formatPrice(dayPack.priceCents)} c/u</span>
-                </button>
-                {loose && (
-                  <div className="flex items-center justify-between gap-3 pb-3 pl-[46px] pr-3">
-                    <span id="buy-lunches-qty" className="text-[13px] font-semibold text-muted-foreground">
-                      ¿Cuántos?
-                    </span>
-                    <div role="group" aria-labelledby="buy-lunches-qty" className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setQty((q) => Math.max(MIN_QTY, q - 1))}
-                        disabled={qty <= MIN_QTY}
-                        aria-label="Un almuerzo menos"
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground disabled:opacity-40"
-                      >
-                        <Minus className="h-[18px] w-[18px]" aria-hidden="true" />
-                      </button>
-                      <span aria-live="polite" className="flex min-w-[44px] flex-col items-center gap-0.5">
-                        <span className="font-display text-[28px] font-black leading-none">{qty}</span>
-                        <span className="text-[9.5px] font-semibold uppercase tracking-brand text-muted-foreground">
-                          {qty === 1 ? 'almuerzo' : 'almuerzos'}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setQty((q) => Math.min(MAX_QTY, q + 1))}
-                        disabled={qty >= MAX_QTY}
-                        aria-label="Un almuerzo más"
-                        className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-deep text-primary-foreground disabled:opacity-40"
-                      >
-                        <Plus className="h-[18px] w-[18px]" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <LooseSummaryCard
+                checked={loose}
+                onSelect={() => setSelection({ kind: 'loose' })}
+                qty={qty}
+                onQtyChange={setQty}
+                unitPriceLabel={formatPrice(dayPack.priceCents)}
+                showNudge={false}
+                onPickRecommended={() => {}}
+                lema={dayPack.lema ?? packTagline(1)}
+              />
             )}
 
-            {namedPacks.map((pack) => {
-              const on = current?.kind === 'pack' && current.packId === pack.id;
-              const sub = `${formatLunches(pack.creditAmount)}${pack.discountPercent > 0 ? ` · ahorrás ${pack.discountPercent}%` : ''}`;
-              const price = formatPrice(pack.priceCents);
-              return (
-                <button
-                  key={pack.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  aria-label={`${pack.nombre}, ${sub}, ${price}`}
-                  onClick={() => setSelection({ kind: 'pack', packId: pack.id })}
-                  className={cn(
-                    'flex min-h-16 w-full items-center gap-3 px-3 py-2.5 text-left font-sans text-foreground',
-                    rowBox(on),
-                  )}
-                >
-                  <RadioDot on={on} />
-                  <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-                    <span className="flex items-center gap-2">
-                      <span className="font-display text-base font-bold">{pack.nombre}</span>
-                      {catalog.recommended?.id === pack.id && (
-                        <span className="inline-flex h-5 items-center rounded-full bg-foreground px-[7px] text-[9px] font-bold uppercase tracking-brand text-primary-foreground">
-                          Recomendado
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[12.5px] text-muted-foreground">
-                      {sub} · {formatPrice(perLunchPriceCents(pack))} c/u
-                    </span>
-                  </span>
-                  <span className="whitespace-nowrap text-sm font-bold">{price}</span>
-                </button>
-              );
-            })}
+            {namedPacks.map((pack) => (
+              <PackSummaryCard
+                key={pack.id}
+                pack={pack}
+                checked={current?.kind === 'pack' && current.packId === pack.id}
+                onSelect={() => setSelection({ kind: 'pack', packId: pack.id })}
+                recommended={catalog.recommended?.id === pack.id}
+                priceLabel={formatPrice(pack.priceCents)}
+                perLunchLabel={formatPrice(perLunchPriceCents(pack))}
+                lema={pack.lema ?? packTagline(pack.creditAmount)}
+              />
+            ))}
           </div>
 
           {showNudge && weekPack && (
