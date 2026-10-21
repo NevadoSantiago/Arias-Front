@@ -1,14 +1,14 @@
 import { CalendarDays, Check, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { formatPrice, perLunchPriceCents } from '../packPricing';
+import { formatPrice, packTagline, perLunchPriceCents } from '../packPricing';
 import { expiryAfterPurchase, type PackCatalog, type PurchasePlan, type PurchaseSelection } from '../purchaseModel';
 import { useCreditExpiryDays } from '../hooks/useCreditExpiryDays';
 import { HowItWorks } from './HowItWorks';
 import { catalogAmounts } from '../howItWorksCopy';
-import { LooseCard } from './LooseCard';
+import { LooseSummaryCard } from './LooseSummaryCard';
 import { PackNudge } from './PackNudge';
-import { PackOptionCard } from './PackOptionCard';
 import { PackPurchasePanel } from './PackPurchasePanel';
+import { PackSummaryCard } from './PackSummaryCard';
 
 interface Props {
   catalog: PackCatalog;
@@ -29,9 +29,9 @@ function formatExpiry(date: Date): string {
 
 /**
  * Página de paquetes en escritorio (F22c, prototipo `DesktopPacks.dc.html`):
- * Sueltos, Semana y Mes en tres tarjetas lado a lado y, a la derecha, el panel
+ * Sueltos, Semana y Mes en tarjetas-resumen en dos columnas y, a la derecha, el panel
  * fijo "Tu compra" con el pago directo. Reusa las tarjetas del móvil
- * (`LooseCard`, `PackOptionCard`) y el mismo plan de compra: los importes salen
+ * (`LooseSummaryCard`, `PackSummaryCard`) y el mismo plan de compra: los importes salen
  * de `/packs`, nunca se recalculan acá.
  */
 export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyChange, plan, onPay, isPending }: Props) {
@@ -65,12 +65,11 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
           role="radiogroup"
           aria-label="Elegí qué comprar"
           data-layout="cards"
-          className="grid grid-cols-3 items-stretch gap-4"
+          className="grid grid-cols-2 items-start gap-4"
         >
           {dayPack && (
-            <LooseCard
-              layout="stacked"
-              lema={dayPack.lema}
+            <LooseSummaryCard
+              lema={dayPack.lema ?? packTagline(1)}
               checked={loose}
               onSelect={() => onSelect({ kind: 'loose' })}
               qty={qty}
@@ -81,9 +80,9 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
             />
           )}
           {namedPacks.map((pack) => (
-            <PackOptionCard
+            <PackSummaryCard
               key={pack.id}
-              layout="stacked"
+              lema={pack.lema ?? packTagline(pack.creditAmount)}
               pack={pack}
               checked={selection?.kind === 'pack' && selection.packId === pack.id}
               onSelect={() => onSelect({ kind: 'pack', packId: pack.id })}

@@ -104,6 +104,31 @@ describe('CreditsPacksPage on desktop (F22c)', () => {
     expect(panel).toHaveTextContent('Tu saldo pasa de 12 a 32 almuerzos.');
   });
 
+  it('shows the same summary cards as mobile in a two-column grid (lema, per-lunch price, discount, no total)', async () => {
+    renderPage();
+
+    const group = await screen.findByRole('radiogroup', { name: 'Elegí qué comprar' });
+    expect(group).toHaveClass('grid-cols-2');
+    expect(within(group).getByText('Resolvé hoy')).toBeInTheDocument();
+    expect(within(group).getByText('Resolvé tu semana')).toBeInTheDocument();
+    expect(within(group).getByText('¡Resolvé todo el mes!')).toBeInTheDocument();
+    expect(within(group).getAllByText('Precio por almuerzo')).toHaveLength(3);
+    expect(within(group).getAllByText('Descuento')).toHaveLength(2);
+    expect(within(group).queryByText(/total/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the quantity stepper only while Sueltos is selected', async () => {
+    renderPage();
+    await screen.findByRole('radiogroup', { name: 'Elegí qué comprar' });
+    expect(screen.queryByRole('button', { name: 'Un almuerzo más' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: /sueltos/i }));
+    expect(screen.getByRole('button', { name: 'Un almuerzo más' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: /paquete mes/i }));
+    expect(screen.queryByRole('button', { name: 'Un almuerzo más' })).not.toBeInTheDocument();
+  });
+
   it('pays straight from the panel with the selected pack', async () => {
     vi.mocked(createPurchase).mockResolvedValueOnce({ purchaseId: 'p1', initPoint: 'https://mp.example/checkout/p1' });
     renderPage();

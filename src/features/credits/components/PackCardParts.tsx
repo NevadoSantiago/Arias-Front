@@ -1,6 +1,4 @@
-import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import type { PackCardLayout } from './packCardFrame';
 
 /** Sello redondo con tilde, en la esquina superior derecha de la tarjeta elegida. */
 export function SelectedSeal() {
@@ -38,44 +36,6 @@ export function BestOptionRibbon() {
         className={cn(tail, '-mb-1 -ml-1.5')}
         style={{ clipPath: 'polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%)' }}
       />
-    </span>
-  );
-}
-
-/** Número de almuerzos como protagonista; la palabra debajo (escritorio) o al lado (celular). */
-export function CountBlock({ count, word, layout }: { count: number; word: string; layout: PackCardLayout }) {
-  const stacked = layout === 'stacked';
-  return (
-    <span
-      data-part="count-block"
-      data-layout={layout}
-      className={cn('flex w-full justify-center', stacked ? 'flex-col items-center gap-1' : 'items-baseline gap-2')}
-    >
-      <span className={cn('font-display font-black leading-none text-foreground', stacked ? 'text-[46px]' : 'text-[40px]')}>
-        {count}
-      </span>
-      <span className="text-[10px] font-semibold uppercase tracking-brand text-muted-foreground">{word}</span>
-    </span>
-  );
-}
-
-/** Lema entre dos líneas punteadas, estilo ticket. */
-export function TaglineRow({ children }: { children: ReactNode }) {
-  return (
-    <span className="flex w-full items-center gap-2.5">
-      <span aria-hidden="true" className="flex-1 border-t border-dashed border-border" />
-      <span className="shrink-0 text-center text-[10px] font-bold uppercase tracking-brand text-primary-deep">{children}</span>
-      <span aria-hidden="true" className="flex-1 border-t border-dashed border-border" />
-    </span>
-  );
-}
-
-/** Precio por almuerzo, centrado, en letras rojas y sin recuadro. */
-export function PriceBlock({ price }: { price: string }) {
-  return (
-    <span data-part="price-block" className="flex w-full flex-col items-center gap-0.5">
-      <span className="font-display text-[24px] font-black leading-tight text-primary-deep">{price}</span>
-      <span className="text-[11px] text-muted-foreground">por almuerzo</span>
     </span>
   );
 }
