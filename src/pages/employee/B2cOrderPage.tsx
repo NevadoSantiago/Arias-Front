@@ -20,6 +20,7 @@ import { OrderDayIllustration } from '@/features/orders/components/b2c/OrderDayI
 import { OrderReviewPanel } from '@/features/orders/components/b2c/OrderReviewPanel';
 import { OrderReviewSheet } from '@/features/orders/components/b2c/OrderReviewSheet';
 import type { OrderReviewProps } from '@/features/orders/components/b2c/orderReviewProps';
+import { nextOpenDate } from '@/features/orders/components/b2c/nextOpenDate';
 import { suggestPickupTime } from '@/features/orders/components/b2c/pickupSuggestion';
 import { SelectedDayOrders } from '@/features/orders/components/b2c/SelectedDayOrders';
 import { formatOrderTimeLabel } from '@/features/orders/components/orderDateLabels';
@@ -389,6 +390,17 @@ export function B2cOrderPage() {
    * con platos ya cargados se conserva para poder verlos y quitarlos, y la revisión explica por qué no confirma.
    */
   const noSlots = pickupSlots !== undefined && pickupSlots.length === 0 && !disabledDates.has(selectedDate);
+  // Próximo día abierto al que ofrecer ir desde el aviso de "sin horarios".
+  const nextDay = useMemo(() => {
+    const date = nextOpenDate(
+      selectedDate,
+      todayStr,
+      selectableDates(todayStr, { includeWeekendToday: true }),
+      disabledDates,
+      config?.pickupSchedule,
+    );
+    return date ? { date, label: formatDayLabel(date) } : undefined;
+  }, [selectedDate, todayStr, disabledDates, config?.pickupSchedule]);
   const hideOrdering = noSlots && cartEmpty;
 
   /**
@@ -773,7 +785,7 @@ export function B2cOrderPage() {
 
           {noSlots && (
             <div className="mb-6">
-              <NoPickupSlotsNotice />
+              <NoPickupSlotsNotice nextDay={nextDay} onGoToDay={handleSelectDate} />
             </div>
           )}
 

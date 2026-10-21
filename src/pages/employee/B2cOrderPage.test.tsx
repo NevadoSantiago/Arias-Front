@@ -1754,13 +1754,15 @@ describe('B2cOrderPage — a day with no pickup slots cannot be ordered', () => 
   afterEach(() => {
     useAuthStore.setState({ accessToken: null, user: null, bootstrapping: true });
     vi.clearAllMocks();
+    vi.useRealTimers(); // los tests de este bloque fijan el reloj
   });
 
   it('shows the notice, keeps the dishes visible but disabled, and hides the cart bar', async () => {
+    vi.setSystemTime(new Date('2026-10-23T09:00:00'));
     renderPage();
 
     expect(await screen.findByText(NOTICE)).toBeInTheDocument();
-    expect(screen.getByText(/elegí otro día para armar tu pedido/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ir al menú del lunes 26/i })).toBeInTheDocument();
 
     const card = screen.getByRole('button', { name: /milanesa napolitana/i });
     expect(card).toBeDisabled();
@@ -1770,6 +1772,20 @@ describe('B2cOrderPage — a day with no pickup slots cannot be ordered', () => 
 
     expect(screen.queryByRole('button', { name: /ver pedido/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/tocá un plato para armar tu pedido/i)).not.toBeInTheDocument();
+  });
+
+  it('offers a button to the menu of the next open day and moves there when clicked', async () => {
+    vi.setSystemTime(new Date('2026-10-23T09:00:00')); // viernes: el próximo día abierto es el lunes 26
+    renderPage();
+    await screen.findByText(NOTICE);
+    expect(screen.queryByText(/elegí otro día para armar tu pedido/i)).not.toBeInTheDocument();
+    vi.mocked(getAvailableDishes).mockClear();
+
+    const button = screen.getByRole('button', { name: /ir al menú del/i });
+    expect(button).toHaveTextContent('Ir al menú del lunes 26');
+    fireEvent.click(button);
+
+    await waitFor(() => expect(getAvailableDishes).toHaveBeenCalledWith('2026-10-26'));
   });
 
   it('does not offer the tour dish target on a day with no slots', async () => {
