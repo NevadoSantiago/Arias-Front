@@ -173,6 +173,7 @@ describe('TourProvider', () => {
       ['a company employee', { companyId: 3 }],
       ['a customer who already saw it', { onboardingTourSeenAt: '2026-10-01T10:00:00Z' }],
       ['an account whose backend does not report the field', { onboardingTourSeenAt: undefined }],
+      ['a customer who has not completed the profile yet', { profileComplete: false }],
     ])('does not start for %s', async (_label, patch) => {
       setUser(patch);
       renderTour();
@@ -187,6 +188,18 @@ describe('TourProvider', () => {
 
       await act(async () => {});
       expect(screen.queryByText('¡Te regalamos un almuerzo!')).not.toBeInTheDocument();
+    });
+
+    it('drops a running tour as soon as the account turns out to have an incomplete profile', async () => {
+      setUser({});
+      renderTour();
+      expect(await screen.findByText('¡Te regalamos un almuerzo!')).toBeInTheDocument();
+
+      // Google sign-up: the profile page takes over while the tour was already started.
+      await act(async () => setUser({ profileComplete: false }));
+
+      expect(screen.queryByText('¡Te regalamos un almuerzo!')).not.toBeInTheDocument();
+      expect(document.querySelector('[data-tour-block]')).toBeNull();
     });
   });
 

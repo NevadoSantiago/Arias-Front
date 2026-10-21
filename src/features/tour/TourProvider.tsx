@@ -82,15 +82,21 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
   const [dishChecked, setDishChecked] = useState(false);
   const [movedToDate, setMovedToDate] = useState<string | null>(null);
 
-  // Solo B2C y solo si el backend dice explícitamente "sin ver" (undefined = backend viejo, no arranca).
+  // Solo B2C con el perfil completo (un alta por Google pasa primero por "Completá tu perfil", donde
+  // el tour no tiene nada que mostrar y su capa taparía el formulario) y solo si el backend dice
+  // explícitamente "sin ver" (undefined = backend viejo, no arranca).
   const eligible =
-    !!user && user.role === 'EMPLOYEE' && user.companyId == null && user.onboardingTourSeenAt === null;
+    !!user &&
+    user.role === 'EMPLOYEE' &&
+    user.companyId == null &&
+    user.profileComplete &&
+    user.onboardingTourSeenAt === null;
 
   // Repetir el tour solo lo ofrece a clientes B2C; no depende de si ya lo vieron.
   const canReplay = !!user && user.role === 'EMPLOYEE' && user.companyId == null;
 
   // Estado derivado durante el render (patrón de React), sin efectos.
-  if (session && (!user || session.userId !== user.id)) {
+  if (session && (!user || session.userId !== user.id || !user.profileComplete)) {
     setSession(null);
   } else if (!session && eligible && finishedFor !== user.id && pathname === '/orders/today') {
     setSession({ userId: user.id, stepId: 'welcome', noOrder: false });
