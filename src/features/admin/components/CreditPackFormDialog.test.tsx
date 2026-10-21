@@ -30,6 +30,7 @@ describe('CreditPackFormDialog', () => {
       discountPercent: 5,
       ordenDisplay: 1,
       enabled: true,
+      lema: null,
     });
 
     renderDialog();
@@ -63,6 +64,7 @@ describe('CreditPackFormDialog', () => {
       discountPercent: 10,
       ordenDisplay: 2,
       enabled: true,
+      lema: null,
     });
 
     renderDialog({
@@ -76,6 +78,7 @@ describe('CreditPackFormDialog', () => {
         discountPercent: 0,
         ordenDisplay: 2,
         enabled: true,
+        lema: null,
       },
     });
 
@@ -123,7 +126,7 @@ describe('CreditPackFormDialog', () => {
     renderDialog({
       editing: {
         id: 2, code: 'PACK20', packType: 'SUGERIDO', nombre: 'Semana', creditAmount: 5,
-        priceCents: 700000, discountPercent: 0, ordenDisplay: 2, enabled: true,
+        priceCents: 700000, discountPercent: 0, ordenDisplay: 2, enabled: true, lema: null,
       },
     });
     const select = screen.getByLabelText(/^tipo$/i) as HTMLSelectElement;
@@ -141,5 +144,57 @@ describe('CreditPackFormDialog', () => {
     fireEvent.change(screen.getByLabelText(/^precio \(ars\)$/i), { target: { value: '7000' } });
     fireEvent.click(screen.getByRole('button', { name: /crear paquete/i }));
     expect(await screen.findByText(/ya existe un paquete de ese tipo/i)).toBeInTheDocument();
+  });
+
+  it('sends the trimmed lema on create', async () => {
+    vi.mocked(createCreditPack).mockResolvedValueOnce({} as never);
+    renderDialog();
+    fireEvent.change(screen.getByLabelText(/^tipo$/i), { target: { value: 'OTRO' } });
+    fireEvent.change(screen.getByLabelText(/^nombre$/i), { target: { value: 'Semana' } });
+    fireEvent.change(screen.getByLabelText(/^precio \(ars\)$/i), { target: { value: '7000' } });
+    fireEvent.change(screen.getByLabelText(/^lema$/i), { target: { value: '  Resolvé tu semana  ' } });
+    expect(screen.getByText(/aparece en la tarjeta, al lado del nombre/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /crear paquete/i }));
+    await waitFor(() => expect(createCreditPack).toHaveBeenCalled());
+    expect(vi.mocked(createCreditPack).mock.calls.at(-1)![0]).toEqual(
+      expect.objectContaining({ lema: 'Resolvé tu semana' }),
+    );
+  });
+
+  it('sends lema null on create when the field is left empty', async () => {
+    vi.mocked(createCreditPack).mockResolvedValueOnce({} as never);
+    renderDialog();
+    fireEvent.change(screen.getByLabelText(/^tipo$/i), { target: { value: 'OTRO' } });
+    fireEvent.change(screen.getByLabelText(/^nombre$/i), { target: { value: 'Semana' } });
+    fireEvent.change(screen.getByLabelText(/^precio \(ars\)$/i), { target: { value: '7000' } });
+    fireEvent.click(screen.getByRole('button', { name: /crear paquete/i }));
+    await waitFor(() => expect(createCreditPack).toHaveBeenCalled());
+    expect(vi.mocked(createCreditPack).mock.calls.at(-1)![0]).toEqual(expect.objectContaining({ lema: null }));
+  });
+
+  it('pre-fills the lema when editing and sends the edited value', async () => {
+    vi.mocked(updateCreditPack).mockResolvedValueOnce({} as never);
+    renderDialog({
+      editing: {
+        id: 2, code: 'PACK20', packType: 'SUGERIDO', nombre: 'Semana', creditAmount: 5,
+        priceCents: 700000, discountPercent: 0, ordenDisplay: 2, enabled: true, lema: 'Resolvé tu semana',
+      },
+    });
+    const input = screen.getByLabelText(/^lema$/i) as HTMLInputElement;
+    expect(input.value).toBe('Resolvé tu semana');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    await waitFor(() => expect(updateCreditPack).toHaveBeenCalled());
+    expect(vi.mocked(updateCreditPack).mock.calls.at(-1)![1]).toEqual(expect.objectContaining({ lema: null }));
+  });
+
+  it('leaves the lema empty when editing a pack without one', () => {
+    renderDialog({
+      editing: {
+        id: 3, code: 'X', packType: 'OTRO', nombre: 'Otro', creditAmount: 3,
+        priceCents: 100, discountPercent: 0, ordenDisplay: 1, enabled: true, lema: null,
+      },
+    });
+    expect((screen.getByLabelText(/^lema$/i) as HTMLInputElement).value).toBe('');
   });
 });

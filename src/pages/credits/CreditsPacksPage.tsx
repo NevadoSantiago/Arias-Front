@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { LooseCard } from '@/features/credits/components/LooseCard';
-import { PackOptionCard } from '@/features/credits/components/PackOptionCard';
+import { Check, Clock } from 'lucide-react';
+import { LooseSummaryCard } from '@/features/credits/components/LooseSummaryCard';
+import { PackSummaryCard } from '@/features/credits/components/PackSummaryCard';
 import { PackCheckoutSheet } from '@/features/credits/components/PackCheckoutSheet';
 import { useWallet } from '@/features/credits/hooks/useWallet';
 import { usePackCatalog, usePackPurchase } from '@/features/credits/hooks/usePackPurchase';
 import { planPurchase, resolveSelection, type PurchaseSelection } from '@/features/credits/purchaseModel';
-import { formatPrice, perLunchPriceCents } from '@/features/credits/packPricing';
+import { formatPrice, packTagline, perLunchPriceCents } from '@/features/credits/packPricing';
 import { PacksDesktopLayout } from '@/features/credits/components/PacksDesktopLayout';
 import { useCreditExpiryDays } from '@/features/credits/hooks/useCreditExpiryDays';
 import { useIsDesktop } from '@/lib/useMediaQuery';
-import howBuyingWorks from '@/assets/credits/pasos-compra-recorte.jpeg';
+import { HowItWorks } from '@/features/credits/components/HowItWorks';
+import { catalogAmounts } from '@/features/credits/howItWorksCopy';
 
 /**
  * Ruta `/credits/packs` — catálogo de Sueltos + paquetes (F6, prototipo `Packs.dc.html`).
@@ -105,15 +107,14 @@ export function CreditsPacksPage() {
           </p>
         </div>
 
-        <img
-          src={howBuyingWorks}
-          alt="Cómo funciona: 1. Comprá tus almuerzos, 2. Elegí qué comer, 3. Indicá el horario y retirá."
-          className="mb-5 block h-auto w-full rounded-xl border border-border"
-        />
+        <div className="mb-5">
+          <HowItWorks packAmounts={catalogAmounts(catalog)} />
+        </div>
 
         <div role="radiogroup" aria-label="Elegí qué comprar" className="flex flex-col gap-3">
           {dayPack && (
-            <LooseCard
+            <LooseSummaryCard
+              lema={dayPack.lema ?? packTagline(1)}
               checked={effectiveSelection?.kind === 'loose'}
               onSelect={() => setSelection({ kind: 'loose' })}
               qty={qty}
@@ -127,8 +128,9 @@ export function CreditsPacksPage() {
           )}
 
           {namedPacks.map((pack) => (
-            <PackOptionCard
+            <PackSummaryCard
               key={pack.id}
+              lema={pack.lema ?? packTagline(pack.creditAmount)}
               pack={pack}
               checked={effectiveSelection?.kind === 'pack' && effectiveSelection.packId === pack.id}
               onSelect={() => setSelection({ kind: 'pack', packId: pack.id })}
@@ -142,13 +144,13 @@ export function CreditsPacksPage() {
         <ul className="m-0 mt-6 flex list-none flex-col gap-2.5 p-0">
           <li className="flex items-center gap-3 text-[13.5px] leading-relaxed text-foreground">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-success">
-              ✓
+              <Check className="h-4 w-4" aria-hidden="true" />
             </span>
             <span>Se suman a tu saldo apenas Mercado Pago confirma el pago.</span>
           </li>
           <li className="flex items-center gap-3 text-[13.5px] leading-relaxed text-foreground">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary-deep">
-              ⏱
+              <Clock className="h-4 w-4" aria-hidden="true" />
             </span>
             <span>Vencen a los {expiryDays} días de tu última compra. Cada compra renueva el plazo.</span>
           </li>

@@ -17,9 +17,9 @@ vi.mock('@/features/credits/services/creditsApi', () => ({
 vi.mock('@/features/orders/services/ordersApi', () => ({ getRestaurantConfig: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-const dayPack: CreditPack = { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true };
-const weekPack: CreditPack = { id: 2, code: 'WEEK', packType: 'SUGERIDO', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true };
-const monthPack: CreditPack = { id: 3, code: 'MONTH', packType: 'OTRO', nombre: 'Paquete Mes', creditAmount: 20, priceCents: 2400000, discountPercent: 20, ordenDisplay: 3, enabled: true };
+const dayPack: CreditPack = { id: 1, code: 'DAY', packType: 'INDIVIDUAL', nombre: 'Sueltos', creditAmount: 1, priceCents: 150000, discountPercent: 0, ordenDisplay: 1, enabled: true, lema: null };
+const weekPack: CreditPack = { id: 2, code: 'WEEK', packType: 'SUGERIDO', nombre: 'Paquete Semana', creditAmount: 5, priceCents: 700000, discountPercent: 10, ordenDisplay: 2, enabled: true, lema: null };
+const monthPack: CreditPack = { id: 3, code: 'MONTH', packType: 'OTRO', nombre: 'Paquete Mes', creditAmount: 20, priceCents: 2400000, discountPercent: 20, ordenDisplay: 3, enabled: true, lema: null };
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -53,13 +53,14 @@ describe('CreditsPacksPage on desktop (F22c)', () => {
     vi.useRealTimers();
   });
 
-  it('shows the "how it works" steps image, above the cards', async () => {
+  it('shows the homemade "how it works" block above the cards, with the catalog amounts', async () => {
     renderPage();
 
-    const img = await screen.findByRole('img', { name: /cómo funciona/i });
+    const block = await screen.findByRole('region', { name: /cómo funciona/i });
     const group = screen.getByRole('radiogroup', { name: 'Elegí qué comprar' });
-    expect(img.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getAllByRole('img', { name: /cómo funciona/i })).toHaveLength(1);
+    expect(block.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(block).getByText('Elegí 1, 5 o 20. Cuantos más comprás, menos pagás.')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /cómo funciona/i })).not.toBeInTheDocument();
   });
 
   it('lays Sueltos, Semana and Mes out as three side-by-side cards, Semana preselected', async () => {
@@ -74,6 +75,16 @@ describe('CreditsPacksPage on desktop (F22c)', () => {
     expect(radios[2]).toHaveAccessibleName(/paquete mes/i);
     expect(radios[1]).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('link', { name: /mis almuerzos/i })).toHaveAttribute('href', '/credits');
+  });
+
+  it('shows each pack lema on the desktop cards, falling back to the tagline', async () => {
+    vi.mocked(getPacks).mockResolvedValue([{ ...dayPack, lema: 'Hoy resuelto' }, { ...weekPack, lema: 'Resolvé la semana' }, monthPack]);
+    renderPage();
+
+    const radios = await within(await screen.findByRole('radiogroup', { name: 'Elegí qué comprar' })).findAllByRole('radio');
+    expect(within(radios[0]).getByText('Hoy resuelto')).toBeInTheDocument();
+    expect(within(radios[1]).getByText('Resolvé la semana')).toBeInTheDocument();
+    expect(within(radios[2]).getByText('¡Resolvé todo el mes!')).toBeInTheDocument();
   });
 
   it('shows an always-visible "Tu compra" panel: per-lunch price, discount, total, balance and expiry', async () => {

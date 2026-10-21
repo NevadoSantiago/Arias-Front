@@ -10,6 +10,7 @@ const pack = (over: Partial<CreditPack> & Pick<CreditPack, 'id' | 'code'>): Cred
   discountPercent: 0,
   ordenDisplay: over.id,
   enabled: true,
+  lema: null,
   ...over,
 });
 

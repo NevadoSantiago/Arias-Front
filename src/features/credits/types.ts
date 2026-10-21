@@ -48,6 +48,8 @@ export interface CreditPack {
   discountPercent: number;
   ordenDisplay: number;
   enabled: boolean;
+  /** Lema de la tarjeta (editable en el admin); `null` si no se cargó: la UI cae en `packTagline`. */
+  lema: string | null;
 }
 
 export type PurchaseType = 'PACK' | 'DIRECT';

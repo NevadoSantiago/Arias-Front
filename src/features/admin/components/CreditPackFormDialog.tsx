@@ -42,6 +42,7 @@ const schema = z.object({
   priceArs: z.number().positive('Debe ser mayor a 0'),
   discountPercent: z.number().int().min(0).max(100),
   ordenDisplay: z.number().int().min(0),
+  lema: z.string().max(60).optional().or(z.literal('')),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -112,6 +113,7 @@ function CreditPackForm({
           priceArs: editing.priceCents / 100,
           discountPercent: editing.discountPercent,
           ordenDisplay: editing.ordenDisplay,
+          lema: editing.lema ?? '',
         }
       : {
           packType: firstFreeType(existingTypes),
@@ -120,6 +122,7 @@ function CreditPackForm({
           priceArs: 0,
           discountPercent: 0,
           ordenDisplay: 0,
+          lema: '',
         },
   });
 
@@ -133,6 +136,7 @@ function CreditPackForm({
           priceCents,
           discountPercent: data.discountPercent,
           ordenDisplay: data.ordenDisplay,
+          lema: data.lema?.trim() || null,
           enabled: editing.enabled,
         });
       }
@@ -143,6 +147,7 @@ function CreditPackForm({
         priceCents,
         discountPercent: data.discountPercent,
         ordenDisplay: data.ordenDisplay,
+        lema: data.lema?.trim() || null,
       });
     },
     onSuccess: () => {
@@ -224,6 +229,15 @@ function CreditPackForm({
             <Input id="ordenDisplay" type="number" min={0} step={1} {...register('ordenDisplay', { valueAsNumber: true })} />
           </Field>
         </div>
+
+        <Field
+          label="Lema"
+          htmlFor="lema"
+          error={errors.lema?.message}
+          hint="Aparece en la tarjeta, al lado del nombre."
+        >
+          <Input id="lema" maxLength={60} placeholder="Ej.: Resolvé tu semana" {...register('lema')} />
+        </Field>
 
         {serverError && <p className="text-destructive text-xs">{serverError}</p>}
 

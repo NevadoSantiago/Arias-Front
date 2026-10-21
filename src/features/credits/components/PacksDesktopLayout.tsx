@@ -1,9 +1,10 @@
-import { CalendarDays, ChevronLeft } from 'lucide-react';
+import { CalendarDays, Check, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatPrice, perLunchPriceCents } from '../packPricing';
 import { expiryAfterPurchase, type PackCatalog, type PurchasePlan, type PurchaseSelection } from '../purchaseModel';
 import { useCreditExpiryDays } from '../hooks/useCreditExpiryDays';
-import howBuyingWorks from '@/assets/credits/pasos-compra-recorte.jpeg';
+import { HowItWorks } from './HowItWorks';
+import { catalogAmounts } from '../howItWorksCopy';
 import { LooseCard } from './LooseCard';
 import { PackNudge } from './PackNudge';
 import { PackOptionCard } from './PackOptionCard';
@@ -56,11 +57,9 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
           </p>
         </div>
 
-        <img
-          src={howBuyingWorks}
-          alt="Cómo funciona: 1. Comprá tus almuerzos, 2. Elegí qué comer, 3. Indicá el horario y retirá."
-          className="mx-auto block h-auto w-full max-w-[720px] rounded-xl border border-border"
-        />
+        <div className="mx-auto w-full max-w-[720px]">
+          <HowItWorks packAmounts={catalogAmounts(catalog)} />
+        </div>
 
         <div
           role="radiogroup"
@@ -71,6 +70,7 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
           {dayPack && (
             <LooseCard
               layout="stacked"
+              lema={dayPack.lema}
               checked={loose}
               onSelect={() => onSelect({ kind: 'loose' })}
               qty={qty}
@@ -101,7 +101,7 @@ export function PacksDesktopLayout({ catalog, selection, onSelect, qty, onQtyCha
         <ul className="m-0 grid list-none grid-cols-2 gap-4 p-0">
           <li className="flex items-center gap-3 text-[13.5px] leading-relaxed text-foreground">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-success">
-              ✓
+              <Check className="h-4 w-4" aria-hidden="true" />
             </span>
             <span>Se suman a tu saldo apenas Mercado Pago confirma el pago.</span>
           </li>

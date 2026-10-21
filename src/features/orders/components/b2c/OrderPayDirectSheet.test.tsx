@@ -45,6 +45,7 @@ const dayPack: CreditPack = {
   discountPercent: 0,
   ordenDisplay: 1,
   enabled: true,
+  lema: null,
 };
 
 const weekPack: CreditPack = {
@@ -56,6 +57,7 @@ const weekPack: CreditPack = {
   discountPercent: 20,
   ordenDisplay: 2,
   enabled: true,
+  lema: null,
 };
 
 function baseProps(overrides: Partial<Parameters<typeof OrderPayDirectSheet>[0]> = {}) {

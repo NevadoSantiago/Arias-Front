@@ -12,6 +12,7 @@ const weekPack: CreditPack = {
   discountPercent: 10,
   ordenDisplay: 2,
   enabled: true,
+  lema: null,
 };
 
 function renderCard(props: Partial<Parameters<typeof PackOptionCard>[0]> = {}) {

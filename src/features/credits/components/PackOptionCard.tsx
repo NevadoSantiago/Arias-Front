@@ -45,7 +45,7 @@ export function PackOptionCard({ pack, checked, onSelect, recommended, priceLabe
     >
       {checked && <SelectedSeal />}
       <CountBlock count={pack.creditAmount} word={pack.creditAmount === 1 ? 'almuerzo' : 'almuerzos'} layout={layout} />
-      <TaglineRow>{packTagline(pack.creditAmount)}</TaglineRow>
+      <TaglineRow>{pack.lema ?? packTagline(pack.creditAmount)}</TaglineRow>
       <PriceBlock price={perLunchLabel} />
       {recommended && <BestOptionRibbon />}
     </button>

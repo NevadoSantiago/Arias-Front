@@ -19,6 +19,8 @@ interface Props {
   onPickRecommended: () => void;
   /** `row` (default, móvil) o `stacked` (escritorio): ver `CountBlock`. */
   layout?: PackCardLayout;
+  /** Lema configurado en el pack DAY; sin él se usa el que se deduce de la cantidad. */
+  lema?: string | null;
 }
 
 /**
@@ -35,6 +37,7 @@ export function LooseCard({
   showNudge,
   onPickRecommended,
   layout = 'row',
+  lema,
 }: Props) {
   return (
     <div className={`${packCardFrameClasses(checked)} gap-3 px-4 py-5`}>
@@ -48,7 +51,7 @@ export function LooseCard({
         className="flex w-full flex-col items-center gap-3 border-0 bg-transparent p-0 text-left font-sans text-foreground"
       >
         <CountBlock count={1} word="almuerzo" layout={layout} />
-        <TaglineRow>{packTagline(1)}</TaglineRow>
+        <TaglineRow>{lema ?? packTagline(1)}</TaglineRow>
         <PriceBlock price={unitPriceLabel} />
       </button>
 

@@ -126,7 +126,10 @@ export function AdminCreditPacksPage() {
                     )}
                   >
                     <Td className="font-medium text-foreground">{PACK_TYPE_LABEL[p.packType] ?? p.packType}</Td>
-                    <Td>{p.nombre}</Td>
+                    <Td>
+                      {p.nombre}
+                      {p.lema && <span className="block text-xs text-muted-foreground">{p.lema}</span>}
+                    </Td>
                     <Td className="text-muted-foreground">
                       {p.creditAmount} {p.creditAmount === 1 ? 'almuerzo' : 'almuerzos'}
                     </Td>

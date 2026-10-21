@@ -665,6 +665,7 @@ export interface AdminCreditPack {
   discountPercent: number;
   ordenDisplay: number;
   enabled: boolean;
+  lema: string | null;
 }
 
 export interface CreateCreditPackPayload {
@@ -674,6 +675,7 @@ export interface CreateCreditPackPayload {
   priceCents: number;
   discountPercent: number;
   ordenDisplay: number;
+  lema: string | null;
 }
 
 export interface UpdateCreditPackPayload {
@@ -683,6 +685,7 @@ export interface UpdateCreditPackPayload {
   discountPercent: number;
   ordenDisplay: number;
   enabled: boolean;
+  lema: string | null;
 }
 
 const CREDIT_PACKS_BASE = '/api/v1/admin/credit-packs';
