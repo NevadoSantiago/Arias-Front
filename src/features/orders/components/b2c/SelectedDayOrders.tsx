@@ -1,5 +1,3 @@
-import { Fragment } from 'react';
-import { Link } from 'react-router-dom';
 import { OrderCard } from '../OrderCard';
 import type { OrderItemV2, OrderV2 } from '../../services/ordersApi';
 
@@ -56,27 +54,18 @@ export function SelectedDayOrders({
       <h2 className="font-display text-foreground text-lg font-bold">{heading}</h2>
       <ul className="space-y-2">
         {orders.map((order) => (
-          <Fragment key={order.id}>
-            <OrderCard
-              order={order}
-              now={now}
-              onRequestCancel={() => onRequestCancel(order)}
-              onRequestRemoveItem={
-                onRequestRemoveItem ? (item) => onRequestRemoveItem(order, item) : undefined
-              }
-              orderLeadMinutes={orderLeadMinutes}
-              onRequestPayNow={onRequestPayNow}
-              payingNow={payingOrderId === order.id}
-            />
-            <li>
-              <Link
-                to="/orders/mine"
-                className="inline-flex h-8 items-center pl-1 text-[13px] font-semibold text-primary-deep underline underline-offset-2"
-              >
-                Ver en Mis pedidos
-              </Link>
-            </li>
-          </Fragment>
+          <OrderCard
+            key={order.id}
+            order={order}
+            now={now}
+            onRequestCancel={() => onRequestCancel(order)}
+            onRequestRemoveItem={
+              onRequestRemoveItem ? (item) => onRequestRemoveItem(order, item) : undefined
+            }
+            orderLeadMinutes={orderLeadMinutes}
+            onRequestPayNow={onRequestPayNow}
+            payingNow={payingOrderId === order.id}
+          />
         ))}
       </ul>
       {someModifiable ? (

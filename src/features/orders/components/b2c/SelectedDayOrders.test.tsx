@@ -133,4 +133,10 @@ describe('SelectedDayOrders — same-day hint', () => {
 
     expect(screen.queryByText(/lo que pidas/i)).not.toBeInTheDocument();
   });
+
+  it('has no per-order "Ver en Mis pedidos" link (the page offers a permanent one)', () => {
+    renderList([order()]);
+
+    expect(screen.queryByRole('link', { name: /Mis pedidos/ })).not.toBeInTheDocument();
+  });
 });

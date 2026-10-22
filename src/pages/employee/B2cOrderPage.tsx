@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CalendarDays, Clock, UtensilsCrossed } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { DishCard } from '@/features/orders/components/DishCard';
 import { FilterPills } from '@/features/orders/components/FilterPills';
 import type { ActiveFilter } from '@/features/orders/components/FilterPills';
@@ -51,7 +51,6 @@ import { useIsDesktop } from '@/lib/useMediaQuery';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useTourActive, useTourPageControls } from '@/features/tour/TourContext';
 import { pickTourDish } from '@/features/tour/pickTourDish';
-import { cn } from '@/lib/utils';
 
 /**
  * Copia de `formatDayLabel` (`CompanyOrderPage.tsx`) — se duplica a propósito
@@ -751,24 +750,16 @@ export function B2cOrderPage() {
             />
 
             <div className="flex items-center justify-between gap-3 px-1">
-              <span
-                className={cn(
-                  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-bold',
-                  isToday
-                    ? 'bg-primary-deep text-primary-foreground'
-                    : 'border border-foreground text-foreground',
-                )}
+              {/* Mobile only: the header nav ("Pedir / Mis pedidos") is hidden below `sm`. */}
+              <Link
+                to="/orders/mine"
+                className="inline-flex h-11 items-center text-sm font-semibold text-primary-deep underline underline-offset-2 sm:hidden"
               >
-                {isToday ? (
-                  <UtensilsCrossed className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-                {isToday ? 'Menú de hoy' : 'Pedido programado'}
-              </span>
+                Ver mis pedidos ›
+              </Link>
 
               {pickupAvailabilityFor(config, selectedDate, todayStr, now).kind === 'closed' && (
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <span className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
                   <Clock className="h-4 w-4 text-primary-deep" aria-hidden="true" />
                   <span>Cerrado</span>
                 </span>

@@ -160,7 +160,7 @@ describe('B2cOrderPage — "Te quedaste sin almuerzos" banner', () => {
     renderPage();
 
     const bannerEl = await screen.findByText(banner);
-    const calendarChip = screen.getByText('Menú de hoy');
+    const calendarChip = screen.getByRole('link', { name: /Ver mis pedidos/ });
     expect(calendarChip.compareDocumentPosition(bannerEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

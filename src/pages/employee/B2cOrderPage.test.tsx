@@ -542,7 +542,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     expect(await screen.findByText('¡Buen día, Lucía!')).toBeInTheDocument();
     expect(screen.getByText('¿Qué querés comer hoy?')).toBeInTheDocument();
-    expect(screen.getByText('Menú de hoy')).toBeInTheDocument();
+    expect(screen.queryByText('Menú de hoy')).not.toBeInTheDocument();
 
     const futureDayButton = screen
       .getByText(String(Number(futureDate.split('-')[2])))
@@ -550,8 +550,20 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
     fireEvent.click(futureDayButton!);
 
     expect(await screen.findByText('¿Qué querés comer?')).toBeInTheDocument();
-    expect(screen.getByText('Pedido programado')).toBeInTheDocument();
+    expect(screen.queryByText('Pedido programado')).not.toBeInTheDocument();
     expect(screen.queryByText('¿Qué querés comer hoy?')).not.toBeInTheDocument();
+  });
+
+  it('shows a "Ver mis pedidos" link to /orders/mine under the day strip, with no day badges', async () => {
+    vi.mocked(getOrdersV2).mockResolvedValue([]);
+
+    renderPage();
+
+    const link = await screen.findByRole('link', { name: /Ver mis pedidos/ });
+    expect(link).toHaveAttribute('href', '/orders/mine');
+    expect(link.className).toContain('sm:hidden');
+    expect(screen.queryByText('Menú de hoy')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pedido programado')).not.toBeInTheDocument();
   });
 
   it('never renders the pickup hours range, and shows nothing while inside the window', async () => {
@@ -565,7 +577,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
 
     renderPage();
 
-    expect(await screen.findByText('Menú de hoy')).toBeInTheDocument();
+    expect(await screen.findByText('¡Buen día, Lucía!')).toBeInTheDocument();
     await waitFor(() => expect(getRestaurantConfig).toHaveBeenCalled());
     expect(screen.queryByText(/11:30/)).not.toBeInTheDocument();
     expect(screen.queryByText(/22:45/)).not.toBeInTheDocument();
@@ -604,14 +616,14 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
     renderPage();
 
     // Sábado 09:00, la ventana (10:00-15:00) todavía no terminó: ni rango ni "Cerrado".
-    expect(await screen.findByText('Menú de hoy')).toBeInTheDocument();
+    expect(await screen.findByText('¡Buen día, Lucía!')).toBeInTheDocument();
     expect(screen.queryByText(/10:00/)).not.toBeInTheDocument();
     expect(screen.queryByText(/cerrado/i)).not.toBeInTheDocument();
 
     const mondayButton = screen.getByText('Lu').closest('button');
     fireEvent.click(mondayButton!);
 
-    expect(await screen.findByText('Pedido programado')).toBeInTheDocument();
+    expect(await screen.findByText('¿Qué querés comer?')).toBeInTheDocument();
     expect(screen.queryByText(/08:00/)).not.toBeInTheDocument();
     expect(screen.queryByText(/20:00/)).not.toBeInTheDocument();
     expect(screen.queryByText(/cerrado/i)).not.toBeInTheDocument();
@@ -690,7 +702,7 @@ describe('B2cOrderPage — day strip, headings and pickup window (F2)', () => {
     expect(screen.queryByText(/20:00/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getAllByText('Mi')[0].closest('button')!); // miércoles, futuro y abierto
-    expect(await screen.findByText('Pedido programado')).toBeInTheDocument();
+    expect(await screen.findByText('¿Qué querés comer?')).toBeInTheDocument();
     expect(screen.queryByText('Cerrado')).not.toBeInTheDocument();
 
     vi.useRealTimers();
