@@ -4,7 +4,10 @@ import type { CreditPurchaseStatus } from '@/features/credits/types';
 export type PaymentKind = 'INDIVIDUAL' | 'SUGERIDO' | 'OTRO' | 'DIRECT';
 export type PaymentStatusFilter = 'APPROVED' | 'ALL';
 
-/** One purchase — matches `AdminPaymentRowDto`. Fee and net are null when Mercado Pago did not report them. */
+/**
+ * One purchase — matches `AdminPaymentRowDto`. Fee and net are null when Mercado Pago did not report them;
+ * retentions (tax withholdings, gross − fee − net) are null whenever either is.
+ */
 export interface PaymentRow {
   purchaseId: string;
   occurredAt: string;
@@ -17,6 +20,7 @@ export interface PaymentRow {
   status: CreditPurchaseStatus;
   mpPaymentId: string | null;
   feeCents: number | null;
+  retentionsCents: number | null;
   netCents: number | null;
   creditsReversed: number;
 }
@@ -32,6 +36,7 @@ export interface PaymentSummary {
   approvedCount: number;
   grossCents: number;
   feeCents: number;
+  retentionsCents: number;
   netCents: number;
   rowsWithoutFee: number;
   byKind: KindBreakdown[];

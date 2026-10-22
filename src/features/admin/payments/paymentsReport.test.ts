@@ -56,6 +56,7 @@ describe('conceptOf', () => {
     status: 'APPROVED',
     mpPaymentId: '1',
     feeCents: 50,
+    retentionsCents: 0,
     netCents: 950,
     creditsReversed: 0,
   };

@@ -75,7 +75,7 @@ function Summary({ summary, from, to }: { summary: PaymentSummary; from: string;
   const aside = asideNote(summary.inMediationCount, summary.reversedCount);
   return (
     <section aria-label="Resumen" className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <SummaryBox title="Pagos realizados" value={summary.approvedCount} hint={from === to ? from : `${from} al ${to}`} />
         <SummaryBox title="Cobrado bruto" value={formatPrice(summary.grossCents)} hint="Suma de los pagos realizados" />
         <SummaryBox
@@ -83,7 +83,17 @@ function Summary({ summary, from, to }: { summary: PaymentSummary; from: string;
           value={formatPrice(summary.feeCents)}
           hint="Comisión real informada por Mercado Pago"
         />
-        <SummaryBox title="Ingreso neto" value={formatPrice(summary.netCents)} hint="Bruto − comisión" highlight />
+        <SummaryBox
+          title="Impuestos y retenciones"
+          value={formatPrice(summary.retentionsCents)}
+          hint="Retenciones impositivas descontadas por Mercado Pago"
+        />
+        <SummaryBox
+          title="Ingreso neto"
+          value={formatPrice(summary.netCents)}
+          hint="Bruto − comisión − retenciones"
+          highlight
+        />
       </div>
       {fee && <p className="text-xs font-semibold text-foreground">{fee}</p>}
       {aside && <p className="text-xs text-muted-foreground">{aside}</p>}
@@ -98,7 +108,7 @@ function PaymentsTable({ rows, timezone }: { rows: PaymentRow[]; timezone: strin
   const num = 'whitespace-nowrap px-3 py-2.5 text-right tabular-nums';
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[960px] text-sm">
+      <table className="w-full min-w-[1080px] text-sm">
         <thead className="border-y border-border bg-muted/50">
           <tr>
             <th scope="col" className={th}>Fecha</th>
@@ -107,6 +117,7 @@ function PaymentsTable({ rows, timezone }: { rows: PaymentRow[]; timezone: strin
             <th scope="col" className={cn(th, 'text-right')}>Almuerzos</th>
             <th scope="col" className={cn(th, 'text-right')}>Monto</th>
             <th scope="col" className={cn(th, 'text-right')}>Comisión</th>
+            <th scope="col" className={cn(th, 'text-right')}>Impuestos y retenciones</th>
             <th scope="col" className={cn(th, 'text-right')}>Neto</th>
             <th scope="col" className={th}>Estado</th>
             <th scope="col" className={th}>Pago MP</th>
@@ -126,6 +137,7 @@ function PaymentsTable({ rows, timezone }: { rows: PaymentRow[]; timezone: strin
                 <td className={num}>{r.credits}</td>
                 <td className={num}>{formatPrice(r.amountCents)}</td>
                 <td className={num}>{money(r.feeCents)}</td>
+                <td className={num}>{money(r.retentionsCents)}</td>
                 <td className={num}>{money(r.netCents)}</td>
                 <td className="px-3 py-2.5">
                   <span

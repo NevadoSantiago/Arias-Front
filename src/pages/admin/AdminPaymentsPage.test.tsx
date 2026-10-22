@@ -29,7 +29,8 @@ const report: PaymentReport = {
       status: 'APPROVED',
       mpPaymentId: '1111',
       feeCents: 250000,
-      netCents: 4750000,
+      retentionsCents: 75000,
+      netCents: 4675000,
       creditsReversed: 0,
     },
     {
@@ -44,6 +45,7 @@ const report: PaymentReport = {
       status: 'IN_MEDIATION',
       mpPaymentId: '2222',
       feeCents: null,
+      retentionsCents: null,
       netCents: null,
       creditsReversed: 0,
     },
@@ -52,7 +54,8 @@ const report: PaymentReport = {
     approvedCount: 3,
     grossCents: 11000000,
     feeCents: 550000,
-    netCents: 10450000,
+    retentionsCents: 75000,
+    netCents: 10375000,
     rowsWithoutFee: 1,
     byKind: [
       { kind: 'INDIVIDUAL', count: 1, grossCents: 1000000 },
@@ -133,7 +136,8 @@ describe('AdminPaymentsPage', () => {
     expect(box('Pagos realizados').getByText('3')).toBeInTheDocument();
     expect(box('Cobrado bruto').getByText(/110\.000,00/)).toBeInTheDocument();
     expect(box('Comisión Mercado Pago').getByText(/5\.500,00/)).toBeInTheDocument();
-    expect(box('Ingreso neto').getByText(/104\.500,00/)).toBeInTheDocument();
+    expect(box('Impuestos y retenciones').getByText(/750,00/)).toBeInTheDocument();
+    expect(box('Ingreso neto').getByText(/103\.750,00/)).toBeInTheDocument();
     expect(screen.getByText('1 pago sin dato de comisión: el neto no lo incluye.')).toBeInTheDocument();
     expect(screen.queryByText(/COMISIÓN MP %/)).not.toBeInTheDocument();
   });
@@ -188,7 +192,7 @@ describe('AdminPaymentsPage', () => {
     await screen.findByText('Ana Pérez');
     const table = screen.getByRole('table');
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
-      'Fecha', 'Cliente', 'Concepto', 'Almuerzos', 'Monto', 'Comisión', 'Neto', 'Estado', 'Pago MP',
+      'Fecha', 'Cliente', 'Concepto', 'Almuerzos', 'Monto', 'Comisión', 'Impuestos y retenciones', 'Neto', 'Estado', 'Pago MP',
     ]);
 
     const [, first, second] = within(table).getAllByRole('row');
@@ -197,13 +201,14 @@ describe('AdminPaymentsPage', () => {
     expect(first).toHaveTextContent('Sugerido · Paquete Semana');
     expect(first).toHaveTextContent(/50\.000,00/);
     expect(first).toHaveTextContent(/2\.500,00/);
-    expect(first).toHaveTextContent(/47\.500,00/);
+    expect(first).toHaveTextContent(/750,00/);
+    expect(first).toHaveTextContent(/46\.750,00/);
     expect(first).toHaveTextContent('Aprobado');
     expect(first).toHaveTextContent('1111');
 
     expect(second).toHaveTextContent('Pago directo · pedido N°12');
     expect(second).toHaveTextContent('En mediación');
-    expect(within(second).getAllByText('—')).toHaveLength(2);
+    expect(within(second).getAllByText('—')).toHaveLength(3);
   });
 
   it('shows empty states when there are no payments', async () => {
@@ -214,6 +219,7 @@ describe('AdminPaymentsPage', () => {
         approvedCount: 0,
         grossCents: 0,
         feeCents: 0,
+        retentionsCents: 0,
         netCents: 0,
         rowsWithoutFee: 0,
         byKind: report.summary.byKind.map((k) => ({ ...k, count: 0, grossCents: 0 })),
