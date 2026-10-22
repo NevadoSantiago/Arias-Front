@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatPrice } from '@/features/credits/packPricing';
+import { formatPriceExact } from '@/features/credits/packPricing';
 import type { PaymentKind, PaymentSummary } from './paymentsApi';
 import { donutSlices, KIND_COLOR, kindShares } from './paymentsReport';
 
@@ -77,7 +77,7 @@ export function PaymentsDonut({ summary }: { summary: PaymentSummary }) {
             <span className="text-muted-foreground">
               {s.count} · {s.percent} %
             </span>
-            <span className="w-28 text-right text-muted-foreground">{formatPrice(s.grossCents)}</span>
+            <span className="w-28 text-right text-muted-foreground">{formatPriceExact(s.grossCents)}</span>
           </li>
         ))}
       </ul>

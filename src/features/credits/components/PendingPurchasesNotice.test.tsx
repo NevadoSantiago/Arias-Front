@@ -56,7 +56,7 @@ describe('PendingPurchasesNotice (D6)', () => {
     const region = screen.getByRole('region', { name: 'Pago pendiente' });
     expect(within(region).getByText('Paquete Semana')).toBeInTheDocument();
     expect(within(region).getByText('5 almuerzos · Mercado Pago · iniciado hoy 11:52')).toBeInTheDocument();
-    expect(within(region).getByText(/7\.000,00/)).toBeInTheDocument();
+    expect(within(region).getByText(/7\.000(?!,)/)).toBeInTheDocument();
     expect(within(region).getByText('+5 por acreditar')).toBeInTheDocument();
     expect(
       within(region).getByText('Los 5 almuerzos se acreditan en tu saldo apenas Mercado Pago confirme el pago.'),

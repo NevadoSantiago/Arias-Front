@@ -111,7 +111,7 @@ describe('OrderPayDirectSheet', () => {
       expect(screen.queryByText('Pagá este pedido con Mercado Pago')).not.toBeInTheDocument();
       // Usás 1 almuerzo de tu saldo y pagás 1 con Mercado Pago · $1.500 (M × precio DÍA)
       expect(
-        await screen.findByText(/usás 1 almuerzo de tu saldo y pagás 1 con mercado pago · \$\s?1\.500,00/i),
+        await screen.findByText(/usás 1 almuerzo de tu saldo y pagás 1 con mercado pago · \$\s?1\.500(?!,)/i),
       ).toBeInTheDocument();
     });
 
@@ -121,11 +121,11 @@ describe('OrderPayDirectSheet', () => {
 
       expect(await screen.findByText('De tu saldo')).toBeInTheDocument();
       expect(screen.getByText('Pagás con Mercado Pago')).toBeInTheDocument();
-      // M = 3 - 1 = 2 → 2 × $1.500,00 = $3.000,00
-      expect(await screen.findByText(/2 × \$\s?1\.500,00/)).toBeInTheDocument();
+      // M = 3 - 1 = 2 → 2 × $1.500 = $3.000
+      expect(await screen.findByText(/2 × \$\s?1\.500(?!,)/)).toBeInTheDocument();
       expect(screen.getByText('Total a pagar')).toBeInTheDocument();
-      expect(screen.getAllByText(/\$\s?3\.000,00/).length).toBeGreaterThan(0);
-      expect(screen.getByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i })).toBeEnabled();
+      expect(screen.getAllByText(/\$\s?3\.000(?!,)/).length).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: /pagar \$\s?3\.000(?!,) con mercado pago/i })).toBeEnabled();
     });
 
     it('pluralizes the balance part and the note (2 lunches from the balance)', async () => {
@@ -167,7 +167,7 @@ describe('OrderPayDirectSheet', () => {
       expect(await screen.findByText('Pagá este pedido con Mercado Pago')).toBeInTheDocument();
       expect(screen.queryByText('De tu saldo')).not.toBeInTheDocument();
       expect(screen.getByText('Reservamos tu pedido mientras pagás. Si el pago no se aprueba, se cancela solo.')).toBeInTheDocument();
-      expect(await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i })).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /pagar \$\s?3\.000(?!,) con mercado pago/i })).toBeInTheDocument();
     });
   });
 
@@ -178,10 +178,10 @@ describe('OrderPayDirectSheet', () => {
     expect(await screen.findByText('Milanesa napolitana')).toBeInTheDocument();
     expect(screen.getByText('Ensalada César')).toBeInTheDocument();
     expect(screen.getByText('Retiro hoy 13:00 hs')).toBeInTheDocument();
-    // 2 almuerzos × $1.500,00 = $3.000,00 — depende de que `getPacks` resuelva.
-    expect(await screen.findByText(/2 × \$\s?1\.500,00/)).toBeInTheDocument();
+    // 2 almuerzos × $1.500 = $3.000 — depende de que `getPacks` resuelva.
+    expect(await screen.findByText(/2 × \$\s?1\.500(?!,)/)).toBeInTheDocument();
     expect(
-      await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i }),
+      await screen.findByRole('button', { name: /pagar \$\s?3\.000(?!,) con mercado pago/i }),
     ).toBeInTheDocument();
   });
 
@@ -192,7 +192,7 @@ describe('OrderPayDirectSheet', () => {
     // El nombre del pack va en un <strong>, así que el texto está partido en
     // varios nodos — se compara contra el textContent completo del párrafo.
     const packName = await screen.findByText('Paquete Semana');
-    expect(packName.closest('span')).toHaveTextContent(/cada almuerzo te sale \$\s?1\.200,00 \(ahorrás 20%\)/i);
+    expect(packName.closest('span')).toHaveTextContent(/cada almuerzo te sale \$\s?1\.200(?!,) \(ahorrás 20%\)/i);
     expect(screen.getByRole('link', { name: /ver paquetes/i })).toHaveAttribute('href', '/credits?comprar=1');
   });
 
@@ -273,7 +273,7 @@ describe('OrderPayDirectSheet', () => {
     vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
     renderSheet({ totalLunches: 2 });
 
-    const payButton = await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i });
+    const payButton = await screen.findByRole('button', { name: /pagar \$\s?3\.000(?!,) con mercado pago/i });
     expect(payButton).not.toBeDisabled();
   });
 });

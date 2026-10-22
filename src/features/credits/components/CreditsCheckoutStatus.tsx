@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useIsDesktop } from '@/lib/useMediaQuery';
 import { PENDING_PURCHASES_KEY } from '../hooks/usePendingPurchases';
 import { confirmPurchase, getPurchase } from '../services/creditsApi';
+import { formatPrice } from '../packPricing';
 import type { CreditPurchase, CreditPurchaseStatus } from '../types';
 import { PurchaseResultDesktop } from './PurchaseResultDesktop';
 
@@ -19,7 +20,7 @@ interface CreditsCheckoutStatusProps {
 }
 
 function formatAmount(purchase: Pick<CreditPurchase, 'amountCents' | 'currency'>): string {
-  return (purchase.amountCents / 100).toLocaleString('es-AR', { style: 'currency', currency: purchase.currency });
+  return formatPrice(purchase.amountCents, purchase.currency);
 }
 
 /**

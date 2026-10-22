@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { formatPrice } from '@/features/credits/packPricing';
+import { formatPriceExact } from '@/features/credits/packPricing';
 import type { CreditPurchaseStatus } from '@/features/credits/types';
 import type { PaymentReport, PaymentRow, PaymentStatusFilter, PaymentSummary } from './paymentsApi';
 import { PaymentsDonut } from './PaymentsDonut';
@@ -77,20 +77,20 @@ function Summary({ summary, from, to }: { summary: PaymentSummary; from: string;
     <section aria-label="Resumen" className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <SummaryBox title="Pagos realizados" value={summary.approvedCount} hint={from === to ? from : `${from} al ${to}`} />
-        <SummaryBox title="Cobrado bruto" value={formatPrice(summary.grossCents)} hint="Suma de los pagos realizados" />
+        <SummaryBox title="Cobrado bruto" value={formatPriceExact(summary.grossCents)} hint="Suma de los pagos realizados" />
         <SummaryBox
           title="Comisión Mercado Pago"
-          value={formatPrice(summary.feeCents)}
+          value={formatPriceExact(summary.feeCents)}
           hint="Comisión real informada por Mercado Pago"
         />
         <SummaryBox
           title="Impuestos y retenciones"
-          value={formatPrice(summary.retentionsCents)}
+          value={formatPriceExact(summary.retentionsCents)}
           hint="Retenciones impositivas descontadas por Mercado Pago"
         />
         <SummaryBox
           title="Ingreso neto"
-          value={formatPrice(summary.netCents)}
+          value={formatPriceExact(summary.netCents)}
           hint="Bruto − comisión − retenciones"
           highlight
         />
@@ -101,7 +101,7 @@ function Summary({ summary, from, to }: { summary: PaymentSummary; from: string;
   );
 }
 
-const money = (cents: number | null) => (cents === null ? '—' : formatPrice(cents));
+const money = (cents: number | null) => (cents === null ? '—' : formatPriceExact(cents));
 
 function PaymentsTable({ rows, timezone }: { rows: PaymentRow[]; timezone: string }) {
   const th = 'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-brand text-muted-foreground';
@@ -135,7 +135,7 @@ function PaymentsTable({ rows, timezone }: { rows: PaymentRow[]; timezone: strin
                 <td className="px-3 py-2.5">{r.customer}</td>
                 <td className="px-3 py-2.5">{conceptOf(r)}</td>
                 <td className={num}>{r.credits}</td>
-                <td className={num}>{formatPrice(r.amountCents)}</td>
+                <td className={num}>{formatPriceExact(r.amountCents)}</td>
                 <td className={num}>{money(r.feeCents)}</td>
                 <td className={num}>{money(r.retentionsCents)}</td>
                 <td className={num}>{money(r.netCents)}</td>

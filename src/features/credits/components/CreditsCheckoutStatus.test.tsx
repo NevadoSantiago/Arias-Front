@@ -368,7 +368,7 @@ describe('CreditsCheckoutStatus', () => {
       expect(screen.getByText('Almuerzos con Mercado Pago')).toBeInTheDocument();
       expect(screen.queryByText('Almuerzos')).not.toBeInTheDocument();
       expect(screen.getByText('1')).toBeInTheDocument();
-      expect(screen.getByText(/\$\s?1\.500,00/)).toBeInTheDocument();
+      expect(screen.getByText(/\$\s?1\.500(?!,)/)).toBeInTheDocument();
     });
 
     it('keeps the plain "Almuerzos" row for a pack purchase', async () => {

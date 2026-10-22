@@ -22,16 +22,13 @@ import {
   type AdminCreditPack,
 } from '@/features/admin/services/adminApi';
 import { CreditPackFormDialog } from '@/features/admin/components/CreditPackFormDialog';
+import { formatPriceExact } from '@/features/credits/packPricing';
 
 const PACK_TYPE_LABEL: Record<AdminCreditPack['packType'], string> = {
   INDIVIDUAL: 'Individual',
   SUGERIDO: 'Sugerido',
   OTRO: 'Otro',
 };
-
-function formatPrice(priceCents: number): string {
-  return (priceCents / 100).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
-}
 
 /** CRUD de paquetes de almuerzos — SUPER_ADMIN (spec `credit-pack-purchase` del backend). */
 export function AdminCreditPacksPage() {
@@ -133,7 +130,7 @@ export function AdminCreditPacksPage() {
                     <Td className="text-muted-foreground">
                       {p.creditAmount} {p.creditAmount === 1 ? 'almuerzo' : 'almuerzos'}
                     </Td>
-                    <Td className="text-muted-foreground">{formatPrice(p.priceCents)}</Td>
+                    <Td className="text-muted-foreground">{formatPriceExact(p.priceCents)}</Td>
                     <Td className="text-muted-foreground">
                       {p.discountPercent > 0 ? `${p.discountPercent}%` : '—'}
                     </Td>

@@ -1,7 +1,15 @@
 import type { CreditPack } from './types';
 
-/** Precio en pesos formateado en ARS — misma convención en todo `credits`. */
-export function formatPrice(priceCents: number): string {
+/**
+ * Precio para pantallas del cliente: pesos enteros, sin centavos (redondeo al
+ * peso mas cercano). Las pantallas de admin usan `formatPriceExact`.
+ */
+export function formatPrice(priceCents: number, currency = 'ARS'): string {
+  return (priceCents / 100).toLocaleString('es-AR', { style: 'currency', currency, maximumFractionDigits: 0 });
+}
+
+/** Precio con centavos, para admin (p. ej. la vista de pagos necesita $849,60). */
+export function formatPriceExact(priceCents: number): string {
   return (priceCents / 100).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 }
 

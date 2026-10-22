@@ -244,7 +244,7 @@ describe('B2cOrderPage — desktop layout (F22a)', () => {
     await addDishToCart();
     const panel = await screen.findByRole('complementary', { name: 'Tu pedido' });
     fireEvent.click(await within(panel).findByRole('button', { name: /^retiro /i }));
-    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?1\.500,00 con mercado pago/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?1\.500(?!,) con mercado pago/i }));
 
     expect(await within(panel).findByText(/tus almuerzos disponibles ahora alcanzan para este pedido/i)).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

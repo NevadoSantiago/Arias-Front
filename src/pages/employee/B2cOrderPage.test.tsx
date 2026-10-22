@@ -320,8 +320,8 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
       fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
       await screen.findByText('Pagá este pedido con Mercado Pago');
-      // 2 almuerzos (categoría "Básico", creditCost 2) × $1.500,00 = $3.000,00.
-      fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?3\.000,00 con mercado pago/i }));
+      // 2 almuerzos (categoría "Básico", creditCost 2) × $1.500 = $3.000.
+      fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?3\.000(?!,) con mercado pago/i }));
 
       await waitFor(() =>
         expect(startDirectCheckoutV2).toHaveBeenCalledWith({
@@ -358,8 +358,8 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
 
     expect(await screen.findByText('Pagá lo que falta con Mercado Pago')).toBeInTheDocument();
-    // El pedido usa 2 almuerzos y hay 1 disponible: Mercado Pago cobra 1 × $1.500,00.
-    expect(await screen.findByRole('button', { name: /pagar \$\s?1\.500,00 con mercado pago/i })).toBeInTheDocument();
+    // El pedido usa 2 almuerzos y hay 1 disponible: Mercado Pago cobra 1 × $1.500.
+    expect(await screen.findByRole('button', { name: /pagar \$\s?1\.500(?!,) con mercado pago/i })).toBeInTheDocument();
   });
 
   it('goes back to the review with a clear message when the server says the balance now covers the order (409)', async () => {
@@ -375,7 +375,7 @@ describe('B2cOrderPage — credits cart flow (B2C, no company)', () => {
     await addDishToCart();
     await openReview();
     fireEvent.click(await screen.findByRole('button', { name: /^retiro /i }));
-    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?1\.500,00 con mercado pago/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /pagar \$\s?1\.500(?!,) con mercado pago/i }));
 
     // Nunca se cobra ni se redirige: vuelve la revisión con el motivo y el saldo se vuelve a pedir.
     expect(await screen.findByText(/tus almuerzos disponibles ahora alcanzan para este pedido/i)).toBeInTheDocument();
