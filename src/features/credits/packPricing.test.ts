@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { formatPrice, formatPriceExact } from './packPricing';
 
 describe('formatPrice (customer screens)', () => {
@@ -9,6 +9,18 @@ describe('formatPrice (customer screens)', () => {
   it('rounds a fractional per-lunch price to the nearest peso', () => {
     expect(formatPrice(533333)).toMatch(/^\$\s?5\.333$/);
     expect(formatPrice(533350)).toMatch(/^\$\s?5\.334$/);
+  });
+
+  it('sets minimumFractionDigits to 0 so older Safari does not throw a RangeError', () => {
+    // Before Intl.NumberFormat v3 (Safari <= 15.3), a maximumFractionDigits below the
+    // currency default minimum (2 for ARS) throws instead of rounding.
+    const spy = vi.spyOn(Number.prototype, 'toLocaleString');
+    formatPrice(1600000);
+    expect(spy).toHaveBeenCalledWith(
+      'es-AR',
+      expect.objectContaining({ minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+    );
+    spy.mockRestore();
   });
 });
 
