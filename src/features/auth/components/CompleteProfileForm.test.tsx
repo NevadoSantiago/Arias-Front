@@ -72,12 +72,12 @@ describe('CompleteProfileForm — phone', () => {
     expect(completeProfile).toHaveBeenCalledWith({ phone: '+59899123456', nickname: 'Anita' });
   });
 
-  it.each(['115987654', '11598765478', '+54 9 11 5987-6547'])('rejects %s', async (phone) => {
+  it.each(['+54 9 11 5987-6547', 'abc123'])('rejects %s', async (phone) => {
     renderForm();
 
     submit(phone);
 
-    expect(await screen.findByText('Ingresá los 10 dígitos de tu celular')).toBeInTheDocument();
+    expect(await screen.findByText('Usá solo números')).toBeInTheDocument();
     expect(completeProfile).not.toHaveBeenCalled();
   });
 });

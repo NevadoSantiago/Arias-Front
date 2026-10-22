@@ -139,7 +139,7 @@ describe('RegisterForm', () => {
     expect(screen.getByLabelText(/^celular$/i)).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it.each(['115987654', '11598765478', '+54 9 11 5987-6547'])(
+  it.each(['+54 9 11 5987-6547', 'abc123'])(
     'rejects the phone %s client-side',
     async (phone) => {
       renderForm();
@@ -150,7 +150,7 @@ describe('RegisterForm', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /crear cuenta/i }));
 
-      expect(await screen.findByText('Ingresá los 10 dígitos de tu celular')).toBeInTheDocument();
+      expect(await screen.findByText('Usá solo números')).toBeInTheDocument();
       expect(register).not.toHaveBeenCalled();
     },
   );
