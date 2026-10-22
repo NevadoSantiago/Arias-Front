@@ -143,8 +143,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('B2cOrderPage — "Te quedaste sin almuerzos" banner', () => {
-  const banner = /te quedaste sin almuerzos/i;
+describe('B2cOrderPage — empty-balance banner', () => {
+  const banner = /tu próximo almuerzo te está esperando/i;
 
   it('is shown on a day without an order when the balance is 0', async () => {
     mockMatchMedia(false);
