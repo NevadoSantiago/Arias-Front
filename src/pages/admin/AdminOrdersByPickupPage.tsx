@@ -5,7 +5,11 @@ import { OtherDayBoardView } from '@/features/admin/kitchen/OtherDayBoardView';
 import { useDashboardDay } from '@/features/admin/kitchen/useDashboardDay';
 import { KitchenBoardView } from '@/features/admin/kitchen/KitchenBoardView';
 import { formatMinute, minuteOfDay } from '@/features/admin/kitchen/kitchenBoard';
-import { useKitchenBoard } from '@/features/admin/kitchen/useKitchenBoard';
+import { PrintAgentPill } from '@/features/admin/kitchen/PrintAgentPill';
+import {
+  UNDO_COMANDAR_MS, UNDO_OTHER_MS, useKitchenBoard,
+} from '@/features/admin/kitchen/useKitchenBoard';
+import { usePrintAgentStatus } from '@/features/admin/printing/usePrintAgentStatus';
 
 /**
  * Kitchen dashboard: today's B2C orders (table `orders`, direct pickup) split by kitchen state.
@@ -15,7 +19,8 @@ import { useKitchenBoard } from '@/features/admin/kitchen/useKitchenBoard';
 export function AdminOrdersByPickupPage() {
   const day = useDashboardDay();
   const kitchen = useKitchenBoard({ enabled: day.isToday });
-  const { board } = kitchen;
+  const agent = usePrintAgentStatus();
+  const { board, undo } = kitchen;
   const otherDay = !day.isToday && !day.isPending;
   const fetching = otherDay ? day.isFetching : kitchen.isFetching;
   const refetch = otherDay ? day.refetch : kitchen.refetch;
@@ -35,6 +40,7 @@ export function AdminOrdersByPickupPage() {
           <p className="text-sm text-muted-foreground">Pedidos de clientes con retiro en el local.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          <PrintAgentPill status={agent.data} queued={kitchen.queuedCount} now={kitchen.now} />
           <div className="flex items-center gap-2">
             <label htmlFor="dashboard-day" className="text-[11px] font-semibold uppercase tracking-brand text-muted-foreground">
               Día
@@ -69,10 +75,15 @@ export function AdminOrdersByPickupPage() {
       </header>
 
       <div aria-live="polite" className="sticky top-0 z-10 mb-4 empty:hidden">
-        {!otherDay && kitchen.undo && (
-          <div className="flex items-center justify-center gap-4 rounded-md bg-foreground px-4 text-background shadow-md">
-            <span className="text-sm font-medium">{kitchen.undo.message}</span>
+        {!otherDay && undo && (
+          <div className="relative flex items-center justify-center gap-4 overflow-hidden rounded-md bg-foreground px-4 text-background shadow-md">
+            <span className="text-sm font-medium">{undo.message}</span>
             <span aria-hidden="true">·</span>
+            <span className="text-[13px] tabular-nums opacity-80">
+              {undo.kind === 'comandar'
+                ? `se imprime en ${undo.secondsLeft} s`
+                : `${undo.secondsLeft} s para deshacer`}
+            </span>
             <button
               type="button"
               disabled={kitchen.busy}
@@ -81,6 +92,13 @@ export function AdminOrdersByPickupPage() {
             >
               Deshacer
             </button>
+            <span
+              aria-hidden="true"
+              className="absolute bottom-0 left-0 h-[3px] bg-warning transition-[width] duration-1000 ease-linear"
+              style={{
+                width: `${(undo.secondsLeft * 1000 / (undo.kind === 'comandar' ? UNDO_COMANDAR_MS : UNDO_OTHER_MS)) * 100}%`,
+              }}
+            />
           </div>
         )}
       </div>
@@ -111,6 +129,10 @@ export function AdminOrdersByPickupPage() {
           leadMinutes={kitchen.leadMinutes}
           slotMinutes={kitchen.slotMinutes}
           busy={kitchen.busy}
+          timezone={kitchen.timezone}
+          agentOnline={agent.data?.online}
+          reprinted={kitchen.reprinted}
+          onReprint={kitchen.reprint}
           onConfirmar={kitchen.confirmar}
           onComandar={kitchen.comandar}
           onEntregar={kitchen.entregar}

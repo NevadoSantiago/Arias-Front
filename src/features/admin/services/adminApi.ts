@@ -601,6 +601,10 @@ export interface PickupOrder {
   pickupAt: string; // ISO instant
   comandadoAt: string | null;
   deliveredAt: string | null;
+  /** State of the kitchen ticket print jobs. NONE: nothing was ever queued for this order. */
+  printStatus: PrintStatus;
+  /** When the ticket was printed; null unless PRINTED. */
+  printedAt: string | null;
 }
 
 interface PickupGroupRawFromApi {

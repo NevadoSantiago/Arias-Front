@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -7,6 +7,7 @@ import {
   markOrdersComandado,
   markOrdersConfirmado,
   markOrdersEntregado,
+  reprintOrder,
   undoOrderKitchenState,
 } from '@/features/admin/services/adminApi';
 import { buildKitchenBoard, slotAnchorFor, type BoardOrder } from './kitchenBoard';
@@ -15,8 +16,16 @@ import { buildKitchenBoard, slotAnchorFor, type BoardOrder } from './kitchenBoar
 export const ORDERS_POLL_MS = 60_000;
 /** How often the clock-dependent grouping is recomputed: once per minute, right when the minute changes. */
 export const CLOCK_TICK_MS = 60_000;
-/** How long the "Deshacer" bar stays after a move. */
-const UNDO_VISIBLE_MS = 20_000;
+/** While any order is waiting for its ticket, poll fast so "En cola" turns into "Impresa" promptly. */
+export const QUEUED_POLL_MS = 5_000;
+/** The "Deshacer" bar after COMANDAR: the print jobs only become claimable once it is over. */
+export const UNDO_COMANDAR_MS = 10_000;
+/** The "Deshacer" bar after every other move. */
+export const UNDO_OTHER_MS = 20_000;
+/** How long a reprinted order says "Enviada". */
+export const REPRINT_FLASH_MS = 2_500;
+/** Refresh rate of the undo countdown. */
+const COUNTDOWN_TICK_MS = 250;
 
 const ORDERS_KEY = ['adminOrdersByPickup'] as const;
 
@@ -25,7 +34,12 @@ type MoveKind = 'confirmar' | 'comandar' | 'entregar';
 interface UndoState {
   ids: number[];
   message: string;
+  kind: MoveKind;
+  /** Epoch ms at which the bar disappears. */
+  expiresAt: number;
 }
+
+const undoDuration = (kind: MoveKind) => (kind === 'comandar' ? UNDO_COMANDAR_MS : UNDO_OTHER_MS);
 
 /**
  * Reloj local, sin pedidos al backend: se actualiza en cada múltiplo de `intervalMs` del reloj
@@ -61,11 +75,15 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
   const queryClient = useQueryClient();
   const now = useNow(CLOCK_TICK_MS);
   const [undo, setUndo] = useState<UndoState | null>(null);
+  const [clock, setClock] = useState(() => Date.now());
+  const [reprinted, setReprinted] = useState<ReadonlySet<number>>(() => new Set());
+  const flashTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   const orders = useQuery({
     queryKey: ORDERS_KEY,
     queryFn: () => getOrdersByPickup(),
-    refetchInterval: ORDERS_POLL_MS,
+    refetchInterval: (query) =>
+      query.state.data?.some((o) => o.printStatus === 'QUEUED') ? QUEUED_POLL_MS : ORDERS_POLL_MS,
     enabled,
   });
   const config = useQuery({
@@ -95,7 +113,11 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
           : markOrdersEntregado(ids),
     // Confirming consumes credits and has no undo endpoint, so it never raises the undo bar.
     onSuccess: (_data, { kind, ids, message }) => {
-      if (kind !== 'confirmar') setUndo({ ids, message });
+      if (kind !== 'confirmar') {
+        const now = Date.now();
+        setClock(now);
+        setUndo({ ids, message, kind, expiresAt: now + undoDuration(kind) });
+      }
     },
     onError: () => toast.error('No se pudo actualizar el pedido. Revisá el tablero e intentá de nuevo.'),
     onSettled: refresh,
@@ -108,11 +130,38 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
     onSettled: refresh,
   });
 
+  const reprint = useMutation({
+    mutationFn: (id: number) => reprintOrder(id),
+    onSuccess: (_jobs, id) => {
+      setReprinted((prev) => new Set(prev).add(id));
+      const timer = setTimeout(() => {
+        flashTimers.current.delete(timer);
+        setReprinted((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, REPRINT_FLASH_MS);
+      flashTimers.current.add(timer);
+    },
+    onError: () => toast.error('No se pudo reimprimir la comanda. Revisá el tablero e intentá de nuevo.'),
+    onSettled: refresh,
+  });
+
   useEffect(() => {
     if (!undo) return;
-    const id = setTimeout(() => setUndo(null), UNDO_VISIBLE_MS);
-    return () => clearTimeout(id);
+    const expire = setTimeout(() => setUndo(null), undoDuration(undo.kind));
+    const tick = setInterval(() => setClock(Date.now()), COUNTDOWN_TICK_MS);
+    return () => {
+      clearTimeout(expire);
+      clearInterval(tick);
+    };
   }, [undo]);
+
+  useEffect(() => {
+    const timers = flashTimers.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   return {
     board,
@@ -128,7 +177,15 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
       void config.refetch();
     },
     busy: move.isPending || undoMove.isPending,
-    undo,
+    undo: undo && {
+      ids: undo.ids,
+      message: undo.message,
+      kind: undo.kind,
+      secondsLeft: Math.max(0, Math.ceil((undo.expiresAt - clock) / 1000)),
+    },
+    queuedCount: orders.data?.filter((o) => o.printStatus === 'QUEUED').length ?? 0,
+    reprinted,
+    reprint: (order: Pick<BoardOrder, 'id'>) => reprint.mutate(order.id),
     dismissUndo: () => setUndo(null),
     runUndo: () => undo && undoMove.mutate(undo.ids),
     confirmar: (list: BoardOrder[]) =>

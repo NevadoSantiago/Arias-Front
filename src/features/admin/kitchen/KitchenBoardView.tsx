@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { Check, CheckCircle2, ChevronDown, Clock, Flame, Receipt } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, Clock, Flame, Printer, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { STALE_AFTER_MINUTES, type BoardOrder, type KitchenBoard } from './kitchenBoard';
+import { describePrint, problemSummary, type PrintView } from './printStatus';
+import { PrintChip, ProblemBanner } from './PrintChip';
 
 interface KitchenBoardViewProps {
   board: KitchenBoard;
@@ -9,6 +11,13 @@ interface KitchenBoardViewProps {
   slotMinutes: number;
   /** Disables every action while a move is in flight, so a double click cannot fire it twice. */
   busy: boolean;
+  /** IANA zone of the restaurant, to show the time a ticket was printed. */
+  timezone: string;
+  /** Undefined until the first print agent status arrives. */
+  agentOnline: boolean | undefined;
+  /** Orders that were just sent to reprint: their button says "Enviada" for a moment. */
+  reprinted: ReadonlySet<number>;
+  onReprint: (order: BoardOrder) => void;
   onConfirmar: (orders: BoardOrder[]) => void;
   onComandar: (orders: BoardOrder[]) => void;
   onEntregar: (orders: BoardOrder[]) => void;
@@ -204,10 +213,39 @@ function ConfirmedBox({ board, leadMinutes, slotMinutes, busy, onComandar }: Kit
   );
 }
 
-function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
+function ReprintButton({
+  order,
+  view,
+  sent,
+  onReprint,
+}: {
+  order: BoardOrder;
+  view: PrintView;
+  sent: boolean;
+  onReprint: (order: BoardOrder) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`${view.actionLabel} comanda del pedido N° ${order.id}`}
+      disabled={view.actionDisabled}
+      onClick={() => onReprint(order)}
+      className={cn(
+        'inline-flex min-h-[44px] items-center gap-1.5 rounded border border-primary-deep bg-transparent px-3.5 text-xs font-semibold uppercase tracking-brand text-primary-deep hover:bg-primary-deep/10',
+        view.actionDisabled && !sent && 'opacity-45',
+      )}
+    >
+      {sent ? <Check className="h-4 w-4" aria-hidden="true" /> : <Printer className="h-4 w-4" aria-hidden="true" />}
+      {sent ? 'Enviada' : view.actionLabel}
+    </button>
+  );
+}
+
+function CommandedBox({ board, busy, timezone, agentOnline, reprinted, onReprint, onEntregar }: KitchenBoardViewProps) {
   const [staleOpen, setStaleOpen] = useState(false);
   const { fresh, stale } = board.commanded;
   const total = fresh.length + stale.length;
+  const problems = problemSummary(fresh);
   return (
     <section
       aria-labelledby="kb-commanded"
@@ -223,6 +261,8 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
         </div>
         <p className="text-[13px] text-[#4A5566]">Ordenados por horario de retiro</p>
       </div>
+
+      {problems && <ProblemBanner headline={problems} />}
 
       {total === 0 && (
         <EmptyState
@@ -253,7 +293,14 @@ function CommandedBox({ board, busy, onEntregar }: KitchenBoardViewProps) {
               </div>
               <Items order={o} className="text-base font-semibold leading-snug" badgeClassName="bg-[#2B5C8F]" />
               <OrderNote notas={o.notas} />
-              <div className="flex items-center justify-end gap-3 pt-1">
+              <PrintChip view={describePrint(o, { agentOnline, timezone })} />
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <ReprintButton
+                  order={o}
+                  view={describePrint(o, { agentOnline, timezone })}
+                  sent={reprinted.has(o.id)}
+                  onReprint={onReprint}
+                />
                 <button
                   type="button"
                   aria-label={`Entregado, pedido N° ${o.id}`}

@@ -20,6 +20,8 @@ function order(id: number, estado: PickupOrder['estado'], pickup: string, extra:
     pickupAt: at(pickup),
     comandadoAt: null,
     deliveredAt: null,
+    printStatus: 'NONE',
+    printedAt: null,
     ...extra,
   };
 }

@@ -21,6 +21,8 @@ const order = (id: number, pickup: string): PickupOrder => ({
   pickupAt: at(pickup),
   comandadoAt: null,
   deliveredAt: null,
+  printStatus: 'NONE',
+  printedAt: null,
 });
 
 function renderBoard(orders: PickupOrder[], onConfirmar = vi.fn()) {
@@ -37,6 +39,10 @@ function renderBoard(orders: PickupOrder[], onConfirmar = vi.fn()) {
       leadMinutes={20}
       slotMinutes={10}
       busy={false}
+      timezone={TZ}
+      agentOnline
+      reprinted={new Set()}
+      onReprint={vi.fn()}
       onComandar={vi.fn()}
       onConfirmar={onConfirmar}
       onEntregar={vi.fn()}

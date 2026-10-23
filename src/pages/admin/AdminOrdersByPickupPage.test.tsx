@@ -6,10 +6,12 @@ import { toast } from 'sonner';
 import { AdminOrdersByPickupPage } from './AdminOrdersByPickupPage';
 import {
   getOrdersByPickup,
+  getPrintAgentStatus,
   getRestaurantConfigAdmin,
   markOrdersComandado,
   markOrdersConfirmado,
   markOrdersEntregado,
+  reprintOrder,
   undoOrderKitchenState,
   type PickupOrder,
   type RestaurantConfig,
@@ -28,6 +30,8 @@ vi.mock('@/features/admin/services/adminApi', async () => {
     markOrdersComandado: vi.fn(),
     markOrdersConfirmado: vi.fn(),
     markOrdersEntregado: vi.fn(),
+    getPrintAgentStatus: vi.fn(),
+    reprintOrder: vi.fn(),
     undoOrderKitchenState: vi.fn(),
   };
 });
@@ -78,6 +82,8 @@ function order(
     pickupAt: at(pickup),
     comandadoAt: null,
     deliveredAt: null,
+    printStatus: 'NONE',
+    printedAt: null,
     ...extra,
   };
 }
@@ -119,6 +125,8 @@ beforeEach(() => {
   vi.mocked(markOrdersConfirmado).mockResolvedValue(undefined);
   vi.mocked(markOrdersEntregado).mockResolvedValue(undefined);
   vi.mocked(undoOrderKitchenState).mockResolvedValue(undefined);
+  vi.mocked(getPrintAgentStatus).mockResolvedValue({ lastSeenAt: at('12:02'), online: true });
+  vi.mocked(reprintOrder).mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -504,5 +512,36 @@ describe('AdminOrdersByPickupPage — another day', () => {
     const normal = select.className;
     selectDay(MONDAY);
     await waitFor(() => expect(screen.getByLabelText('Día').className).not.toBe(normal));
+  });
+});
+
+describe('AdminOrdersByPickupPage (printing)', () => {
+  it('tells the cook the ticket prints when the order is commanded, counting down from 10 s', async () => {
+    renderPage([order(7, 'CONFIRMADO', '12:20')]);
+    fireEvent.click(await screen.findByRole('button', { name: /comandado.*7/i }));
+    expect(await screen.findByText(/pedido n° 7 pasó a comandados/i)).toBeInTheDocument();
+    expect(screen.getByText('se imprime en 10 s')).toBeInTheDocument();
+  });
+
+  it('uses the plain 20 s hint for the other moves', async () => {
+    renderPage([order(4, 'COMANDADO', '12:10', { comandadoAt: at('11:55') })]);
+    const box = await screen.findByRole('region', { name: /pedidos comandados/i });
+    fireEvent.click(within(box).getByRole('button', { name: /entregado.*4/i }));
+    expect(await screen.findByText('20 s para deshacer')).toBeInTheDocument();
+  });
+
+  it('shows the agent pill in the header', async () => {
+    renderPage([]);
+    expect(await screen.findByRole('button', { name: /ticketera en línea/i })).toBeInTheDocument();
+  });
+
+  it('reprints a failed order, shows the problem banner and brief feedback', async () => {
+    renderPage([order(4, 'COMANDADO', '12:10', { comandadoAt: at('11:55'), printStatus: 'FAILED' })]);
+    const card = await screen.findByRole('article', { name: /N° 4,/ });
+    expect(await screen.findByRole('alert')).toHaveTextContent('1 comanda falló.');
+
+    fireEvent.click(within(card).getByRole('button', { name: /reimprimir comanda/i }));
+    await waitFor(() => expect(reprintOrder).toHaveBeenCalledWith(4));
+    expect(await within(card).findByRole('button', { name: /reimprimir comanda/i })).toHaveTextContent('Enviada');
   });
 });
