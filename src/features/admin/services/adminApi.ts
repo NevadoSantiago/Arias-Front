@@ -442,6 +442,8 @@ export async function archiveSide(id: number): Promise<void> {
 
 // ─── Dishes (CRUD admin completo) ─────────────────────────────────────
 
+export type DishStation = 'COCINA' | 'PARRILLA';
+
 export interface AdminDish {
   id: number;
   nombre: string;
@@ -455,6 +457,7 @@ export interface AdminDish {
   stockActual: number;
   enabled: boolean;
   especial: boolean;
+  station: DishStation;
 }
 
 export interface DishPayload {
@@ -470,6 +473,8 @@ export interface DishPayload {
   /** Solo se manda al UPDATE — el backend lo ignora en create (default true). */
   enabled?: boolean;
   especial: boolean;
+  /** Always sent from the form; on update a null would keep the current value. */
+  station: DishStation;
 }
 
 export async function listDishesAdmin(): Promise<AdminDish[]> {

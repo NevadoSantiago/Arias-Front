@@ -20,6 +20,10 @@ import {
 } from '@/features/admin/services/adminApi';
 import { DishFormDialog } from '@/features/admin/components/DishFormDialog';
 import { DisableWithOrdersDialog } from '@/features/admin/components/DisableWithOrdersDialog';
+import { StationBadge } from '@/features/admin/stations/StationBadge';
+import {
+  ALL_STATIONS, matchesStation, STATION_LABEL, type StationFilter,
+} from '@/features/admin/stations/station';
 import { Th, Td, EmptyState } from './AdminSectionsPage';
 
 const SIDE_TYPE_LABEL: Record<SideType, string> = {
@@ -39,6 +43,7 @@ export function AdminDishesPage() {
   const [search, setSearch] = useState('');
   const [sectionFilter, setSectionFilter] = useState<string>(ALL_SECTIONS);
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES);
+  const [stationFilter, setStationFilter] = useState<StationFilter>(ALL_STATIONS);
 
   const { data: dishes, isLoading } = useQuery({
     queryKey: ['adminDishes'],
@@ -80,14 +85,16 @@ export function AdminDishesPage() {
     return dishes.filter((d) => {
       if (sectionFilter !== ALL_SECTIONS && String(d.menuSection.id) !== sectionFilter) return false;
       if (categoryFilter !== ALL_CATEGORIES && String(d.category.id) !== categoryFilter) return false;
+      if (!matchesStation(d, stationFilter)) return false;
       if (q && !d.nombre.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [dishes, search, sectionFilter, categoryFilter]);
+  }, [dishes, search, sectionFilter, categoryFilter, stationFilter]);
 
   const hasActiveFilter = search.trim() !== ''
     || sectionFilter !== ALL_SECTIONS
-    || categoryFilter !== ALL_CATEGORIES;
+    || categoryFilter !== ALL_CATEGORIES
+    || stationFilter !== ALL_STATIONS;
   const totalDishes = dishes?.length ?? 0;
 
   return (
@@ -165,6 +172,18 @@ export function AdminDishesPage() {
             </SelectContent>
           </Select>
 
+          {/* Station filter */}
+          <Select value={stationFilter} onValueChange={(v) => setStationFilter(v as StationFilter)}>
+            <SelectTrigger className="sm:w-[200px]" aria-label="Estación">
+              <SelectValue placeholder="Estación" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STATIONS}>Todas las estaciones</SelectItem>
+              <SelectItem value="COCINA">{STATION_LABEL.COCINA}</SelectItem>
+              <SelectItem value="PARRILLA">{STATION_LABEL.PARRILLA}</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* Clear all + contador */}
           {hasActiveFilter && (
             <div className="flex items-center gap-3">
@@ -175,6 +194,7 @@ export function AdminDishesPage() {
                   setSearch('');
                   setSectionFilter(ALL_SECTIONS);
                   setCategoryFilter(ALL_CATEGORIES);
+                  setStationFilter(ALL_STATIONS);
                 }}
                 className="uppercase tracking-brand text-xs"
               >
@@ -216,6 +236,7 @@ export function AdminDishesPage() {
                   <Th>Nombre</Th>
                   <Th>Sección</Th>
                   <Th>Categoría</Th>
+                  <Th>Estación</Th>
                   <Th>Acompaña con</Th>
                   <Th>Stock</Th>
                   <Th>Estado</Th>
@@ -246,6 +267,7 @@ export function AdminDishesPage() {
                         {d.category.nombre}
                       </Badge>
                     </Td>
+                    <Td><StationBadge station={d.station} /></Td>
                     <Td className="text-muted-foreground text-xs">
                       {d.sideType ? (
                         <div>

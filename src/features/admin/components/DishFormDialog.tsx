@@ -18,7 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import {
   createDish, updateDish, listCategories, listSidesAdmin,
-  type AdminDish, type AdminCategory, type AdminSide, type SideType,
+  type AdminDish, type AdminCategory, type AdminSide, type SideType, type DishStation,
 } from '@/features/admin/services/adminApi';
 import { listMenuSectionsAdmin, type AdminMenuSection } from '@/features/admin/services/adminApi';
 import { DishPhotoUploader } from '@/features/admin/components/DishPhotoUploader';
@@ -31,6 +31,7 @@ const schema = z.object({
   fotoUrl: z.string().max(500).optional().or(z.literal('')),
   categoryId: z.number().int().positive('Elegí una categoría'),
   menuSectionId: z.number().int().positive('Elegí una sección'),
+  station: z.enum(['COCINA', 'PARRILLA']),
   sideType: z.enum(['NONE', 'GUARNICION', 'SALSA']),
   allowedSideIds: z.array(z.number()),
   stockDiarioDefault: z.number().int().min(0, 'Mayor o igual a 0'),
@@ -70,6 +71,7 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
     defaultValues: defaultValues(),
   });
 
+  const station = watch('station');
   const sideType = watch('sideType');
   const allowedSideIds = watch('allowedSideIds');
   const categoryId = watch('categoryId');
@@ -252,6 +254,35 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
             </Field>
           </div>
 
+          {/* ── Estación de preparación ─────────────────────────────── */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <Label className="uppercase tracking-brand text-xs">Estación de preparación</Label>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Define qué ticketera recibe la comanda. Cocina recibe todos los pedidos.
+            </p>
+            <RadioGroup
+              value={station}
+              onValueChange={(v) => setValue('station', v as DishStation, { shouldDirty: true })}
+              className="grid grid-cols-2 gap-2"
+            >
+              {STATION_OPTIONS.map((o) => (
+                <Label
+                  key={o.value}
+                  htmlFor={`station-${o.value}`}
+                  className="flex items-start gap-2.5 p-3 rounded-md border border-border cursor-pointer hover:border-primary transition-colors has-[:checked]:border-primary has-[:checked]:bg-muted/50 has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-muted/50"
+                >
+                  <RadioGroupItem id={`station-${o.value}`} value={o.value} className="mt-0.5" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold normal-case tracking-normal">{o.label}</span>
+                    <span className="text-xs font-normal text-muted-foreground normal-case tracking-normal leading-snug">
+                      {o.sub}
+                    </span>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          </div>
+
           {/* ── Side type + multi-select ────────────────────────────── */}
           <div className="space-y-3 pt-2 border-t border-border">
             <Label className="uppercase tracking-brand text-xs">Acompañamiento</Label>
@@ -363,6 +394,11 @@ export function DishFormDialog({ open, onClose, editing }: Props) {
   );
 }
 
+const STATION_OPTIONS: { value: DishStation; label: string; sub: string }[] = [
+  { value: 'COCINA', label: 'Cocina', sub: 'Va solo en el ticket de Cocina.' },
+  { value: 'PARRILLA', label: 'Parrilla', sub: 'Suma un ticket en Parrilla, además del de Cocina.' },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 function defaultValues(): FormData {
@@ -372,6 +408,7 @@ function defaultValues(): FormData {
     fotoUrl: '',
     categoryId: 0,
     menuSectionId: 0,
+    station: 'COCINA',
     sideType: 'NONE',
     allowedSideIds: [],
     stockDiarioDefault: 10,
@@ -388,6 +425,7 @@ function editingToForm(d: AdminDish): FormData {
     fotoUrl: d.fotoUrl ?? '',
     categoryId: d.category.id,
     menuSectionId: d.menuSection.id,
+    station: d.station,
     sideType: d.sideType ?? 'NONE',
     allowedSideIds: d.allowedSides.map((s) => s.id),
     stockDiarioDefault: d.stockDiarioDefault,
@@ -405,6 +443,7 @@ function formToPayload(data: FormData, isEditing: boolean) {
     fotoUrl: data.fotoUrl || undefined,
     categoryId: data.categoryId,
     menuSectionId: data.menuSectionId,
+    station: data.station,
     sideType: realSideType,
     allowedSideIds: realSideType ? data.allowedSideIds : [],
     stockDiarioDefault: data.stockDiarioDefault,
