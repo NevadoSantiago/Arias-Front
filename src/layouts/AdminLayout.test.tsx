@@ -1,18 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AdminLayout } from './AdminLayout';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { getPrintAgentStatus } from '@/features/admin/services/adminApi';
+
+vi.mock('@/features/admin/services/adminApi', () => ({ getPrintAgentStatus: vi.fn() }));
 
 vi.mock('@/features/auth/hooks/useAuthActions', () => ({
   useAuthActions: () => ({ performLogout: vi.fn() }),
 }));
 
 function renderLayout(path: string) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AdminLayout />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <AdminLayout />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -21,6 +28,7 @@ const nav = () => screen.getByRole('navigation', { name: 'Navegación del panel'
 describe('AdminLayout navigation', () => {
   beforeEach(() => {
     useAuthStore.setState({ user: null });
+    vi.mocked(getPrintAgentStatus).mockResolvedValue({ lastSeenAt: null, online: true });
   });
 
   it('renders the top-level entries and both group toggles', () => {
@@ -63,6 +71,7 @@ describe('AdminLayout navigation', () => {
       ['Categorías', '/admin/categories'],
       ['Acompañamientos', '/admin/sides'],
       ['Secciones del menú', '/admin/sections'],
+      ['Ticketeras', '/admin/printers'],
       ['Configuración', '/admin/config'],
     ]);
   });
@@ -92,5 +101,25 @@ describe('AdminLayout navigation', () => {
     const n = within(nav());
     expect(n.getByRole('button', { name: 'Empresas' })).toHaveAttribute('data-active', 'true');
     expect(n.getByRole('button', { name: 'Administración platos' })).not.toHaveAttribute('data-active');
+  });
+});
+
+describe('AdminLayout printers status dot', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: null });
+  });
+
+  it('shows a green dot when the agent is online', async () => {
+    vi.mocked(getPrintAgentStatus).mockResolvedValue({ lastSeenAt: '2026-10-23T15:00:00Z', online: true });
+    renderLayout('/admin/dashboard');
+    const dot = await screen.findByRole('img', { name: 'Ticketera en línea' });
+    expect(dot.className).toMatch(/bg-success/);
+  });
+
+  it('shows a red dot when the agent is offline', async () => {
+    vi.mocked(getPrintAgentStatus).mockResolvedValue({ lastSeenAt: null, online: false });
+    renderLayout('/admin/dashboard');
+    const dot = await screen.findByRole('img', { name: 'Ticketera sin conexión' });
+    expect(dot.className).toMatch(/bg-destructive/);
   });
 });

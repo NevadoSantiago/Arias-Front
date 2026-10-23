@@ -717,3 +717,52 @@ export async function updateCreditPack(
 export async function deleteCreditPack(id: number): Promise<void> {
   await api.delete(`${CREDIT_PACKS_BASE}/${id}`);
 }
+
+// ─── Kitchen ticket printing ──────────────────────────────────────────
+
+export type PrintStatus = 'NONE' | 'QUEUED' | 'PRINTED' | 'FAILED' | 'EXPIRED';
+
+export interface PrinterConfig {
+  station: DishStation;
+  host: string;
+  port: number;
+  updatedAt: string;
+}
+
+export interface PrintAgentStatus {
+  lastSeenAt: string | null;
+  online: boolean;
+}
+
+export interface PrintJob {
+  id: number;
+  station: DishStation;
+  status: string;
+  availableAt: string;
+}
+
+/** The two printers, COCINA first. */
+export async function listPrinters(): Promise<PrinterConfig[]> {
+  const { data } = await api.get<PrinterConfig[]>(`${BASE}/print/printers`);
+  return data;
+}
+
+/** The backend answers 400 for a non-private IPv4 host or a port outside 1-65535. */
+export async function updatePrinter(
+  station: DishStation,
+  address: { host: string; port: number },
+): Promise<PrinterConfig> {
+  const { data } = await api.put<PrinterConfig>(`${BASE}/print/printers/${station}`, address);
+  return data;
+}
+
+export async function getPrintAgentStatus(): Promise<PrintAgentStatus> {
+  const { data } = await api.get<PrintAgentStatus>(`${BASE}/print/agent`);
+  return data;
+}
+
+/** Idempotent while jobs are unfinished; 409 `order-not-printable` unless COMANDADO or ENTREGADO. */
+export async function reprintOrder(orderId: number): Promise<PrintJob[]> {
+  const { data } = await api.post<PrintJob[]>(`${BASE}/orders/${orderId}/print`);
+  return data;
+}

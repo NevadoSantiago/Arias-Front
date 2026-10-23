@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LogOut, LayoutDashboard, Wallet, UtensilsCrossed, Building2, Settings, ChevronDown, Menu, X,
+  LogOut, LayoutDashboard, Wallet, UtensilsCrossed, Building2, Settings, ChevronDown, Menu, X, Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useAuthActions } from '@/features/auth/hooks/useAuthActions';
+import { usePrintAgentStatus } from '@/features/admin/printing/usePrintAgentStatus';
 
 interface NavLeaf {
   to: string;
@@ -16,6 +17,8 @@ interface NavLeaf {
 interface NavLinkEntry extends NavLeaf {
   type: 'link';
   icon: React.ComponentType<{ className?: string }>;
+  /** Shows the print agent status dot next to the label. */
+  agentDot?: boolean;
 }
 
 interface NavGroupEntry {
@@ -57,6 +60,7 @@ const NAV: NavEntry[] = [
       { to: '/admin/billing', label: 'Facturación' },
     ],
   },
+  { type: 'link', to: '/admin/printers', label: 'Ticketeras', icon: Printer, agentDot: true },
   { type: 'link', to: '/admin/config', label: 'Configuración', icon: Settings },
 ];
 
@@ -73,6 +77,22 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 function groupHasPath(group: NavGroupEntry, pathname: string) {
   return group.children.some((c) => c.to === pathname);
+}
+
+/** Green when the print agent polled recently, red otherwise; hidden until the first answer. */
+function AgentDot() {
+  const { data } = usePrintAgentStatus();
+  if (!data) return null;
+  return (
+    <span
+      role="img"
+      aria-label={data.online ? 'Ticketera en línea' : 'Ticketera sin conexión'}
+      className={cn(
+        'ml-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-card',
+        data.online ? 'bg-success' : 'bg-destructive',
+      )}
+    />
+  );
 }
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
@@ -100,6 +120,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 <NavLink to={entry.to} end onClick={onNavigate} className={linkClass}>
                   <Icon className="w-4 h-4 shrink-0" />
                   <span>{entry.label}</span>
+                  {entry.agentDot && <AgentDot />}
                 </NavLink>
               </li>
             );

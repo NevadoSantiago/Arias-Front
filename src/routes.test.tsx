@@ -6,6 +6,7 @@ import { TourRoot } from '@/features/tour/TourRoot';
 import { AdminOrdersByPickupPage } from '@/pages/admin/AdminOrdersByPickupPage';
 import { AdminPaymentsPage } from '@/pages/admin/AdminPaymentsPage';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
+import { AdminPrintersPage } from '@/pages/admin/AdminPrintersPage';
 
 function flatten(routes: RouteObject[]): RouteObject[] {
   return routes.flatMap((r) => [r, ...flatten(r.children ?? [])]);
@@ -13,6 +14,11 @@ function flatten(routes: RouteObject[]): RouteObject[] {
 const find = (path: string) => flatten(router.routes).find((r) => r.path === path);
 
 describe('admin routes', () => {
+  it('renders the printers page at /admin/printers', () => {
+    const el = find('/admin/printers')?.element;
+    expect(isValidElement(el) && el.type).toBe(AdminPrintersPage);
+  });
+
   it('renders the orders board as the dashboard', () => {
     const el = find('/admin/dashboard')?.element;
     expect(isValidElement(el) && el.type).toBe(AdminOrdersByPickupPage);
