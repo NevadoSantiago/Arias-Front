@@ -102,7 +102,7 @@ describe('AppLayout — desktop navigation (B2C only)', () => {
     vi.clearAllMocks();
   });
 
-  it('B2B header unchanged: no navigation links, only the brand, the name, the company and log out', async () => {
+  it('B2B header unchanged: no navigation links, only the brand, the name, the company and the account menu', async () => {
     useAuthStore.setState({ accessToken: 't', user: b2bUser, bootstrapping: false });
 
     renderLayout('/orders/today');
@@ -111,7 +111,7 @@ describe('AppLayout — desktop navigation (B2C only)', () => {
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Pedir' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Mis pedidos' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cuenta' })).toBeInTheDocument();
   });
 
   it('B2C: offers "Pedir" and "Mis pedidos" and marks the current one', async () => {

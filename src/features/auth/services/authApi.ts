@@ -88,6 +88,12 @@ export async function me(): Promise<AuthUser> {
   return data;
 }
 
+/** Cambia el alias del usuario logueado (cualquier rol). Devuelve el mismo `MeResponse` que GET /me. */
+export async function updateNickname(nickname: string): Promise<AuthUser> {
+  const { data } = await api.patch<AuthUser>(`${BASE}/me`, { nickname });
+  return data;
+}
+
 // ─── Autorregistro (self-registration) ────────────────────────────────
 
 export interface RegisterPayload {

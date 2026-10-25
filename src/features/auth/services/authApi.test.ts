@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
-import { me } from './authApi';
+import { me, updateNickname } from './authApi';
 import type { AuthUser } from '../store/authStore';
 
 vi.mock('@/lib/api', () => ({
-  api: { get: vi.fn(), post: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
 }));
 
 describe('me', () => {
@@ -47,5 +47,18 @@ describe('me', () => {
 
     expect(result.nickname).toBeNull();
     expect(result.displayName).toBe('Ana Gómez');
+  });
+});
+
+describe('updateNickname', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('PATCHes /auth/me with the nickname and returns the updated user', async () => {
+    const updated = { id: 7, nickname: 'Sofi', displayName: 'Sofi' } as AuthUser;
+    vi.mocked(api.patch).mockResolvedValue({ data: updated });
+    await expect(updateNickname('Sofi')).resolves.toBe(updated);
+    expect(api.patch).toHaveBeenCalledWith('/api/v1/auth/me', { nickname: 'Sofi' });
   });
 });

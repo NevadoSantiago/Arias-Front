@@ -1,14 +1,11 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { useAuthActions } from '@/features/auth/hooks/useAuthActions';
+import { UserMenu } from '@/features/auth/components/UserMenu';
 import { NotificationsBell } from '@/features/me/components/NotificationsBell';
 import { BalanceChip } from '@/features/credits/components/BalanceChip';
 
 export function AppLayout() {
   const user = useAuthStore((s) => s.user);
-  const { performLogout } = useAuthActions();
 
   return (
     <div className="min-h-full flex flex-col bg-background">
@@ -67,14 +64,7 @@ export function AppLayout() {
               </div>
             )}
             <NotificationsBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Cerrar sesión"
-              onClick={() => void performLogout()}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <UserMenu />
           </div>
         </div>
       </header>

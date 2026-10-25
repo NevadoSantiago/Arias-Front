@@ -1,9 +1,8 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Home, LogOut, Users, BarChart3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Home, Users, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { useAuthActions } from '@/features/auth/hooks/useAuthActions';
+import { UserMenu } from '@/features/auth/components/UserMenu';
 import { NotificationsBell } from '@/features/me/components/NotificationsBell';
 
 interface NavItem {
@@ -21,7 +20,6 @@ const NAV_ITEMS: NavItem[] = [
 
 export function CompanyAdminLayout() {
   const user = useAuthStore((s) => s.user);
-  const { performLogout } = useAuthActions();
 
   return (
     <div className="min-h-full flex flex-col bg-background">
@@ -49,14 +47,7 @@ export function CompanyAdminLayout() {
               </div>
             )}
             <NotificationsBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Cerrar sesión"
-              onClick={() => void performLogout()}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <UserMenu />
           </div>
         </div>
       </header>

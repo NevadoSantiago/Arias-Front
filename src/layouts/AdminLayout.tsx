@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  LogOut, LayoutDashboard, Wallet, UtensilsCrossed, Building2, Settings, ChevronDown, Menu, X, Printer,
+  LayoutDashboard, Wallet, UtensilsCrossed, Building2, Settings, ChevronDown, Menu, X, Printer,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { useAuthActions } from '@/features/auth/hooks/useAuthActions';
+import { UserMenu } from '@/features/auth/components/UserMenu';
 import { usePrintAgentStatus } from '@/features/admin/printing/usePrintAgentStatus';
 
 interface NavLeaf {
@@ -171,7 +170,6 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AdminLayout() {
   const user = useAuthStore((s) => s.user);
-  const { performLogout } = useAuthActions();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -199,14 +197,7 @@ export function AdminLayout() {
                 </p>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Cerrar sesión"
-              onClick={() => void performLogout()}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <UserMenu />
           </div>
         </div>
       </header>

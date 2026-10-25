@@ -123,3 +123,13 @@ describe('AdminLayout printers status dot', () => {
     expect(dot.className).toMatch(/bg-destructive/);
   });
 });
+
+describe('AdminLayout account menu', () => {
+  it('replaces the logout icon with the account menu trigger', () => {
+    useAuthStore.setState({ user: null });
+    vi.mocked(getPrintAgentStatus).mockResolvedValue({ lastSeenAt: null, online: true });
+    renderLayout('/admin/dashboard');
+    expect(screen.getByRole('button', { name: 'Cuenta' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument();
+  });
+});
