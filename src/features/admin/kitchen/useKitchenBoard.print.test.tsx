@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import {
   getOrdersByPickup,
   getRestaurantConfigAdmin,
+  getServerTime,
   markOrdersComandado,
   markOrdersEntregado,
   reprintOrder,
@@ -23,6 +24,7 @@ vi.mock('@/features/admin/services/adminApi', async () => {
     ...actual,
     getOrdersByPickup: vi.fn(),
     getRestaurantConfigAdmin: vi.fn(),
+    getServerTime: vi.fn(),
     markOrdersComandado: vi.fn(),
     markOrdersEntregado: vi.fn(),
     reprintOrder: vi.fn(),
@@ -54,6 +56,7 @@ describe('useKitchenBoard — undo timing', () => {
     vi.useFakeTimers();
     vi.mocked(getOrdersByPickup).mockResolvedValue([]);
     vi.mocked(getRestaurantConfigAdmin).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getServerTime).mockReturnValue(new Promise(() => {}));
     vi.mocked(markOrdersComandado).mockResolvedValue(undefined);
     vi.mocked(markOrdersEntregado).mockResolvedValue(undefined);
   });
@@ -62,20 +65,13 @@ describe('useKitchenBoard — undo timing', () => {
     vi.clearAllMocks();
   });
 
-  it('keeps the undo bar 10 s after COMANDAR, counting down', async () => {
+  it('commands one order and raises no undo bar: commanding cannot be undone', async () => {
     const { result } = renderHook(() => useKitchenBoard(), { wrapper });
     await flush();
 
-    act(() => result.current.comandar([{ id: 1 }] as BoardOrder[]));
+    act(() => result.current.comandar({ id: 1 } as BoardOrder));
     await flush();
-    expect(result.current.undo).toMatchObject({ kind: 'comandar', secondsLeft: 10 });
-
-    await flush(3_000);
-    expect(result.current.undo?.secondsLeft).toBe(7);
-
-    await flush(6_900);
-    expect(result.current.undo).not.toBeNull();
-    await flush(200);
+    expect(markOrdersComandado).toHaveBeenCalledWith([1]);
     expect(result.current.undo).toBeNull();
   });
 
@@ -85,7 +81,7 @@ describe('useKitchenBoard — undo timing', () => {
 
     act(() => result.current.entregar([{ id: 1 }] as BoardOrder[]));
     await flush();
-    expect(result.current.undo).toMatchObject({ kind: 'entregar', secondsLeft: 20 });
+    expect(result.current.undo).toMatchObject({ secondsLeft: 20 });
 
     await flush(19_900);
     expect(result.current.undo).not.toBeNull();
@@ -98,6 +94,7 @@ describe('useKitchenBoard — print polling and reprint', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.mocked(getRestaurantConfigAdmin).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getServerTime).mockReturnValue(new Promise(() => {}));
     vi.mocked(markOrdersComandado).mockResolvedValue(undefined);
     vi.mocked(reprintOrder).mockResolvedValue([]);
   });
@@ -147,7 +144,7 @@ describe('useKitchenBoard — print polling and reprint', () => {
     const { result } = renderHook(() => useKitchenBoard(), { wrapper });
     await flush();
 
-    act(() => result.current.comandar([{ id: 1 }] as BoardOrder[]));
+    act(() => result.current.comandar({ id: 1 } as BoardOrder));
     await flush();
     expect(getOrdersByPickup).toHaveBeenCalledTimes(2);
   });

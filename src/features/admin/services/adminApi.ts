@@ -625,18 +625,9 @@ export async function getOrdersByPickup(fecha?: string): Promise<PickupOrder[]> 
 }
 
 /**
- * PENDIENTE -> CONFIRMADO by hand (SUPER_ADMIN). It consumes the customer's credits and has no
- * undo. One id uses the single endpoint, several use the all-or-nothing batch.
+ * PENDIENTE ("Comandar ahora": consumes credits and commands in one step) or CONFIRMADO -> COMANDADO.
+ * There is no undo for it. One id uses the single endpoint, several use the all-or-nothing batch.
  */
-export async function markOrdersConfirmado(ids: number[]): Promise<void> {
-  if (ids.length === 1) {
-    await api.put(`${BASE}/orders/${ids[0]}/confirmar`);
-  } else {
-    await api.put(`${BASE}/orders/confirmar`, { orderIds: ids });
-  }
-}
-
-/** CONFIRMADO -> COMANDADO. One id uses the single endpoint, several use the all-or-nothing batch. */
 export async function markOrdersComandado(ids: number[]): Promise<void> {
   if (ids.length === 1) {
     await api.put(`${BASE}/orders/${ids[0]}/comandado`);
@@ -654,7 +645,7 @@ export async function markOrdersEntregado(ids: number[]): Promise<void> {
   }
 }
 
-/** One-step undo: COMANDADO -> CONFIRMADO, ENTREGADO -> COMANDADO. */
+/** One-step undo of ENTREGADO -> COMANDADO. A COMANDADO order cannot be undone (409). */
 export async function undoOrderKitchenState(id: number): Promise<void> {
   await api.put(`${BASE}/orders/${id}/undo`);
 }
@@ -768,5 +759,11 @@ export async function getPrintAgentStatus(): Promise<PrintAgentStatus> {
 /** Idempotent while jobs are unfinished; 409 `order-not-printable` unless COMANDADO or ENTREGADO. */
 export async function reprintOrder(orderId: number): Promise<PrintJob[]> {
   const { data } = await api.post<PrintJob[]>(`${BASE}/orders/${orderId}/print`);
+  return data;
+}
+
+/** Clock of the server (SUPER_ADMIN), so the kitchen timers do not depend on the PC's clock. */
+export async function getServerTime(): Promise<{ now: string }> {
+  const { data } = await api.get<{ now: string }>(`${BASE}/server-time`);
   return data;
 }

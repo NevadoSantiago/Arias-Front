@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { getOrdersByPickup, getRestaurantConfigAdmin } from '@/features/admin/services/adminApi';
+import { getOrdersByPickup, getRestaurantConfigAdmin, getServerTime } from '@/features/admin/services/adminApi';
 import { useKitchenBoard } from './useKitchenBoard';
 
 vi.mock('@/features/admin/services/adminApi', async () => {
   const actual = await vi.importActual<typeof import('@/features/admin/services/adminApi')>(
     '@/features/admin/services/adminApi',
   );
-  return { ...actual, getOrdersByPickup: vi.fn(), getRestaurantConfigAdmin: vi.fn() };
+  return { ...actual, getOrdersByPickup: vi.fn(), getRestaurantConfigAdmin: vi.fn(), getServerTime: vi.fn() };
 });
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -22,6 +22,7 @@ describe('useKitchenBoard polling', () => {
     vi.useFakeTimers();
     vi.mocked(getOrdersByPickup).mockResolvedValue([]);
     vi.mocked(getRestaurantConfigAdmin).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getServerTime).mockReturnValue(new Promise(() => {}));
   });
 
   afterEach(() => {

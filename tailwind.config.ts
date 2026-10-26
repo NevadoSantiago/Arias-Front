@@ -63,6 +63,7 @@ export default {
         warning: {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))',
+          deep: 'hsl(var(--warning-deep))',
         },
       },
       borderRadius: {

@@ -5,58 +5,69 @@ const TZ = 'America/Argentina/Buenos_Aires';
 const ctx = { agentOnline: true, timezone: TZ };
 
 describe('describePrint', () => {
-  it('shows a subtle "no comanda" state with an Imprimir action for NONE', () => {
+  it('says "Sin imprimir" with an Imprimir action for NONE', () => {
     expect(describePrint({ printStatus: 'NONE', printedAt: null }, ctx)).toMatchObject({
       kind: 'none',
-      label: 'Sin comanda impresa',
+      label: 'Sin imprimir',
+      title: 'Todavía no se mandó ninguna comanda a imprimir',
       actionLabel: 'Imprimir',
       actionDisabled: false,
     });
   });
 
-  it('shows En cola while the agent is online, and blocks the action', () => {
+  it('shows En cola and blocks the action while the agent is online', () => {
     expect(describePrint({ printStatus: 'QUEUED', printedAt: null }, ctx)).toMatchObject({
       kind: 'queued',
       label: 'En cola',
-      detail: 'imprimiendo…',
+      title: 'Imprimiendo…',
+      detail: undefined,
       actionLabel: 'Reimprimir',
       actionDisabled: true,
     });
   });
 
   it('says it is waiting for the local PC when the agent is offline', () => {
-    expect(
-      describePrint({ printStatus: 'QUEUED', printedAt: null }, { ...ctx, agentOnline: false }).detail,
-    ).toBe('esperando a la PC del local');
+    const view = describePrint({ printStatus: 'QUEUED', printedAt: null }, { ...ctx, agentOnline: false });
+    expect(view.detail).toBe('esperando a la PC del local');
+    expect(view.title).toBe('Esperando a la PC del local');
   });
 
   it('does not claim anything about the agent while its status is unknown', () => {
-    expect(
-      describePrint({ printStatus: 'QUEUED', printedAt: null }, { ...ctx, agentOnline: undefined }).detail,
-    ).toBeUndefined();
+    const view = describePrint({ printStatus: 'QUEUED', printedAt: null }, { ...ctx, agentOnline: undefined });
+    expect(view.detail).toBeUndefined();
+    expect(view.title).toBe('En cola de impresión');
   });
 
-  it('shows the printed time in the restaurant timezone', () => {
+  it('keeps the printed time out of the label and in the tooltip, in the restaurant timezone', () => {
     expect(
       describePrint({ printStatus: 'PRINTED', printedAt: '2026-10-01T15:16:00Z' }, ctx),
-    ).toMatchObject({ kind: 'printed', label: 'Impresa 12:16', actionLabel: 'Reimprimir', actionDisabled: false });
+    ).toMatchObject({
+      kind: 'printed',
+      label: 'Impresa',
+      title: 'Impresa a las 12:16',
+      actionLabel: 'Reimprimir',
+      actionDisabled: false,
+    });
   });
 
   it('shows plain "Impresa" when the time is missing', () => {
-    expect(describePrint({ printStatus: 'PRINTED', printedAt: null }, ctx).label).toBe('Impresa');
+    const view = describePrint({ printStatus: 'PRINTED', printedAt: null }, ctx);
+    expect(view.label).toBe('Impresa');
+    expect(view.title).toBe('Impresa');
   });
 
   it('flags FAILED and EXPIRED, both reprintable', () => {
     expect(describePrint({ printStatus: 'FAILED', printedAt: null }, ctx)).toMatchObject({
       kind: 'failed',
-      label: 'Falló — revisá la ticketera',
+      label: 'Falló',
+      title: 'Falló — revisá la ticketera',
       actionLabel: 'Reimprimir',
       actionDisabled: false,
     });
     expect(describePrint({ printStatus: 'EXPIRED', printedAt: null }, ctx)).toMatchObject({
       kind: 'expired',
       label: 'Sin imprimir',
-      detail: 'no salió en 30 min',
+      title: 'No salió en 30 min',
       actionDisabled: false,
     });
   });

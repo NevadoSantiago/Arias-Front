@@ -6,9 +6,7 @@ import { useDashboardDay } from '@/features/admin/kitchen/useDashboardDay';
 import { KitchenBoardView } from '@/features/admin/kitchen/KitchenBoardView';
 import { formatMinute, minuteOfDay } from '@/features/admin/kitchen/kitchenBoard';
 import { PrintAgentPill } from '@/features/admin/kitchen/PrintAgentPill';
-import {
-  UNDO_COMANDAR_MS, UNDO_OTHER_MS, useKitchenBoard,
-} from '@/features/admin/kitchen/useKitchenBoard';
+import { UNDO_OTHER_MS, useKitchenBoard } from '@/features/admin/kitchen/useKitchenBoard';
 import { usePrintAgentStatus } from '@/features/admin/printing/usePrintAgentStatus';
 
 /**
@@ -80,9 +78,7 @@ export function AdminOrdersByPickupPage() {
             <span className="text-sm font-medium">{undo.message}</span>
             <span aria-hidden="true">·</span>
             <span className="text-[13px] tabular-nums opacity-80">
-              {undo.kind === 'comandar'
-                ? `se imprime en ${undo.secondsLeft} s`
-                : `${undo.secondsLeft} s para deshacer`}
+              {`${undo.secondsLeft} s para deshacer`}
             </span>
             <button
               type="button"
@@ -96,7 +92,7 @@ export function AdminOrdersByPickupPage() {
               aria-hidden="true"
               className="absolute bottom-0 left-0 h-[3px] bg-warning transition-[width] duration-1000 ease-linear"
               style={{
-                width: `${(undo.secondsLeft * 1000 / (undo.kind === 'comandar' ? UNDO_COMANDAR_MS : UNDO_OTHER_MS)) * 100}%`,
+                width: `${(undo.secondsLeft * 1000 / UNDO_OTHER_MS) * 100}%`,
               }}
             />
           </div>
@@ -127,13 +123,11 @@ export function AdminOrdersByPickupPage() {
         <KitchenBoardView
           board={board}
           leadMinutes={kitchen.leadMinutes}
-          slotMinutes={kitchen.slotMinutes}
           busy={kitchen.busy}
           timezone={kitchen.timezone}
           agentOnline={agent.data?.online}
           reprinted={kitchen.reprinted}
           onReprint={kitchen.reprint}
-          onConfirmar={kitchen.confirmar}
           onComandar={kitchen.comandar}
           onEntregar={kitchen.entregar}
         />

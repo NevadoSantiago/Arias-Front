@@ -4,23 +4,23 @@ import { toast } from 'sonner';
 import {
   getOrdersByPickup,
   getRestaurantConfigAdmin,
+  getServerTime,
   markOrdersComandado,
-  markOrdersConfirmado,
   markOrdersEntregado,
   reprintOrder,
   undoOrderKitchenState,
 } from '@/features/admin/services/adminApi';
-import { buildKitchenBoard, slotAnchorFor, type BoardOrder } from './kitchenBoard';
+import { buildKitchenBoard, type BoardOrder } from './kitchenBoard';
 
-/** How often the order list is refetched (the backend confirms PENDIENTE orders every minute). */
+/** How often the order list is refetched (the backend commands PENDIENTE orders every minute). */
 export const ORDERS_POLL_MS = 60_000;
 /** How often the clock-dependent grouping is recomputed: once per minute, right when the minute changes. */
 export const CLOCK_TICK_MS = 60_000;
+/** The board countdowns tick every second. */
+export const SECOND_TICK_MS = 1_000;
 /** While any order is waiting for its ticket, poll fast so "En cola" turns into "Impresa" promptly. */
 export const QUEUED_POLL_MS = 5_000;
-/** The "Deshacer" bar after COMANDAR: the print jobs only become claimable once it is over. */
-export const UNDO_COMANDAR_MS = 10_000;
-/** The "Deshacer" bar after every other move. */
+/** The "Deshacer" bar after marking an order as delivered. */
 export const UNDO_OTHER_MS = 20_000;
 /** How long a reprinted order says "Enviada". */
 export const REPRINT_FLASH_MS = 2_500;
@@ -29,17 +29,14 @@ const COUNTDOWN_TICK_MS = 250;
 
 const ORDERS_KEY = ['adminOrdersByPickup'] as const;
 
-type MoveKind = 'confirmar' | 'comandar' | 'entregar';
+const SERVER_TIME_KEY = ['adminServerTime'] as const;
 
 interface UndoState {
   ids: number[];
   message: string;
-  kind: MoveKind;
   /** Epoch ms at which the bar disappears. */
   expiresAt: number;
 }
-
-const undoDuration = (kind: MoveKind) => (kind === 'comandar' ? UNDO_COMANDAR_MS : UNDO_OTHER_MS);
 
 /**
  * Reloj local, sin pedidos al backend: se actualiza en cada múltiplo de `intervalMs` del reloj
@@ -63,17 +60,43 @@ export function useNow(intervalMs: number): Date {
   return now;
 }
 
-function moveMessage(kind: MoveKind, orders: BoardOrder[]): string {
-  const target = kind === 'confirmar' ? 'confirmados' : kind === 'comandar' ? 'comandados' : 'entregados';
+function deliveredMessage(orders: Pick<BoardOrder, 'id'>[]): string {
   return orders.length === 1
-    ? `Pedido N° ${orders[0].id} pasó a ${target}`
-    : `${orders.length} pedidos pasaron a ${target}`;
+    ? `Pedido N° ${orders[0].id} pasó a entregados`
+    : `${orders.length} pedidos pasaron a entregados`;
+}
+
+/**
+ * Offset between the server clock and the PC's, in ms. Read when the answer arrives; 0 (the local
+ * clock) while it is unknown or when the request fails.
+ */
+function useServerOffset(): number {
+  const serverTime = useQuery({
+    queryKey: SERVER_TIME_KEY,
+    queryFn: async () => ({ offsetMs: Date.parse((await getServerTime()).now) - Date.now() }),
+    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+  });
+  const offset = serverTime.data?.offsetMs;
+  return offset !== undefined && Number.isFinite(offset) ? offset : 0;
+}
+
+/** Local clock that re-renders every `intervalMs`. */
+function useLocalClock(intervalMs: number): number {
+  const [local, setLocal] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setLocal(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return local;
 }
 
 /** Container logic of the kitchen dashboard: data, live clock, moves and undo. */
 export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) {
   const queryClient = useQueryClient();
-  const now = useNow(CLOCK_TICK_MS);
+  const offsetMs = useServerOffset();
+  const nowMs = useLocalClock(SECOND_TICK_MS) + offsetMs;
+  const now = useMemo(() => new Date(nowMs), [nowMs]);
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const [reprinted, setReprinted] = useState<ReadonlySet<number>>(() => new Set());
@@ -94,30 +117,26 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
   const board = useMemo(() => {
     if (!orders.data || !config.data) return null;
     return buildKitchenBoard(orders.data, {
-      now,
+      nowMs,
       timezone: config.data.timezone,
       leadMinutes: config.data.pickupLeadMinutes,
-      slotMinutes: config.data.pickupSlotMinutes,
-      slotAnchorMinutes: slotAnchorFor(config.data.pickupSchedule, now, config.data.timezone),
     });
-  }, [orders.data, config.data, now]);
+  }, [orders.data, config.data, nowMs]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
 
-  const move = useMutation({
-    mutationFn: ({ kind, ids }: { kind: MoveKind; ids: number[]; message: string }) =>
-      kind === 'confirmar'
-        ? markOrdersConfirmado(ids)
-        : kind === 'comandar'
-          ? markOrdersComandado(ids)
-          : markOrdersEntregado(ids),
-    // Confirming consumes credits and has no undo endpoint, so it never raises the undo bar.
-    onSuccess: (_data, { kind, ids, message }) => {
-      if (kind !== 'confirmar') {
-        const now = Date.now();
-        setClock(now);
-        setUndo({ ids, message, kind, expiresAt: now + undoDuration(kind) });
-      }
+  const comandar = useMutation({
+    mutationFn: (id: number) => markOrdersComandado([id]),
+    onError: () => toast.error('No se pudo comandar el pedido. Revisá el tablero e intentá de nuevo.'),
+    onSettled: refresh,
+  });
+
+  const entregar = useMutation({
+    mutationFn: ({ ids }: { ids: number[]; message: string }) => markOrdersEntregado(ids),
+    onSuccess: (_data, { ids, message }) => {
+      const at = Date.now();
+      setClock(at);
+      setUndo({ ids, message, expiresAt: at + UNDO_OTHER_MS });
     },
     onError: () => toast.error('No se pudo actualizar el pedido. Revisá el tablero e intentá de nuevo.'),
     onSettled: refresh,
@@ -150,7 +169,7 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
 
   useEffect(() => {
     if (!undo) return;
-    const expire = setTimeout(() => setUndo(null), undoDuration(undo.kind));
+    const expire = setTimeout(() => setUndo(null), UNDO_OTHER_MS);
     const tick = setInterval(() => setClock(Date.now()), COUNTDOWN_TICK_MS);
     return () => {
       clearTimeout(expire);
@@ -166,9 +185,9 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
   return {
     board,
     now,
+    nowMs,
     timezone: config.data?.timezone ?? 'America/Argentina/Buenos_Aires',
     leadMinutes: config.data?.pickupLeadMinutes ?? 0,
-    slotMinutes: config.data?.pickupSlotMinutes ?? 0,
     isLoading: orders.isLoading || config.isLoading,
     isError: orders.isError || config.isError,
     isFetching: orders.isFetching,
@@ -176,11 +195,10 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
       void orders.refetch();
       void config.refetch();
     },
-    busy: move.isPending || undoMove.isPending,
+    busy: comandar.isPending || entregar.isPending || undoMove.isPending,
     undo: undo && {
       ids: undo.ids,
       message: undo.message,
-      kind: undo.kind,
       secondsLeft: Math.max(0, Math.ceil((undo.expiresAt - clock) / 1000)),
     },
     queuedCount: orders.data?.filter((o) => o.printStatus === 'QUEUED').length ?? 0,
@@ -188,11 +206,8 @@ export function useKitchenBoard({ enabled = true }: { enabled?: boolean } = {}) 
     reprint: (order: Pick<BoardOrder, 'id'>) => reprint.mutate(order.id),
     dismissUndo: () => setUndo(null),
     runUndo: () => undo && undoMove.mutate(undo.ids),
-    confirmar: (list: BoardOrder[]) =>
-      move.mutate({ kind: 'confirmar', ids: list.map((o) => o.id), message: moveMessage('confirmar', list) }),
-    comandar: (list: BoardOrder[]) =>
-      move.mutate({ kind: 'comandar', ids: list.map((o) => o.id), message: moveMessage('comandar', list) }),
-    entregar: (list: BoardOrder[]) =>
-      move.mutate({ kind: 'entregar', ids: list.map((o) => o.id), message: moveMessage('entregar', list) }),
+    comandar: (order: Pick<BoardOrder, 'id'>) => comandar.mutate(order.id),
+    entregar: (list: Pick<BoardOrder, 'id'>[]) =>
+      entregar.mutate({ ids: list.map((o) => o.id), message: deliveredMessage(list) }),
   };
 }

@@ -35,6 +35,7 @@
 
     --warning: 39 88% 41%;                /* mostaza */
     --warning-foreground: 12 25% 8%;
+    --warning-deep: 40 100% 24%;         /* mostaza oscuro: texto chico sobre card, 4.5:1 o más */
 
     --border: 40 30% 78%;
     --input: 40 30% 78%;
@@ -67,6 +68,8 @@
 
     --destructive: 0 75% 50%;
     --destructive-foreground: 40 58% 92%;
+
+    --warning-deep: 39 88% 60%;
 
     --border: 12 15% 20%;
     --input: 12 15% 20%;

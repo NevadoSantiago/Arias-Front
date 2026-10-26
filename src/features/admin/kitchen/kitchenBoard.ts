@@ -1,56 +1,95 @@
-import type { PickupOrder } from '@/features/admin/services/adminApi';
+import type { PickupOrder, PickupOrderItem, PrintStatus } from '@/features/admin/services/adminApi';
 
-/** A commanded order whose pickup was more than this many minutes ago folds into the faded group. */
-export const STALE_AFTER_MINUTES = 30;
+const MINUTE_MS = 60_000;
+/** The timeline strip looks this far ahead. */
+export const TIMELINE_MS = 60 * MINUTE_MS;
+/** From here on the countdown of a group turns dark mustard. */
+export const SOON_MS = 10 * MINUTE_MS;
+/** From here on it turns deep red. */
+export const URGENT_MS = 3 * MINUTE_MS;
+const TICK_EVERY_MS = 10 * MINUTE_MS;
 
 export interface BoardContext {
-  now: Date;
+  /** Epoch ms of "now", already corrected with the server clock. */
+  nowMs: number;
   /** IANA zone of the restaurant (`restaurant_config.timezone`). */
   timezone: string;
-  /** `pickupLeadMinutes`: an order is confirmed this long before its pickup. */
+  /** `pickupLeadMinutes`: an order is commanded this long before its pickup. */
   leadMinutes: number;
-  /** `pickupSlotMinutes`: distance between two pickup slots. */
-  slotMinutes: number;
-  /** Minute of the day where today's pickup window opens: slots are `anchor + k * slotMinutes`. */
-  slotAnchorMinutes: number;
+}
+
+/** One printed ticket line, equal items grouped (`2x Milanesa` / `2x C/papas`). */
+export interface TicketLine {
+  qty: number;
+  dish: string;
+  side: string | null;
+  note: string | null;
 }
 
 export interface BoardOrder extends PickupOrder {
-  pickupMinute: number;
+  /** Epoch ms of the start of the pickup minute. */
+  pickupMs: number;
   pickupLabel: string;
-  /** "en 10 min" / "ahora" / "hace 10 min". */
-  rel: string;
-  /** HH:MM the kitchen was told / the customer got it; empty when it has not happened. */
-  comandadoLabel: string;
+  lines: TicketLine[];
+  /** HH:MM the customer got it; empty when it has not happened. */
   deliveredLabel: string;
 }
 
 export interface ScheduledOrder extends BoardOrder {
-  confirmAtLabel: string;
+  /** HH:MM at which the server commands it on its own (pickup − lead). */
+  comandarAtLabel: string;
+  /** Ms until that moment; negative when the scheduler is about to pick it up. */
+  comandarInMs: number;
 }
 
-export interface ConfirmedSlot {
-  minute: number;
+export interface OverdueOrder extends BoardOrder {
+  /** Ms since the pickup minute started. */
+  overdueMs: number;
+}
+
+export type GroupTone = 'calm' | 'soon' | 'urgent';
+
+export interface PickupGroup {
+  /** Stable DOM / marker key: the epoch ms of the pickup minute. */
+  key: string;
   time: string;
-  /** Slot already passed and still has orders to command. */
-  overdue: boolean;
-  /** First column that has orders: the one the kitchen should cook first. */
-  first: boolean;
-  rel: string;
+  msUntil: number;
+  tone: GroupTone;
+  worst: PrintStatus;
   orders: BoardOrder[];
 }
 
+export interface TimelineMarker {
+  key: string;
+  time: string;
+  /** 0 = now, 1 = 60 minutes from now. */
+  offset: number;
+  count: number;
+  worst: PrintStatus;
+  msUntil: number;
+}
+
+export interface Timeline {
+  nowLabel: string;
+  endLabel: string;
+  ticks: { offset: number; label: string }[];
+  markers: TimelineMarker[];
+}
+
 export interface KitchenBoard {
-  confirmed: ConfirmedSlot[];
-  commanded: { fresh: BoardOrder[]; stale: BoardOrder[] };
   scheduled: ScheduledOrder[];
+  overdue: OverdueOrder[];
+  groups: PickupGroup[];
+  timeline: Timeline;
   delivered: BoardOrder[];
+  /** Every COMANDADO order not yet delivered. */
+  commandedCount: number;
 }
 
 const formatterCache = new Map<string, Intl.DateTimeFormat>();
 
 /** Minute of the day (0-1439) of an instant, read in `timezone` and not in the browser's zone. */
-export function minuteOfDay(instant: Date | string, timezone: string): number {
+export function minuteOfDay(instant: Date | string | number, timezone: string): number {
   let fmt = formatterCache.get(timezone);
   if (!fmt) {
     fmt = new Intl.DateTimeFormat('en-GB', {
@@ -61,7 +100,7 @@ export function minuteOfDay(instant: Date | string, timezone: string): number {
     });
     formatterCache.set(timezone, fmt);
   }
-  const parts = fmt.formatToParts(typeof instant === 'string' ? new Date(instant) : instant);
+  const parts = fmt.formatToParts(typeof instant === 'string' ? new Date(instant) : new Date(instant));
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
   return get('hour') * 60 + get('minute');
 }
@@ -69,75 +108,6 @@ export function minuteOfDay(instant: Date | string, timezone: string): number {
 export function formatMinute(minute: number): string {
   const m = ((minute % 1440) + 1440) % 1440;
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
-
-function relative(pickupMinute: number, nowMinute: number): string {
-  if (pickupMinute > nowMinute) return `en ${pickupMinute - nowMinute} min`;
-  if (pickupMinute === nowMinute) return 'ahora';
-  return `hace ${nowMinute - pickupMinute} min`;
-}
-
-function timeLabel(iso: string | null, timezone: string): string {
-  return iso ? formatMinute(minuteOfDay(iso, timezone)) : '';
-}
-
-function toBoardOrder(order: PickupOrder, ctx: BoardContext, nowMinute: number): BoardOrder {
-  const pickupMinute = minuteOfDay(order.pickupAt, ctx.timezone);
-  return {
-    ...order,
-    pickupMinute,
-    pickupLabel: formatMinute(pickupMinute),
-    rel: relative(pickupMinute, nowMinute),
-    comandadoLabel: timeLabel(order.comandadoAt, ctx.timezone),
-    deliveredLabel: timeLabel(order.deliveredAt, ctx.timezone),
-  };
-}
-
-const byPickup = (a: BoardOrder, b: BoardOrder) => a.pickupMinute - b.pickupMinute || a.id - b.id;
-
-/** One column per pickup slot that has at least one CONFIRMADO order (overdue and early ones included). */
-function buildConfirmed(confirmed: BoardOrder[], nowMinute: number): ConfirmedSlot[] {
-  const ordersBySlot = new Map<number, BoardOrder[]>();
-  for (const o of confirmed) {
-    ordersBySlot.set(o.pickupMinute, [...(ordersBySlot.get(o.pickupMinute) ?? []), o]);
-  }
-  const minutes = [...ordersBySlot.keys()].sort((a, b) => a - b);
-  let firstMarked = false;
-  return minutes.map((minute) => {
-    const orders = ordersBySlot.get(minute) ?? [];
-    const first = !firstMarked;
-    firstMarked = true;
-    const overdue = minute < nowMinute;
-    return {
-      minute,
-      time: formatMinute(minute),
-      overdue,
-      first,
-      rel: overdue ? `atrasado ${nowMinute - minute} min` : minute === nowMinute ? 'retiran ahora' : `en ${minute - nowMinute} min`,
-      orders,
-    };
-  });
-}
-
-/** Pure projection of today's B2C orders into the four boxes of the kitchen dashboard. */
-export function buildKitchenBoard(orders: PickupOrder[], ctx: BoardContext): KitchenBoard {
-  const nowMinute = minuteOfDay(ctx.now, ctx.timezone);
-  const board = orders.map((o) => toBoardOrder(o, ctx, nowMinute)).sort(byPickup);
-  const inState = (estado: PickupOrder['estado']) => board.filter((o) => o.estado === estado);
-
-  const commanded = inState('COMANDADO');
-  return {
-    confirmed: buildConfirmed(inState('CONFIRMADO'), nowMinute),
-    commanded: {
-      fresh: commanded.filter((o) => nowMinute - o.pickupMinute <= STALE_AFTER_MINUTES),
-      stale: commanded.filter((o) => nowMinute - o.pickupMinute > STALE_AFTER_MINUTES),
-    },
-    scheduled: inState('PENDIENTE').map((o) => ({
-      ...o,
-      confirmAtLabel: formatMinute(o.pickupMinute - ctx.leadMinutes),
-    })),
-    delivered: inState('ENTREGADO'),
-  };
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -148,20 +118,133 @@ export function isoWeekday(instant: Date, timezone: string): number {
   return WEEKDAYS.indexOf(name) + 1;
 }
 
-interface ScheduleDay {
-  dayOfWeek: number;
-  open: boolean;
-  windowStart: string | null;
+export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+const clockLabel = (epochMs: number, timezone: string) => formatMinute(minuteOfDay(epochMs, timezone));
+
+const clean = (text: string | null | undefined) => {
+  const t = text?.trim();
+  return t ? t : null;
+};
+
+/** Groups equal items (same dish, side and note) like the printed ticket, in first-seen order. */
+export function ticketLines(items: PickupOrderItem[]): TicketLine[] {
+  const lines = new Map<string, TicketLine>();
+  for (const item of items) {
+    const dish = item.dishNombre.trim();
+    const side = clean(item.sideNombre);
+    const note = clean(item.notas);
+    const key = JSON.stringify([dish, side, note]);
+    const line = lines.get(key);
+    if (line) line.qty += 1;
+    else lines.set(key, { qty: 1, dish, side, note });
+  }
+  return [...lines.values()];
 }
 
-/**
- * Minute of the day where today's pickup window opens. The backend generates slots from the window
- * start stepping by `pickupSlotMinutes`, so the columns must be aligned to it. Midnight when the
- * restaurant is closed or has no schedule: the columns then only show slots that have orders.
- */
-export function slotAnchorFor(schedule: ScheduleDay[] | undefined, now: Date, timezone: string): number {
-  const today = schedule?.find((d) => d.dayOfWeek === isoWeekday(now, timezone));
-  if (!today?.open || !today.windowStart) return 0;
-  const [h, m] = today.windowStart.split(':').map(Number);
-  return h * 60 + m;
+/** `07:32`, or `1:30:05` from one hour up. The sign is dropped: callers say "en" or "atrasado". */
+export function formatCountdown(ms: number): string {
+  const total = Math.floor(Math.abs(ms) / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${String(m).padStart(2, '0')}:${ss}`;
+}
+
+export function countdownTone(msUntil: number): GroupTone | 'overdue' {
+  if (msUntil <= 0) return 'overdue';
+  if (msUntil <= URGENT_MS) return 'urgent';
+  if (msUntil <= SOON_MS) return 'soon';
+  return 'calm';
+}
+
+const PRINT_SEVERITY: Record<PrintStatus, number> = { PRINTED: 0, QUEUED: 1, NONE: 2, EXPIRED: 3, FAILED: 4 };
+
+/** The print status that needs the most attention. */
+export function worstPrintStatus(statuses: PrintStatus[]): PrintStatus {
+  return statuses.reduce<PrintStatus>(
+    (worst, s) => (PRINT_SEVERITY[s] > PRINT_SEVERITY[worst] ? s : worst),
+    'PRINTED',
+  );
+}
+
+function toBoardOrder(order: PickupOrder, timezone: string): BoardOrder {
+  const pickupMs = Math.floor(Date.parse(order.pickupAt) / MINUTE_MS) * MINUTE_MS;
+  return {
+    ...order,
+    pickupMs,
+    pickupLabel: clockLabel(pickupMs, timezone),
+    lines: ticketLines(order.items),
+    deliveredLabel: order.deliveredAt ? clockLabel(Date.parse(order.deliveredAt), timezone) : '',
+  };
+}
+
+const byPickup = (a: BoardOrder, b: BoardOrder) => a.pickupMs - b.pickupMs || a.id - b.id;
+
+function buildTimeline(groups: PickupGroup[], ctx: BoardContext): Timeline {
+  const steps = TIMELINE_MS / TICK_EVERY_MS;
+  return {
+    nowLabel: clockLabel(ctx.nowMs, ctx.timezone),
+    endLabel: clockLabel(ctx.nowMs + TIMELINE_MS, ctx.timezone),
+    ticks: Array.from({ length: steps + 1 }, (_, i) => ({
+      offset: i / steps,
+      label: clockLabel(ctx.nowMs + i * TICK_EVERY_MS, ctx.timezone),
+    })),
+    markers: groups
+      .filter((g) => g.msUntil > 0 && g.msUntil <= TIMELINE_MS)
+      .map((g) => ({
+        key: g.key,
+        time: g.time,
+        offset: g.msUntil / TIMELINE_MS,
+        count: g.orders.length,
+        worst: g.worst,
+        msUntil: g.msUntil,
+      })),
+  };
+}
+
+/** Pure projection of today's B2C orders into the boxes of the kitchen dashboard. */
+export function buildKitchenBoard(orders: PickupOrder[], ctx: BoardContext): KitchenBoard {
+  const board = orders.map((o) => toBoardOrder(o, ctx.timezone)).sort(byPickup);
+  const inState = (...estados: PickupOrder['estado'][]) => board.filter((o) => estados.includes(o.estado));
+
+  const commanded = inState('COMANDADO');
+  const overdue: OverdueOrder[] = [];
+  const byMinute = new Map<number, BoardOrder[]>();
+  for (const o of commanded) {
+    if (o.pickupMs - ctx.nowMs <= 0) {
+      overdue.push({ ...o, overdueMs: ctx.nowMs - o.pickupMs });
+    } else {
+      byMinute.set(o.pickupMs, [...(byMinute.get(o.pickupMs) ?? []), o]);
+    }
+  }
+
+  const groups: PickupGroup[] = [...byMinute.entries()].map(([pickupMs, list]) => {
+    const msUntil = pickupMs - ctx.nowMs;
+    return {
+      key: String(pickupMs),
+      time: clockLabel(pickupMs, ctx.timezone),
+      msUntil,
+      tone: countdownTone(msUntil) as GroupTone,
+      worst: worstPrintStatus(list.map((o) => o.printStatus)),
+      orders: list,
+    };
+  });
+
+  return {
+    scheduled: inState('PENDIENTE', 'CONFIRMADO').map((o) => {
+      const commandAt = o.pickupMs - ctx.leadMinutes * MINUTE_MS;
+      return {
+        ...o,
+        comandarAtLabel: clockLabel(commandAt, ctx.timezone),
+        comandarInMs: commandAt - ctx.nowMs,
+      };
+    }),
+    overdue,
+    groups,
+    timeline: buildTimeline(groups, ctx),
+    delivered: inState('ENTREGADO'),
+    commandedCount: commanded.length,
+  };
 }

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ClipboardList, Clock } from 'lucide-react';
 import type { DayOption, DayOrder, DishSummary } from './dashboardDay';
-import { CountBadge, Items, OrderNote } from './KitchenBoardView';
+import { CountBadge, Items, OrderNote } from './kitchenParts';
 
 interface OtherDayBoardViewProps {
   day: DayOption;
@@ -73,7 +73,7 @@ function ScheduledDayBox({ day, orders, leadMinutes }: Omit<OtherDayBoardViewPro
           <CountBadge n={orders.length} className="h-[26px] bg-warning-foreground text-[13px]" />
         </div>
         <span className="text-xs text-muted-foreground">
-          ese día pasan a confirmados {leadMinutes} min antes de cada retiro
+          ese día se comandan solos {leadMinutes} min antes de cada retiro
         </span>
       </div>
       {orders.length === 0 ? (
