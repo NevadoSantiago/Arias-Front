@@ -27,7 +27,7 @@ function isSnoozed(userId: number): boolean {
  */
 export function useReviewPrompt(userId: number) {
   const { data } = useQuery({
-    queryKey: ['reviewPrompt'],
+    queryKey: ['reviewPrompt', userId],
     queryFn: getReviewPrompt,
     staleTime: Infinity,
     refetchOnWindowFocus: false,

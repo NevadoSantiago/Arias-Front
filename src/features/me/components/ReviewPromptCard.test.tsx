@@ -103,6 +103,25 @@ describe('ReviewPromptCard', () => {
     expect(screen.queryByText(/qué tal estuvo/i)).not.toBeInTheDocument();
   });
 
+  it('does not reuse a cached prompt from another user in the same client', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <ReviewPromptCard userId={7} />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('¿Qué tal estuvo tu Milanesa napolitana?')).toBeInTheDocument();
+
+    vi.mocked(getReviewPrompt).mockResolvedValue({ show: true, dishName: 'Flan', reviewUrl: prompt.reviewUrl });
+    rerender(
+      <QueryClientProvider client={client}>
+        <ReviewPromptCard userId={8} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('¿Qué tal estuvo tu Flan?')).toBeInTheDocument();
+  });
+
   it('still works when localStorage throws', async () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked');
