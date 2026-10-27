@@ -12,7 +12,8 @@ import { RemoveOrderItemSheet } from '@/features/orders/components/RemoveOrderIt
 import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
-import { AccountDiscountCard } from '@/features/credits/components/AccountDiscountCard';
+import { SurpriseGift } from '@/features/credits/components/SurpriseGift';
+import { ReviewPromptCard } from '@/features/me/components/ReviewPromptCard';
 import { activeAccountDiscount } from '@/features/credits/packPricing';
 import { NoPickupSlotsNotice } from '@/features/orders/components/b2c/NoPickupSlotsNotice';
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
@@ -742,6 +743,8 @@ export function B2cOrderPage() {
             </p>
           </header>
 
+          {accountDiscount && <SurpriseGift userId={user.id} discount={accountDiscount} />}
+
           <div className="mb-6 space-y-3">
             <WeekDaySelector
               selectedDate={selectedDate}
@@ -773,18 +776,11 @@ export function B2cOrderPage() {
           {/* Debajo del calendario: el cartel no debe correr el calendario de lugar. */}
           {wallet && wallet.available === 0 && !hasOrder && (
             <div className="mb-6">
-              {accountDiscount ? (
-                <AccountDiscountCard discount={accountDiscount} variant="large" />
-              ) : (
-                <EmptyBalanceCard />
-              )}
+              <EmptyBalanceCard />
             </div>
           )}
-          {accountDiscount && !(wallet && wallet.available === 0 && !hasOrder) && (
-            <div className="mb-6">
-              <AccountDiscountCard discount={accountDiscount} variant="small" />
-            </div>
-          )}
+
+          <ReviewPromptCard userId={user.id} />
 
           {noSlots && (
             <div className="mb-6">

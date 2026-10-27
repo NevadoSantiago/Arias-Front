@@ -17,8 +17,14 @@ import {
   type OrderV2,
 } from '@/features/orders/services/ordersApi';
 import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
+import { getReviewPrompt } from '@/features/me/services/meApi';
 import type { Dish } from '@/features/orders/types';
 
+vi.mock('@/features/me/services/meApi', () => ({
+  getReviewPrompt: vi.fn(),
+  markReviewOpened: vi.fn(),
+  markReviewNever: vi.fn(),
+}));
 vi.mock('@/features/orders/services/ordersApi', async () => {
   const actual = await vi.importActual<typeof import('@/features/orders/services/ordersApi')>(
     '@/features/orders/services/ordersApi',
@@ -118,7 +124,13 @@ async function selectDish() {
   fireEvent.click(await screen.findByRole('button', { name: /agregar al pedido/i }));
 }
 
-function setup({ orders = [] as OrderV2[], balance = 12, discount = null as { percent: number; expiresAt: string } | null } = {}) {
+function setup({
+  orders = [] as OrderV2[],
+  balance = 12,
+  discount = null as { percent: number; expiresAt: string } | null,
+  review = { show: false, dishName: null, reviewUrl: null } as { show: boolean; dishName: string | null; reviewUrl: string | null },
+} = {}) {
+  vi.mocked(getReviewPrompt).mockResolvedValue(review);
   vi.setSystemTime(new Date(NOW));
   useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
   vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
@@ -191,44 +203,68 @@ describe('B2cOrderPage — empty-balance banner', () => {
   });
 });
 
-describe('B2cOrderPage — account discount', () => {
+describe('B2cOrderPage — surprise and review prompt', () => {
   const discount = { percent: 10, expiresAt: '2099-01-01T00:00:00Z' };
 
-  it('replaces the empty-balance banner with the big discount card when the balance is 0', async () => {
-    mockMatchMedia(false);
-    setup({ balance: 0, discount });
-    renderPage();
+  beforeEach(() => window.localStorage.clear());
 
-    expect(await screen.findByText('Tenés 10% off en tu próxima compra')).toBeInTheDocument();
-    expect(screen.queryByText(/tu próximo almuerzo te está esperando/i)).not.toBeInTheDocument();
-  });
-
-  it('shows the compact chip when there is balance', async () => {
+  it('shows the closed surprise (hero, above the calendar) while the wallet has a discount', async () => {
     mockMatchMedia(false);
     setup({ balance: 12, discount });
     renderPage();
 
-    expect(await screen.findByRole('link', { name: /10% off en tu próxima compra/i })).toHaveAttribute(
-      'href',
-      '/credits?comprar=1',
-    );
+    const gift = await screen.findByRole('button', { name: /tu almuerzo vino con sorpresa/i });
+    const calendarChip = screen.getByRole('link', { name: /Ver mis pedidos/ });
+    expect(gift.compareDocumentPosition(calendarChip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/off en tu próxima compra/i)).not.toBeInTheDocument();
   });
 
-  it('shows nothing when there is no discount', async () => {
+  it('keeps the empty-balance card next to the surprise when the balance is 0', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 0, discount });
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /tu almuerzo vino con sorpresa/i })).toBeInTheDocument();
+    expect(await screen.findByText(/tu próximo almuerzo te está esperando/i)).toBeInTheDocument();
+  });
+
+  it('opens the surprise on tap and links to the buy flow', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 12, discount });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /tu almuerzo vino con sorpresa/i }));
+
+    expect(screen.getByText('de descuento en tu próxima compra')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /comprar almuerzos/i })).toHaveAttribute('href', '/credits?comprar=1');
+  });
+
+  it('shows no surprise when there is no discount', async () => {
     mockMatchMedia(false);
     setup({ balance: 12 });
     renderPage();
 
     await screen.findByRole('button', { name: DISH_CARD });
-    expect(screen.queryByText(/off en tu próxima compra/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sorpresa/i)).not.toBeInTheDocument();
   });
 
-  it('keeps the empty-balance banner when there is no discount', async () => {
+  it('shows the review card below the calendar only when the server says so', async () => {
     mockMatchMedia(false);
-    setup({ balance: 0 });
+    setup({ balance: 12, review: { show: true, dishName: 'Flan', reviewUrl: 'https://g.page/r/x' } });
     renderPage();
 
-    expect(await screen.findByText(/tu próximo almuerzo te está esperando/i)).toBeInTheDocument();
+    const card = await screen.findByText('¿Qué tal estuvo tu Flan?');
+    const calendarChip = screen.getByRole('link', { name: /Ver mis pedidos/ });
+    expect(calendarChip.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows no review card when show is false', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 12 });
+    renderPage();
+
+    await screen.findByRole('button', { name: DISH_CARD });
+    expect(screen.queryByText(/qué tal estuvo/i)).not.toBeInTheDocument();
   });
 });
 

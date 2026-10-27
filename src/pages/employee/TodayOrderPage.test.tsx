@@ -8,6 +8,12 @@ import { useAuthStore, type AuthUser } from '@/features/auth/store/authStore';
 // their own test files (`CompanyOrderPage`/`B2cOrderPage`). Stubbing them
 // here keeps this test focused on ONE thing: does the branch pick the right
 // screen for the right user, based on `companyId`.
+vi.mock('@/features/me/services/meApi', () => ({
+  getReviewPrompt: vi.fn().mockResolvedValue({ show: false, dishName: null, reviewUrl: null }),
+  markReviewOpened: vi.fn(),
+  markReviewNever: vi.fn(),
+}));
+
 vi.mock('./CompanyOrderPage', () => ({
   CompanyOrderPage: () => <p>legacy-single-dish-flow</p>,
 }));

@@ -23,6 +23,12 @@ import {
 import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
 import type { Dish } from '@/features/orders/types';
 
+vi.mock('@/features/me/services/meApi', () => ({
+  getReviewPrompt: vi.fn().mockResolvedValue({ show: false, dishName: null, reviewUrl: null }),
+  markReviewOpened: vi.fn(),
+  markReviewNever: vi.fn(),
+}));
+
 vi.mock('@/features/orders/services/ordersApi', async () => {
   const actual = await vi.importActual<typeof import('@/features/orders/services/ordersApi')>(
     '@/features/orders/services/ordersApi',
