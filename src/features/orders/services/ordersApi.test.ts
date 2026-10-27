@@ -287,6 +287,12 @@ describe('resumeDirectCheckoutV2', () => {
 
     await expect(resumeDirectCheckoutV2(7)).rejects.toBeInstanceOf(DirectCheckoutNotResumableError);
   });
+
+  it('maps a 409 direct-checkout-expired response (discounted checkout past its hold) to DirectCheckoutNotResumableError', async () => {
+    vi.mocked(api.get).mockRejectedValueOnce({ response: { data: { title: 'direct-checkout-expired' } } });
+
+    await expect(resumeDirectCheckoutV2(7)).rejects.toBeInstanceOf(DirectCheckoutNotResumableError);
+  });
 });
 
 // F16: agregar/quitar ítems de un pedido v2 existente (backend B6).

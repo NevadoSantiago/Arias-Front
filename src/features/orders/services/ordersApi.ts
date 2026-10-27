@@ -283,7 +283,8 @@ export class DirectCheckoutUnavailableError extends Error {
  * El pago directo ya no se puede retomar — el pedido dejó de estar
  * `PENDIENTE_PAGO` (409 `order-not-awaiting-payment`, p. ej. se canceló o ya
  * se aprobó) o no queda una compra `DIRECT` pendiente para retomar (409
- * `direct-checkout-not-resumable`). Mismo mensaje para ambos: desde el punto
+ * `direct-checkout-not-resumable`), o la compra con descuento venció y el backend la
+ * canceló (409 `direct-checkout-expired`). Mismo mensaje para todos: desde el punto
  * de vista del cliente, "Pagar ahora" ya no sirve. F18/B7.
  */
 export class DirectCheckoutNotResumableError extends Error {
@@ -447,7 +448,11 @@ function mapOrderV2Error(err: unknown, { pickupTimeChange = false }: { pickupTim
     if (data?.title === 'direct-purchase-unavailable') {
       return new DirectCheckoutUnavailableError();
     }
-    if (data?.title === 'order-not-awaiting-payment' || data?.title === 'direct-checkout-not-resumable') {
+    if (
+      data?.title === 'order-not-awaiting-payment' ||
+      data?.title === 'direct-checkout-not-resumable' ||
+      data?.title === 'direct-checkout-expired'
+    ) {
       return new DirectCheckoutNotResumableError();
     }
   }
