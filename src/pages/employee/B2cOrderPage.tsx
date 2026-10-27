@@ -773,8 +773,9 @@ export function B2cOrderPage() {
             </div>
           </div>
 
-          {/* Debajo del calendario: el cartel no debe correr el calendario de lugar. */}
-          {wallet && wallet.available === 0 && !hasOrder && (
+          {/* Debajo del calendario: el cartel no debe correr el calendario de lugar. Con la
+              sorpresa a la vista no se muestra: ya invita a comprar. */}
+          {wallet && wallet.available === 0 && !hasOrder && !accountDiscount && (
             <div className="mb-6">
               <EmptyBalanceCard />
             </div>

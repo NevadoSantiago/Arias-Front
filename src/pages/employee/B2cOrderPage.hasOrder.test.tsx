@@ -219,13 +219,13 @@ describe('B2cOrderPage — surprise and review prompt', () => {
     expect(screen.queryByText(/off en tu próxima compra/i)).not.toBeInTheDocument();
   });
 
-  it('keeps the empty-balance card next to the surprise when the balance is 0', async () => {
+  it('replaces the empty-balance card with the surprise when the balance is 0', async () => {
     mockMatchMedia(false);
     setup({ balance: 0, discount });
     renderPage();
 
     expect(await screen.findByRole('button', { name: /tu almuerzo vino con sorpresa/i })).toBeInTheDocument();
-    expect(await screen.findByText(/tu próximo almuerzo te está esperando/i)).toBeInTheDocument();
+    expect(screen.queryByText(/tu próximo almuerzo te está esperando/i)).not.toBeInTheDocument();
   });
 
   it('opens the surprise on tap and links to the buy flow', async () => {
