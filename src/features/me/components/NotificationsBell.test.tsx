@@ -8,7 +8,7 @@ import { updateNotificationPreferences } from '@/features/me/services/meApi';
 import { NotificationsBell } from './NotificationsBell';
 
 vi.mock('@/features/me/services/meApi', () => ({
-  getNotificationPreferences: vi.fn().mockResolvedValue({ recibeRecordatorioPedido: true, recibeAvisoRetiro: true }),
+  getNotificationPreferences: vi.fn().mockResolvedValue({ recibeRecordatorioPedido: true, recibeAvisoRetiro: true, recibeNovedades: true }),
   updateNotificationPreferences: vi.fn(),
 }));
 vi.mock('@/features/tour/services/tourApi', () => ({
@@ -143,16 +143,61 @@ describe('NotificationsBell preferences by user type', () => {
     vi.mocked(updateNotificationPreferences).mockResolvedValue({
       recibeRecordatorioPedido: true,
       recibeAvisoRetiro: false,
+      recibeNovedades: true,
     });
     setUser({});
     renderBell();
     fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
 
-    const toggle = await screen.findByRole('switch');
+    const toggle = await screen.findByRole('switch', { name: 'Aviso de pedido' });
     await waitFor(() => expect(toggle).toBeEnabled());
     fireEvent.click(toggle);
 
     await waitFor(() => expect(updateNotificationPreferences).toHaveBeenCalledTimes(1));
     expect(vi.mocked(updateNotificationPreferences).mock.calls[0][0]).toEqual({ recibeAvisoRetiro: false });
+  });
+});
+
+describe('NotificationsBell "Novedades y promociones"', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    useAuthStore.setState({ accessToken: null, user: null, bootstrapping: false });
+  });
+
+  it('shows the switch to a B2C customer, bound to recibeNovedades', async () => {
+    setUser({});
+    renderBell();
+    fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
+
+    const toggle = await screen.findByRole('switch', { name: 'Novedades y promociones' });
+    await waitFor(() => expect(toggle).toBeEnabled());
+    expect(toggle).toBeChecked();
+  });
+
+  it('sends only recibeNovedades when toggling it', async () => {
+    vi.mocked(updateNotificationPreferences).mockResolvedValue({
+      recibeRecordatorioPedido: true,
+      recibeAvisoRetiro: true,
+      recibeNovedades: false,
+    });
+    setUser({});
+    renderBell();
+    fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
+
+    const toggle = await screen.findByRole('switch', { name: 'Novedades y promociones' });
+    await waitFor(() => expect(toggle).toBeEnabled());
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(updateNotificationPreferences).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(updateNotificationPreferences).mock.calls[0][0]).toEqual({ recibeNovedades: false });
+  });
+
+  it('is not offered to company users', async () => {
+    setUser({ companyId: 3 });
+    renderBell();
+    fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }));
+
+    await screen.findByText('Recordatorio diario');
+    expect(screen.queryByText('Novedades y promociones')).not.toBeInTheDocument();
   });
 });

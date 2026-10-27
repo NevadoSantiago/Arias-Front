@@ -9,6 +9,7 @@ import { RegisterPage } from '@/pages/RegisterPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { CompleteProfilePage } from '@/pages/CompleteProfilePage';
 import { UnsubscribeReminderPage } from '@/pages/UnsubscribeReminderPage';
+import { UnsubscribeNewsPage } from '@/pages/UnsubscribeNewsPage';
 import { TodayOrderPage } from '@/pages/employee/TodayOrderPage';
 import { OrderSummaryPage } from '@/pages/employee/OrderSummaryPage';
 import { MyOrdersPage } from '@/pages/orders/MyOrdersPage';
@@ -159,6 +160,8 @@ export const router = createBrowserRouter([
 
       // Página pública del link "no quiero más recordatorios" del mail
       { path: '/unsubscribe-reminder', element: <UnsubscribeReminderPage /> },
+      // Página pública del link "no quiero más novedades" del mail de la campaña
+      { path: '/unsubscribe-news', element: <UnsubscribeNewsPage /> },
 
       // Contenido corporativo (B2B) — trasladado desde la raíz, sin autenticación
       { path: '/corporate', element: <CorporatePage /> },

@@ -56,6 +56,7 @@ export function NotificationsBell() {
 
   const dailyReminderEnabled = prefs?.recibeRecordatorioPedido ?? false;
   const pickupNoticeEnabled = prefs?.recibeAvisoRetiro ?? false;
+  const newsEnabled = prefs?.recibeNovedades ?? false;
 
   return (
     <div ref={containerRef} className="relative">
@@ -112,6 +113,24 @@ export function NotificationsBell() {
                 checked={pickupNoticeEnabled}
                 disabled={!prefs || mutation.isPending}
                 onCheckedChange={(v) => mutation.mutate({ recibeAvisoRetiro: v })}
+              />
+            </div>
+          )}
+          {isIndividualCustomer && (
+            <div className="mt-4 flex items-start justify-between gap-3">
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <Label htmlFor="news-toggle" className="text-sm font-medium text-foreground">
+                  Novedades y promociones
+                </Label>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Te escribimos por mail con novedades y beneficios de Arias.
+                </p>
+              </div>
+              <Switch
+                id="news-toggle"
+                checked={newsEnabled}
+                disabled={!prefs || mutation.isPending}
+                onCheckedChange={(v) => mutation.mutate({ recibeNovedades: v })}
               />
             </div>
           )}
