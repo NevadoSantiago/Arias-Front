@@ -1,7 +1,7 @@
 import { Minus, Plus, UtensilsCrossed } from 'lucide-react';
 import { formatLunches } from '@/features/orders/lunches';
 import { SelectedSeal } from './PackCardParts';
-import { SummaryDivider, SummaryHeader, SummaryRow } from './SummaryCardParts';
+import { AccountDiscountRows, SummaryDivider, SummaryHeader, SummaryRow, type CardAccountDiscount } from './SummaryCardParts';
 import { packSummaryFrameClasses } from './packCardFrame';
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   onPickRecommended: () => void;
   /** Lema de la tarjeta (el del pack DAY en el admin, o el que se deduce de la cantidad). */
   lema: string;
+  /** Descuento de la cuenta aplicado a la cantidad elegida; `null`/ausente si no hay. */
+  accountDiscount?: CardAccountDiscount | null;
 }
 
 /**
@@ -31,6 +33,7 @@ export function LooseSummaryCard({
   showNudge,
   onPickRecommended,
   lema,
+  accountDiscount,
 }: Props) {
   return (
     <div className={packSummaryFrameClasses(checked)}>
@@ -50,7 +53,10 @@ export function LooseSummaryCard({
           lema={lema}
         />
         <SummaryDivider />
-        <SummaryRow label="Precio por almuerzo" value={unitPriceLabel} />
+        <span className="flex flex-col gap-2.5">
+          <SummaryRow label="Precio por almuerzo" value={unitPriceLabel} />
+          {accountDiscount && <AccountDiscountRows discount={accountDiscount} />}
+        </span>
       </button>
 
       {checked && (

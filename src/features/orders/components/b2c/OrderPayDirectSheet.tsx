@@ -3,7 +3,15 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { getPacks } from '@/features/credits/services/creditsApi';
-import { formatPrice, perLunchPriceCents, pickRecommended } from '@/features/credits/packPricing';
+import {
+  activeAccountDiscount,
+  applyAccountDiscount,
+  formatDiscountExpiry,
+  formatPrice,
+  perLunchPriceCents,
+  pickRecommended,
+} from '@/features/credits/packPricing';
+import type { AccountDiscount } from '@/features/credits/types';
 import { formatLunches } from '../../lunches';
 import type { CartLine } from '../../hooks/useCart';
 
@@ -21,6 +29,8 @@ interface Props {
   payError: string | null;
   /** `sheet` (default): hoja móvil. `dialog`: diálogo centrado para escritorio (F22a) — mismo contenido y handlers. */
   presentation?: 'sheet' | 'dialog';
+  /** Descuento de la cuenta de la billetera (un solo uso). Solo informativo: el servidor aplica el real al cobrar. */
+  discount?: AccountDiscount | null;
 }
 
 /**
@@ -49,6 +59,7 @@ export function OrderPayDirectSheet({
   paying,
   payError,
   presentation = 'sheet',
+  discount,
 }: Props) {
   const { data: packs, isLoading: packsLoading, isError: packsError } = useQuery({
     queryKey: ['creditPacks'],
@@ -70,7 +81,27 @@ export function OrderPayDirectSheet({
   // Redondeo hacia arriba: mismo criterio que `unitPriceCentsFor` en el
   // backend (`CreditPurchaseService`) — nunca mostrar de menos.
   const perLunchCents = dayPack ? Math.ceil(dayPack.priceCents / dayPack.creditAmount) : null;
-  const totalCents = perLunchCents !== null ? perLunchCents * payLunches : null;
+  const listCents = perLunchCents !== null ? perLunchCents * payLunches : null;
+  // Mismo cálculo que el servidor: el descuento se redondea hacia abajo al peso entero.
+  const accountDiscount = activeAccountDiscount(discount);
+  const totalCents = listCents !== null ? applyAccountDiscount(listCents, accountDiscount) : null;
+  const savingCents = listCents !== null && totalCents !== null ? listCents - totalCents : 0;
+  const showDiscount = !!accountDiscount && savingCents > 0 && listCents !== null;
+  const discountRows = showDiscount && accountDiscount && listCents !== null && (
+    <>
+      <div className="flex justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">Subtotal</span>
+        <span className="font-semibold text-muted-foreground line-through">{formatPrice(listCents)}</span>
+      </div>
+      <div className="flex justify-between gap-3 text-sm">
+        <span className="font-semibold">
+          Descuento primeros 100{' '}
+          <span className="whitespace-nowrap font-bold text-success">· −{accountDiscount.percent}%</span>
+        </span>
+        <span className="whitespace-nowrap font-bold text-success">−{formatPrice(savingCents)}</span>
+      </div>
+    </>
+  );
 
   // Fix de review: si `getPacks` falla o no hay un pack DAY habilitado, el
   // precio es desconocido — antes el botón quedaba habilitado con un total
@@ -175,6 +206,7 @@ export function OrderPayDirectSheet({
                   </span>
                 </div>
                 <div aria-hidden="true" className="border-t border-border" />
+                {discountRows}
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-[15px] font-bold text-foreground">Total a pagar</span>
                   <span className="text-lg font-bold text-foreground">
@@ -183,7 +215,9 @@ export function OrderPayDirectSheet({
                 </div>
               </div>
             ) : (
-              <div className="flex items-baseline justify-between gap-3 p-3.5">
+              <div className="flex flex-col gap-2.5 p-3.5">
+                {discountRows}
+              <div className="flex items-baseline justify-between gap-3">
                 <span className="flex flex-col gap-0.5">
                   <span className="text-sm font-bold text-foreground">Total</span>
                   {perLunchCents !== null && (
@@ -194,6 +228,7 @@ export function OrderPayDirectSheet({
                   {totalCents !== null ? formatPrice(totalCents) : '—'}{' '}
                   <span className="text-sm font-semibold text-muted-foreground">· {formatLunches(totalLunches)}</span>
                 </span>
+              </div>
               </div>
             )}
           </div>
@@ -230,6 +265,12 @@ export function OrderPayDirectSheet({
                 Ver paquetes
               </Link>
             </div>
+          )}
+
+          {showDiscount && accountDiscount && (
+            <p className="m-0 text-[12.5px] leading-relaxed text-muted-foreground">
+              Descuento de tu cuenta: se usa en esta compra. Vence {formatDiscountExpiry(accountDiscount.expiresAt)}.
+            </p>
           )}
 
           {payError && (

@@ -11,6 +11,7 @@ const selection: PackCheckoutSelection = {
   perLunchLabel: '$ 1.400 por almuerzo',
   hasDiscount: true,
   discountLabel: '−10%',
+  accountDiscount: null,
   totalLabel: '$ 7.000',
   fromAvailable: 12,
   toAvailable: 17,
@@ -25,7 +26,33 @@ function renderSheet(props: Partial<Parameters<typeof PackCheckoutSheet>[0]> = {
   return { onClose, onPay };
 }
 
+const withAccountDiscount: PackCheckoutSelection = {
+  ...selection,
+  totalLabel: '$ 6.300',
+  accountDiscount: { percent: 10, subtotalLabel: '$ 7.000', savingLabel: '$ 700', expiresAt: '2099-01-01T15:00:00Z' },
+};
+
 describe('PackCheckoutSheet', () => {
+  it('breaks down subtotal, account discount and total, and says when it expires', async () => {
+    renderSheet({ selection: withAccountDiscount });
+
+    await screen.findByRole('dialog', { name: /revisá tu compra/i });
+    expect(screen.getByText('Subtotal')).toBeInTheDocument();
+    expect(screen.getByText('$ 7.000')).toBeInTheDocument();
+    expect(screen.getByText(/descuento primeros 100/i)).toHaveTextContent('· −10%');
+    expect(screen.getByText('−$ 700')).toBeInTheDocument();
+    expect(screen.getByText('$ 6.300')).toBeInTheDocument();
+    expect(screen.getByText(/se usa en esta compra\. vence/i)).toBeInTheDocument();
+  });
+
+  it('shows no account-discount rows when there is none', async () => {
+    renderSheet();
+
+    await screen.findByText('Paquete Semana');
+    expect(screen.queryByText('Subtotal')).not.toBeInTheDocument();
+    expect(screen.queryByText(/primeros 100/i)).not.toBeInTheDocument();
+  });
+
   it('shows the product, the per-lunch price, the discount and the total', async () => {
     renderSheet();
 

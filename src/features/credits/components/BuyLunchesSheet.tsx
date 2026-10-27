@@ -4,13 +4,15 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '
 import { useWallet } from '../hooks/useWallet';
 import { usePackCatalog, usePackPurchase } from '../hooks/usePackPurchase';
 import { useCreditExpiryDays } from '../hooks/useCreditExpiryDays';
-import { formatPrice, packTagline, perLunchPriceCents } from '../packPricing';
+import { activeAccountDiscount, applyAccountDiscount, formatPrice, packTagline, perLunchPriceCents } from '../packPricing';
 import { planPurchase, resolveSelection, type PurchaseSelection } from '../purchaseModel';
 import { catalogAmounts } from '../howItWorksCopy';
 import { HowItWorks } from './HowItWorks';
 import { LooseSummaryCard } from './LooseSummaryCard';
 import { PackSummaryCard } from './PackSummaryCard';
 import { PackCheckoutSheet } from './PackCheckoutSheet';
+import { AccountDiscountNote } from './AccountDiscountNote';
+import type { CardAccountDiscount } from './SummaryCardParts';
 
 interface Props {
   open: boolean;
@@ -51,8 +53,9 @@ function BuyLunchesBody() {
   const expiryDays = useCreditExpiryDays();
 
   const effectiveSelection = resolveSelection(selection, catalog, 'loose');
-  const plan = planPurchase(effectiveSelection, qty, catalog, wallet ? wallet.available : null);
-  const summary = plan?.summary ?? { label: '', totalLabel: '' };
+  const discount = activeAccountDiscount(wallet?.discount);
+  const plan = planPurchase(effectiveSelection, qty, catalog, wallet ? wallet.available : null, discount);
+  const summary = plan?.summary ?? { label: '', totalLabel: '', listTotalLabel: null };
   const checkoutSelection = plan?.checkout ?? {
     isLoose: false,
     icon: 'stack5' as const,
@@ -61,6 +64,7 @@ function BuyLunchesBody() {
     perLunchLabel: '',
     hasDiscount: false,
     discountLabel: '',
+    accountDiscount: null,
     totalLabel: '',
     fromAvailable: wallet ? wallet.available : null,
     toAvailable: null,
@@ -68,6 +72,14 @@ function BuyLunchesBody() {
 
   const handlePay = () => {
     if (plan) purchaseMutation.mutate(plan.payload);
+  };
+
+  /** Total de una tarjeta con el descuento de la cuenta, o `null` si no hay (la tarjeta queda como siempre). */
+  const cardDiscount = (listCents: number): CardAccountDiscount | null => {
+    if (!discount) return null;
+    const finalCents = applyAccountDiscount(listCents, discount);
+    if (finalCents === listCents) return null;
+    return { percent: discount.percent, listTotalLabel: formatPrice(listCents), totalLabel: formatPrice(finalCents) };
   };
 
   const ready = !isLoading && !isError && !catalogEmpty;
@@ -94,6 +106,12 @@ function BuyLunchesBody() {
               <HowItWorks packAmounts={catalogAmounts(catalog)} />
             </div>
 
+            {discount && (
+              <div className="mb-5">
+                <AccountDiscountNote discount={discount} />
+              </div>
+            )}
+
             <div role="radiogroup" aria-label="Elegí qué comprar" className="flex flex-col gap-3">
               {dayPack && (
                 <LooseSummaryCard
@@ -103,6 +121,7 @@ function BuyLunchesBody() {
                   qty={qty}
                   onQtyChange={setQty}
                   unitPriceLabel={formatPrice(dayPack.priceCents)}
+                  accountDiscount={cardDiscount(dayPack.priceCents * (effectiveSelection?.kind === 'loose' ? qty : 1))}
                   showNudge={effectiveSelection?.kind === 'loose' && qty >= 4 && namedPacks.length > 0}
                   onPickRecommended={() => {
                     if (recommended) setSelection({ kind: 'pack', packId: recommended.id });
@@ -120,6 +139,7 @@ function BuyLunchesBody() {
                   recommended={recommended?.id === pack.id}
                   priceLabel={formatPrice(pack.priceCents)}
                   perLunchLabel={formatPrice(perLunchPriceCents(pack))}
+                  accountDiscount={cardDiscount(pack.priceCents)}
                 />
               ))}
             </div>
@@ -146,6 +166,9 @@ function BuyLunchesBody() {
         <SheetFooter className="flex-row items-center justify-between gap-3 px-4 py-3">
           <span className="flex min-w-0 flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground">{summary.label}</span>
+            {summary.listTotalLabel && (
+              <span className="text-xs text-muted-foreground line-through">{summary.listTotalLabel}</span>
+            )}
             <span className="text-lg font-bold text-foreground">{summary.totalLabel}</span>
           </span>
           <button

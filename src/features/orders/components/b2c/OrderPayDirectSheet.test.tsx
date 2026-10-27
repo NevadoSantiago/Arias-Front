@@ -276,4 +276,37 @@ describe('OrderPayDirectSheet', () => {
     const payButton = await screen.findByRole('button', { name: /pagar \$\s?3\.000(?!,) con mercado pago/i });
     expect(payButton).not.toBeDisabled();
   });
+
+  describe('account discount', () => {
+    const discount = { percent: 10, expiresAt: '2099-01-01T00:00:00Z' };
+
+    it('discounts the total (rounded down to a whole peso) and shows the saving', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ totalLunches: 3, discount });
+
+      // 3 × $1.500 = $4.500 → −10% = $4.050
+      expect(await screen.findByRole('button', { name: /pagar \$\s?4\.050(?!,) con mercado pago/i })).toBeEnabled();
+      expect(screen.getByText('Subtotal')).toBeInTheDocument();
+      expect(screen.getByText(/descuento primeros 100/i)).toHaveTextContent('· −10%');
+      expect(screen.getByText('−$ 450')).toBeInTheDocument();
+      expect(screen.getByText(/\$\s?4\.500(?!,)/).className).toContain('line-through');
+    });
+
+    it('applies it only to the Mercado Pago part in a partial payment', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ walletAvailable: 1, totalLunches: 3, lines: [...lines, { ...lines[0], localId: 'l3' }], discount });
+
+      // M = 2 → $3.000 → −10% = $2.700
+      expect(await screen.findByRole('button', { name: /pagar \$\s?2\.700(?!,) con mercado pago/i })).toBeEnabled();
+      expect(screen.getByText('−$ 300')).toBeInTheDocument();
+    });
+
+    it('shows no discount rows without a discount or once it expired', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ totalLunches: 2, discount: { percent: 10, expiresAt: '2020-01-01T00:00:00Z' } });
+
+      expect(await screen.findByRole('button', { name: /pagar \$\s?3\.000(?!,) con mercado pago/i })).toBeEnabled();
+      expect(screen.queryByText('Subtotal')).not.toBeInTheDocument();
+    });
+  });
 });

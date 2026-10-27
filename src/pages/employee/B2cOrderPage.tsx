@@ -12,6 +12,8 @@ import { RemoveOrderItemSheet } from '@/features/orders/components/RemoveOrderIt
 import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
+import { AccountDiscountCard } from '@/features/credits/components/AccountDiscountCard';
+import { activeAccountDiscount } from '@/features/credits/packPricing';
 import { NoPickupSlotsNotice } from '@/features/orders/components/b2c/NoPickupSlotsNotice';
 import { OrderConfirmedView } from '@/features/orders/components/b2c/OrderConfirmedView';
 import { comandaFooter, comandaItems, isPaidWithMercadoPago } from '@/features/orders/components/b2c/comandaModel';
@@ -248,6 +250,7 @@ export function B2cOrderPage() {
    * tras confirmar un pedido (F7.1).
    */
   const { data: wallet } = useWallet();
+  const accountDiscount = activeAccountDiscount(wallet?.discount);
 
   /**
    * Pedidos del cliente — solo para pintar el tilde de "día con pedido" en
@@ -770,7 +773,16 @@ export function B2cOrderPage() {
           {/* Debajo del calendario: el cartel no debe correr el calendario de lugar. */}
           {wallet && wallet.available === 0 && !hasOrder && (
             <div className="mb-6">
-              <EmptyBalanceCard />
+              {accountDiscount ? (
+                <AccountDiscountCard discount={accountDiscount} variant="large" />
+              ) : (
+                <EmptyBalanceCard />
+              )}
+            </div>
+          )}
+          {accountDiscount && !(wallet && wallet.available === 0 && !hasOrder) && (
+            <div className="mb-6">
+              <AccountDiscountCard discount={accountDiscount} variant="small" />
             </div>
           )}
 
@@ -915,6 +927,7 @@ export function B2cOrderPage() {
         lines={cart.lines}
         totalLunches={cart.totalCredits}
         walletAvailable={wallet?.available ?? 0}
+        discount={accountDiscount}
         onPay={handlePayDirect}
         paying={payingDirect}
         payError={payDirectError}

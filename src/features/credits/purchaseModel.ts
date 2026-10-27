@@ -1,7 +1,7 @@
 import { formatLunches } from '@/features/orders/lunches';
-import { formatPrice, perLunchPriceCents, pickRecommended } from './packPricing';
+import { applyAccountDiscount, formatPrice, perLunchPriceCents, pickRecommended } from './packPricing';
 import type { PackCheckoutSelection } from './components/PackCheckoutSheet';
-import type { CreditPack } from './types';
+import type { AccountDiscount, CreditPack } from './types';
 
 /**
  * Plazo de vencimiento mientras la config del restaurante no cargó (o el backend no
@@ -62,8 +62,31 @@ export function resolveSelection(
 export interface PurchasePlan {
   /** Cuerpo de `createPurchase` (`type: 'PACK'`); `quantity` solo para Sueltos. */
   payload: { packId: number; quantity?: number };
-  summary: { label: string; totalLabel: string };
+  summary: {
+    label: string;
+    totalLabel: string;
+    /** Precio de lista tachado; `null` si no hay descuento de la cuenta. */
+    listTotalLabel: string | null;
+  };
   checkout: PackCheckoutSelection;
+}
+
+/** Total con el descuento de la cuenta (si lo hay) más los datos para mostrar lista, ahorro y vencimiento. */
+function priceWithDiscount(listCents: number, discount: AccountDiscount | null) {
+  const finalCents = applyAccountDiscount(listCents, discount);
+  if (!discount || finalCents === listCents) {
+    return { totalLabel: formatPrice(listCents), listTotalLabel: null, accountDiscount: null };
+  }
+  return {
+    totalLabel: formatPrice(finalCents),
+    listTotalLabel: formatPrice(listCents),
+    accountDiscount: {
+      percent: discount.percent,
+      subtotalLabel: formatPrice(listCents),
+      savingLabel: formatPrice(listCents - finalCents),
+      expiresAt: discount.expiresAt,
+    },
+  };
 }
 
 /** Qué se compra con esta selección: pago, resumen y datos de "Revisá tu compra". `null` si no hay nada válido. */
@@ -72,16 +95,17 @@ export function planPurchase(
   qty: number,
   catalog: PackCatalog,
   available: number | null,
+  discount: AccountDiscount | null = null,
 ): PurchasePlan | null {
   if (!selection) return null;
 
   if (selection.kind === 'loose') {
     const { dayPack } = catalog;
     if (!dayPack) return null;
-    const totalLabel = formatPrice(dayPack.priceCents * qty);
+    const { totalLabel, listTotalLabel, accountDiscount } = priceWithDiscount(dayPack.priceCents * qty, discount);
     return {
       payload: { packId: dayPack.id, quantity: qty },
-      summary: { label: `Sueltos · ${formatLunches(qty)}`, totalLabel },
+      summary: { label: `Sueltos · ${formatLunches(qty)}`, totalLabel, listTotalLabel },
       checkout: {
         isLoose: true,
         icon: 'plate',
@@ -90,6 +114,7 @@ export function planPurchase(
         perLunchLabel: formatPrice(dayPack.priceCents),
         hasDiscount: false,
         discountLabel: '',
+        accountDiscount,
         totalLabel,
         fromAvailable: available,
         toAvailable: available === null ? null : available + qty,
@@ -99,10 +124,10 @@ export function planPurchase(
 
   const pack = catalog.namedPacks.find((p) => p.id === selection.packId);
   if (!pack) return null;
-  const totalLabel = formatPrice(pack.priceCents);
+  const { totalLabel, listTotalLabel, accountDiscount } = priceWithDiscount(pack.priceCents, discount);
   return {
     payload: { packId: pack.id },
-    summary: { label: `${pack.nombre} · ${formatLunches(pack.creditAmount)}`, totalLabel },
+    summary: { label: `${pack.nombre} · ${formatLunches(pack.creditAmount)}`, totalLabel, listTotalLabel },
     checkout: {
       isLoose: false,
       icon: catalog.namedPacks[0]?.id === pack.id ? 'stack2' : 'stack5',
@@ -111,6 +136,7 @@ export function planPurchase(
       perLunchLabel: formatPrice(perLunchPriceCents(pack)),
       hasDiscount: pack.discountPercent > 0,
       discountLabel: `−${pack.discountPercent}%`,
+      accountDiscount,
       totalLabel,
       fromAvailable: available,
       toAvailable: available === null ? null : available + pack.creditAmount,

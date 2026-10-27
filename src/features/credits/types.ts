@@ -6,11 +6,20 @@ import type { OrderEstado } from '@/features/orders/types';
  * "Contrato con el backend" en `openspec/changes/b2c-credits-pivot/design.md`.
  */
 
+/** Descuento de la cuenta (un solo uso): el servidor solo lo informa mientras es utilizable. */
+export interface AccountDiscount {
+  percent: number;
+  /** ISO-8601. */
+  expiresAt: string;
+}
+
 export interface CreditWallet {
   available: number;
   committed: number;
   /** ISO-8601. Solo las compras de paquetes lo renuevan. */
   expiresAt: string | null;
+  /** `null` (o ausente en una respuesta vieja) cuando no hay un descuento utilizable. */
+  discount?: AccountDiscount | null;
 }
 
 export type MovementType =

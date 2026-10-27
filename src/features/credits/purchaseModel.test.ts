@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildCatalog, DEFAULT_EXPIRY_DAYS, expiryAfterPurchase, planPurchase, resolveSelection } from './purchaseModel';
+import { formatPrice } from './packPricing';
 import type { CreditPack } from './types';
 
 const pack = (over: Partial<CreditPack> & Pick<CreditPack, 'id' | 'code'>): CreditPack => ({
@@ -109,5 +110,42 @@ describe('expiryAfterPurchase', () => {
   it('falls back to 90 days while the restaurant config is unknown', () => {
     expect(DEFAULT_EXPIRY_DAYS).toBe(90);
     expect(expiryAfterPurchase(undefined, now).toDateString()).toBe(new Date('2026-12-24T12:00:00-03:00').toDateString());
+  });
+});
+
+describe('planPurchase with an account discount', () => {
+  const catalog = buildCatalog([day, week, month]);
+  const discount = { percent: 10, expiresAt: '2026-11-02T16:42:00Z' };
+
+  it('applies it to a pack total and exposes list price and saving', () => {
+    const plan = planPurchase({ kind: 'pack', packId: 2 }, 1, catalog, 4, discount)!;
+
+    expect(plan.summary.totalLabel).toBe(formatPrice(630000));
+    expect(plan.summary.listTotalLabel).toBe(formatPrice(700000));
+    expect(plan.checkout.totalLabel).toBe(formatPrice(630000));
+    expect(plan.checkout.accountDiscount).toEqual({
+      percent: 10,
+      subtotalLabel: formatPrice(700000),
+      savingLabel: formatPrice(70000),
+      expiresAt: discount.expiresAt,
+    });
+    expect(plan.payload).toEqual({ packId: 2 });
+  });
+
+  it('applies it to Sueltos on the whole quantity', () => {
+    const plan = planPurchase({ kind: 'loose' }, 3, catalog, 0, discount)!;
+
+    expect(plan.summary.totalLabel).toBe(formatPrice(405000));
+    expect(plan.summary.listTotalLabel).toBe(formatPrice(450000));
+    expect(plan.checkout.accountDiscount?.savingLabel).toBe(formatPrice(45000));
+    expect(plan.payload).toEqual({ packId: 1, quantity: 3 });
+  });
+
+  it('leaves everything untouched without a discount', () => {
+    const plan = planPurchase({ kind: 'pack', packId: 2 }, 1, catalog, 4, null)!;
+
+    expect(plan.summary.totalLabel).toBe(formatPrice(700000));
+    expect(plan.summary.listTotalLabel).toBeNull();
+    expect(plan.checkout.accountDiscount).toBeNull();
   });
 });

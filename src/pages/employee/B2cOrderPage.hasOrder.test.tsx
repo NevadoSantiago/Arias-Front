@@ -118,7 +118,7 @@ async function selectDish() {
   fireEvent.click(await screen.findByRole('button', { name: /agregar al pedido/i }));
 }
 
-function setup({ orders = [] as OrderV2[], balance = 12 } = {}) {
+function setup({ orders = [] as OrderV2[], balance = 12, discount = null as { percent: number; expiresAt: string } | null } = {}) {
   vi.setSystemTime(new Date(NOW));
   useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
   vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
@@ -132,7 +132,7 @@ function setup({ orders = [] as OrderV2[], balance = 12 } = {}) {
     pickupWindowStart: '11:00',
     pickupWindowEnd: '23:00',
   });
-  vi.mocked(getWallet).mockResolvedValue({ available: balance, committed: 0, expiresAt: null });
+  vi.mocked(getWallet).mockResolvedValue({ available: balance, committed: 0, expiresAt: null, discount });
   vi.mocked(getPacks).mockResolvedValue([]);
 }
 
@@ -188,6 +188,47 @@ describe('B2cOrderPage — empty-balance banner', () => {
 
     await screen.findByRole('button', { name: DISH_CARD });
     expect(screen.queryByText(banner)).not.toBeInTheDocument();
+  });
+});
+
+describe('B2cOrderPage — account discount', () => {
+  const discount = { percent: 10, expiresAt: '2099-01-01T00:00:00Z' };
+
+  it('replaces the empty-balance banner with the big discount card when the balance is 0', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 0, discount });
+    renderPage();
+
+    expect(await screen.findByText('Tenés 10% off en tu próxima compra')).toBeInTheDocument();
+    expect(screen.queryByText(/tu próximo almuerzo te está esperando/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the compact chip when there is balance', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 12, discount });
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: /10% off en tu próxima compra/i })).toHaveAttribute(
+      'href',
+      '/credits?comprar=1',
+    );
+  });
+
+  it('shows nothing when there is no discount', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 12 });
+    renderPage();
+
+    await screen.findByRole('button', { name: DISH_CARD });
+    expect(screen.queryByText(/off en tu próxima compra/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps the empty-balance banner when there is no discount', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 0 });
+    renderPage();
+
+    expect(await screen.findByText(/tu próximo almuerzo te está esperando/i)).toBeInTheDocument();
   });
 });
 

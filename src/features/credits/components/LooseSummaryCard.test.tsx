@@ -97,3 +97,14 @@ describe('LooseSummaryCard', () => {
     expect(shown.props.onPickRecommended).toHaveBeenCalled();
   });
 });
+
+describe('LooseSummaryCard with an account discount', () => {
+  it('shows the discount row and the total with the list price struck through', () => {
+    renderCard({ checked: true, qty: 3, accountDiscount: { percent: 10, listTotalLabel: '$ 4.500', totalLabel: '$ 4.050' } });
+
+    expect(screen.getByText('Primeros 100')).toBeInTheDocument();
+    expect(screen.getByText('−10%')).toBeInTheDocument();
+    expect(screen.getByText('$ 4.500').className).toContain('line-through');
+    expect(screen.getByText('$ 4.050')).toBeInTheDocument();
+  });
+});

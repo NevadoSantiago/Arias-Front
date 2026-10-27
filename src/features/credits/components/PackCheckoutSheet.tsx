@@ -1,6 +1,7 @@
 import { Banknote, UtensilsCrossed } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { formatDiscountExpiry } from '../packPricing';
 
 export interface PackCheckoutSelection {
   isLoose: boolean;
@@ -10,6 +11,13 @@ export interface PackCheckoutSelection {
   perLunchLabel: string;
   hasDiscount: boolean;
   discountLabel: string;
+  /** Descuento de la cuenta (un solo uso); `null` si no aplica. */
+  accountDiscount: {
+    percent: number;
+    subtotalLabel: string;
+    savingLabel: string;
+    expiresAt: string;
+  } | null;
   totalLabel: string;
   /** Saldo disponible antes/después de esta compra — solo informativo; null hasta que se conoce. */
   fromAvailable: number | null;
@@ -70,11 +78,36 @@ export function PackCheckoutSheet({ open, onClose, selection, onPay, isPending }
                   <dd className="m-0 font-bold text-success">{selection.discountLabel}</dd>
                 </div>
               )}
-              <div className="flex items-baseline justify-between gap-3">
+              {selection.accountDiscount && (
+                <>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <dt className="text-muted-foreground">Subtotal</dt>
+                    <dd className="m-0 font-semibold">{selection.accountDiscount.subtotalLabel}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <dt className="font-semibold">
+                      Descuento primeros 100{' '}
+                      <span className="whitespace-nowrap font-bold text-success">· −{selection.accountDiscount.percent}%</span>
+                    </dt>
+                    <dd className="m-0 whitespace-nowrap font-bold text-success">−{selection.accountDiscount.savingLabel}</dd>
+                  </div>
+                </>
+              )}
+              <div
+                className={cn(
+                  'flex items-baseline justify-between gap-3',
+                  selection.accountDiscount && 'border-t border-border pt-2.5',
+                )}
+              >
                 <dt className="text-[15px] font-bold">Total</dt>
                 <dd className="m-0 text-[19px] font-bold">{selection.totalLabel}</dd>
               </div>
             </dl>
+            {selection.accountDiscount && (
+              <span className="text-[12.5px] leading-relaxed text-muted-foreground">
+                Se usa en esta compra. Vence {formatDiscountExpiry(selection.accountDiscount.expiresAt)}.
+              </span>
+            )}
           </div>
 
           {selection.fromAvailable !== null && selection.toAvailable !== null && (

@@ -31,6 +31,28 @@ export function SummaryHeader({
   );
 }
 
+export interface CardAccountDiscount {
+  percent: number;
+  listTotalLabel: string;
+  totalLabel: string;
+}
+
+/** Renglones del descuento de la cuenta en una tarjeta-resumen: "Primeros 100 −10%" y el total con la lista tachada. */
+export function AccountDiscountRows({ discount }: { discount: CardAccountDiscount }) {
+  return (
+    <>
+      <SummaryRow label="Primeros 100" value={`−${discount.percent}%`} valueClassName="font-bold text-success" />
+      <span className="flex items-end justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">Total</span>
+        <span className="flex flex-col items-end gap-0.5 text-right">
+          <span className="text-[12.5px] text-muted-foreground line-through">{discount.listTotalLabel}</span>
+          <span className="font-bold">{discount.totalLabel}</span>
+        </span>
+      </span>
+    </>
+  );
+}
+
 /** Línea punteada entre la fila superior y los renglones. */
 export function SummaryDivider() {
   return <span aria-hidden="true" className="block border-t border-dashed border-border" />;

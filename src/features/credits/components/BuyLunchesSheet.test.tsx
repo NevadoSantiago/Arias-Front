@@ -37,6 +37,73 @@ function renderSheet(open = true, onClose = vi.fn()) {
   return { ...utils, onClose };
 }
 
+const FUTURE = '2099-01-01T15:00:00Z';
+
+describe('BuyLunchesSheet with an account discount', () => {
+  beforeEach(() => {
+    vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack, monthPack]);
+    vi.mocked(getWallet).mockResolvedValue({
+      available: 12, committed: 0, expiresAt: null, discount: { percent: 10, expiresAt: FUTURE },
+    });
+    vi.mocked(getRestaurantConfig).mockResolvedValue({
+      horaCorte: '10:00', pickupWindowStart: null, pickupWindowEnd: null, creditExpiryDays: 45,
+    } as never);
+    Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it('announces the applied discount and discounts the sticky total (list price struck through)', async () => {
+    renderSheet();
+
+    expect(await screen.findByText('10% aplicado')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('radio', { name: /paquete semana/i }));
+    expect(screen.getAllByText('$ 6.300').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('$ 7.000').some((el) => el.className.includes('line-through'))).toBe(true);
+  });
+
+  it('shows the discounted amount in "Revisá tu compra" and keeps the payload unchanged', async () => {
+    vi.mocked(createPurchase).mockResolvedValueOnce({ purchaseId: 'p1', initPoint: 'https://mp.example/p1' });
+    renderSheet();
+
+    fireEvent.click(await screen.findByRole('radio', { name: /paquete semana/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /revisá tu compra/i });
+    expect(within(dialog).getByText('−$ 700')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: /pagar con mercado pago/i }));
+
+    await vi.waitFor(() => expect(createPurchase).toHaveBeenCalledWith({ type: 'PACK', packId: 2 }));
+  });
+
+  it('discounts Sueltos on the whole quantity', async () => {
+    renderSheet();
+
+    fireEvent.click(await screen.findByRole('radio', { name: /sueltos/i }));
+    fireEvent.click(screen.getByRole('button', { name: /un almuerzo más/i }));
+    fireEvent.click(screen.getByRole('button', { name: /un almuerzo más/i }));
+
+    expect((await screen.findAllByText('$ 4.050')).length).toBeGreaterThan(0);
+  });
+
+  it('shows nothing about discounts when the wallet has none', async () => {
+    vi.mocked(getWallet).mockResolvedValue({ available: 12, committed: 0, expiresAt: null, discount: null });
+    renderSheet();
+
+    await screen.findAllByRole('radio');
+    expect(screen.queryByText(/aplicado/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Primeros 100')).not.toBeInTheDocument();
+  });
+
+  it('ignores a discount that expired between load and pay', async () => {
+    vi.mocked(getWallet).mockResolvedValue({
+      available: 12, committed: 0, expiresAt: null, discount: { percent: 10, expiresAt: '2020-01-01T00:00:00Z' },
+    });
+    renderSheet();
+
+    await screen.findAllByRole('radio');
+    expect(screen.queryByText(/aplicado/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('BuyLunchesSheet', () => {
   beforeEach(() => {
     vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack, monthPack]);

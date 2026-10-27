@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { usePackCatalog, usePackPurchase } from '../hooks/usePackPurchase';
-import { formatPrice, packTagline, perLunchPriceCents } from '../packPricing';
+import { activeAccountDiscount, applyAccountDiscount, formatPrice, packTagline, perLunchPriceCents } from '../packPricing';
 import { planPurchase, resolveSelection, type PurchaseSelection } from '../purchaseModel';
 import { PackNudge } from './PackNudge';
+import { AccountDiscountNote } from './AccountDiscountNote';
+import type { CardAccountDiscount } from './SummaryCardParts';
 import { LooseSummaryCard } from './LooseSummaryCard';
 import { PackSummaryCard } from './PackSummaryCard';
 import { HowItWorks } from './HowItWorks';
@@ -29,9 +31,18 @@ export function BuyLunchesAside() {
 
   const { dayPack, namedPacks, weekPack } = catalog;
   const current = resolveSelection(selection, catalog, 'week');
-  const plan = planPurchase(current, qty, catalog, wallet ? wallet.available : null);
+  const discount = activeAccountDiscount(wallet?.discount);
+  const plan = planPurchase(current, qty, catalog, wallet ? wallet.available : null, discount);
   const loose = current?.kind === 'loose';
   const showNudge = loose && qty >= NUDGE_FROM && !!weekPack;
+
+  /** Total de una tarjeta con el descuento de la cuenta, o `null` si no hay (la tarjeta queda como siempre). */
+  const cardDiscount = (listCents: number): CardAccountDiscount | null => {
+    if (!discount) return null;
+    const finalCents = applyAccountDiscount(listCents, discount);
+    if (finalCents === listCents) return null;
+    return { percent: discount.percent, listTotalLabel: formatPrice(listCents), totalLabel: formatPrice(finalCents) };
+  };
 
   return (
     <aside
@@ -54,6 +65,8 @@ export function BuyLunchesAside() {
         <>
           <HowItWorks packAmounts={catalogAmounts(catalog)} />
 
+          {discount && <AccountDiscountNote discount={discount} />}
+
           <div role="radiogroup" aria-labelledby="buy-lunches-title" className="flex flex-col gap-3">
             {dayPack && (
               <LooseSummaryCard
@@ -62,6 +75,7 @@ export function BuyLunchesAside() {
                 qty={qty}
                 onQtyChange={setQty}
                 unitPriceLabel={formatPrice(dayPack.priceCents)}
+                accountDiscount={cardDiscount(dayPack.priceCents * (loose ? qty : 1))}
                 showNudge={false}
                 onPickRecommended={() => {}}
                 lema={dayPack.lema ?? packTagline(1)}
@@ -77,6 +91,7 @@ export function BuyLunchesAside() {
                 recommended={catalog.recommended?.id === pack.id}
                 priceLabel={formatPrice(pack.priceCents)}
                 perLunchLabel={formatPrice(perLunchPriceCents(pack))}
+                accountDiscount={cardDiscount(pack.priceCents)}
                 lema={pack.lema ?? packTagline(pack.creditAmount)}
               />
             ))}
@@ -90,7 +105,12 @@ export function BuyLunchesAside() {
             <div data-testid="buy-summary" className="flex flex-col gap-1.5 border-t border-dashed border-border pt-3.5">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm font-bold text-foreground">{plan.summary.label}</span>
-                <span className="text-lg font-bold text-foreground">{plan.summary.totalLabel}</span>
+                <span className="flex flex-col items-end">
+                  {plan.summary.listTotalLabel && (
+                    <span className="text-xs font-normal text-muted-foreground line-through">{plan.summary.listTotalLabel}</span>
+                  )}
+                  <span className="text-lg font-bold text-foreground">{plan.summary.totalLabel}</span>
+                </span>
               </div>
               {plan.checkout.fromAvailable !== null && plan.checkout.toAvailable !== null && (
                 <span className="text-[12.5px] leading-snug text-muted-foreground">

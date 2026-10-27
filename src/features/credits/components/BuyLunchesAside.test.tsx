@@ -39,6 +39,31 @@ function renderAside() {
 const more = () => screen.getByRole('button', { name: 'Un almuerzo más' });
 const less = () => screen.getByRole('button', { name: 'Un almuerzo menos' });
 
+describe('BuyLunchesAside with an account discount', () => {
+  beforeEach(() => {
+    vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack, monthPack]);
+    vi.mocked(getWallet).mockResolvedValue({
+      available: 12, committed: 1, expiresAt: null, discount: { percent: 10, expiresAt: '2099-01-01T15:00:00Z' },
+    });
+    vi.mocked(getRestaurantConfig).mockResolvedValue({ horaCorte: '10:00', pickupWindowStart: null, pickupWindowEnd: null });
+    Object.defineProperty(window, 'location', { writable: true, value: { href: '' } });
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it('discounts the summary total and the buy button label, and pays the unchanged payload', async () => {
+    vi.mocked(createPurchase).mockResolvedValueOnce({ purchaseId: 'p1', initPoint: 'https://mp.example/p1' });
+    renderAside();
+
+    const summary = await screen.findByTestId('buy-summary');
+    expect(summary).toHaveTextContent('$ 6.300');
+    expect(within(summary).getByText('$ 7.000').className).toContain('line-through');
+    expect(screen.getByText('10% aplicado')).toBeInTheDocument();
+    const buy = screen.getByRole('button', { name: /comprar paquete semana · 5 almuerzos por \$\s?6\.300/i });
+    fireEvent.click(buy);
+    await vi.waitFor(() => expect(createPurchase).toHaveBeenCalledWith({ type: 'PACK', packId: 2 }));
+  });
+});
+
 describe('BuyLunchesAside', () => {
   beforeEach(() => {
     vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack, monthPack]);

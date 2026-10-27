@@ -91,3 +91,20 @@ describe('PackSummaryCard', () => {
     expect(screen.getByText('1 almuerzo')).toBeInTheDocument();
   });
 });
+
+describe('PackSummaryCard with an account discount', () => {
+  it('adds the discount row and the total with the list price struck through', () => {
+    renderCard({ accountDiscount: { percent: 10, listTotalLabel: '$ 7.000', totalLabel: '$ 6.300' } });
+
+    expect(screen.getByText('Primeros 100')).toBeInTheDocument();
+    expect(screen.getAllByText('−10%').length).toBeGreaterThan(0);
+    expect(screen.getByText('$ 7.000').className).toContain('line-through');
+    expect(screen.getByText('$ 6.300')).toBeInTheDocument();
+  });
+
+  it('shows no total without an account discount', () => {
+    renderCard();
+    expect(screen.queryByText('Primeros 100')).not.toBeInTheDocument();
+    expect(screen.queryByText('Total')).not.toBeInTheDocument();
+  });
+});
