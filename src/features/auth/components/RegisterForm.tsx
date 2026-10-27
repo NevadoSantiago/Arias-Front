@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -94,6 +95,9 @@ export function RegisterForm() {
   const [serverError, setServerError] = useState<string | null>(null);
   const { performRegister } = useAuthActions();
   const google = useGoogleSignIn();
+  // Email que viene del login ("Crear cuenta" cuando no hay cuenta); sigue editable.
+  const [searchParams] = useSearchParams();
+  const emailParam = (searchParams.get('email') ?? '').trim();
 
   const {
     register: registerField,
@@ -103,7 +107,7 @@ export function RegisterForm() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { phoneCountry: DEFAULT_COUNTRY },
+    defaultValues: { phoneCountry: DEFAULT_COUNTRY, email: emailParam },
   });
   const phoneCountry = useWatch({ control, name: 'phoneCountry' });
 

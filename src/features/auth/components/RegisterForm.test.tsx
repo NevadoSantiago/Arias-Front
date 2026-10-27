@@ -18,10 +18,10 @@ vi.mock('../services/authApi', () => ({
   InvalidCredentialsError: class InvalidCredentialsError extends Error {},
 }));
 
-function renderForm() {
+function renderForm(entry = '/register') {
   return render(
     <QueryClientProvider client={new QueryClient()}>
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <RegisterForm />
     </MemoryRouter>
     </QueryClientProvider>,
@@ -38,6 +38,21 @@ function fillValidFormExceptPassword() {
 describe('RegisterForm', () => {
   beforeEach(() => {
     vi.mocked(register).mockReset();
+  });
+
+  it('pre-fills the email from ?email= and keeps it editable', () => {
+    renderForm('/register?email=nuevo%2B1%40example.com');
+
+    const email = screen.getByLabelText(/^email$/i);
+    expect(email).toHaveValue('nuevo+1@example.com');
+    fireEvent.change(email, { target: { value: 'otro@example.com' } });
+    expect(email).toHaveValue('otro@example.com');
+  });
+
+  it('leaves the email empty without ?email=', () => {
+    renderForm();
+
+    expect(screen.getByLabelText(/^email$/i)).toHaveValue('');
   });
 
   it('validates the password length client-side before submitting', async () => {

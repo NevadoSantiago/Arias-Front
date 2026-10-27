@@ -9,13 +9,15 @@ interface Props {
   mode: 'login' | 'register';
   /** Texto del separador entre el botón de Google y el formulario de email. */
   dividerLabel: string;
+  /** Resalta el botón (ej: el email ya está registrado con Google). */
+  highlight?: boolean;
 }
 
 /**
  * Botón de Google + aviso de cuenta excluida / error genérico + separador.
  * Se oculta por completo si no hay `VITE_GOOGLE_CLIENT_ID`, separador incluido.
  */
-export function GoogleSignInSection({ google, mode, dividerLabel }: Props) {
+export function GoogleSignInSection({ google, mode, dividerLabel, highlight = false }: Props) {
   if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) return null;
 
   const { problem } = google;
@@ -27,7 +29,16 @@ export function GoogleSignInSection({ google, mode, dividerLabel }: Props) {
   return (
     <>
       <div className="space-y-3">
-        <GoogleLoginButton onSuccess={google.onSuccess} onError={google.onError} />
+        <div
+          data-highlighted={highlight}
+          className={
+            highlight
+              ? 'rounded-md ring-2 ring-primary ring-offset-2 ring-offset-card motion-safe:animate-pulse'
+              : undefined
+          }
+        >
+          <GoogleLoginButton onSuccess={google.onSuccess} onError={google.onError} />
+        </div>
 
         {problem?.kind === 'excluded' && (
           <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-foreground" role="status">

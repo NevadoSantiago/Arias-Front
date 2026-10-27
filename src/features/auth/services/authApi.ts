@@ -15,8 +15,12 @@ export class InvalidCredentialsError extends Error {
 
 // ─── Tipos de respuesta del backend ───────────────────────────────────
 
+export type AccountStatus = 'NOT_FOUND' | 'PASSWORD' | 'GOOGLE' | 'FIRST_LOGIN';
+
 export interface CheckEmailResponse {
   requiresFirstLogin: boolean;
+  /** Ausente si el backend es anterior al contrato: se cae a `requiresFirstLogin`. */
+  status?: AccountStatus;
 }
 
 export interface TokenResponse {

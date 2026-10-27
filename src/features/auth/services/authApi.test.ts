@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
-import { me, updateNickname } from './authApi';
+import { checkEmail, me, updateNickname } from './authApi';
 import type { AuthUser } from '../store/authStore';
 
 vi.mock('@/lib/api', () => ({
@@ -60,5 +60,21 @@ describe('updateNickname', () => {
     vi.mocked(api.patch).mockResolvedValue({ data: updated });
     await expect(updateNickname('Sofi')).resolves.toBe(updated);
     expect(api.patch).toHaveBeenCalledWith('/api/v1/auth/me', { nickname: 'Sofi' });
+  });
+});
+
+describe('checkEmail', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('posts the email and returns the account status of check-email', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { requiresFirstLogin: false, status: 'NOT_FOUND' } });
+
+    const result = await checkEmail('nuevo@example.com');
+
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/check-email', { email: 'nuevo@example.com' });
+    expect(result.status).toBe('NOT_FOUND');
+    expect(result.requiresFirstLogin).toBe(false);
   });
 });

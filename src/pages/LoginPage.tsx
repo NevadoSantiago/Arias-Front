@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { EmailStep } from '@/features/auth/components/EmailStep';
+import { EmailStep, type EmailNotice } from '@/features/auth/components/EmailStep';
 import { PasswordStep } from '@/features/auth/components/PasswordStep';
 import { FirstLoginStep } from '@/features/auth/components/FirstLoginStep';
 import { checkEmail } from '@/features/auth/services/authApi';
@@ -8,7 +8,7 @@ import bienvenidaIZ from '@/assets/illustrations/BienvenidaIZ.svg';
 import bienvenidaDE from '@/assets/illustrations/BienvenidaDE.svg';
 
 type Step =
-  | { kind: 'email' }
+  | { kind: 'email'; notice?: EmailNotice }
   | { kind: 'resolving' } // resolviendo un email que vino por query param (link de mail)
   | { kind: 'password'; email: string }
   | { kind: 'first-login'; email: string };
@@ -30,13 +30,15 @@ export function LoginPage() {
     let cancelled = false;
     (async () => {
       try {
-        const { requiresFirstLogin } = await checkEmail(emailParam);
+        const { requiresFirstLogin, status } = await checkEmail(emailParam);
         if (cancelled) return;
-        setStep(
-          requiresFirstLogin
-            ? { kind: 'first-login', email: emailParam }
-            : { kind: 'password', email: emailParam },
-        );
+        if (status === 'NOT_FOUND' || status === 'GOOGLE') {
+          setStep({ kind: 'email', notice: status });
+        } else if (status === 'FIRST_LOGIN' || (!status && requiresFirstLogin)) {
+          setStep({ kind: 'first-login', email: emailParam });
+        } else {
+          setStep({ kind: 'password', email: emailParam });
+        }
       } catch {
         if (!cancelled) setStep({ kind: 'email' });
       }
@@ -88,6 +90,7 @@ export function LoginPage() {
               {step.kind === 'email' && (
                 <EmailStep
                   initialEmail={lastEmail}
+                  initialNotice={step.notice}
                   onPassword={(email) => {
                     setLastEmail(email);
                     setStep({ kind: 'password', email });
