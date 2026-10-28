@@ -30,6 +30,12 @@ export interface AuthUser {
    * (despliegue en otro orden, rollback) no debe disparar el tour.
    */
   onboardingTourSeenAt?: string | null;
+  /**
+   * `true` si la cuenta recibió el almuerzo de bienvenida alguna vez (hecho por cuenta, de `/me`). Distinto
+   * de `welcomeLunchGranted` de verify-email/google, que solo vale en la llamada que lo otorgó. `undefined`
+   * (backend viejo o usuario cacheado) se trata como `true`: se conserva el tour de siempre.
+   */
+  receivedWelcomeLunch?: boolean;
 }
 
 interface AuthState {

@@ -114,6 +114,18 @@ describe('CompleteProfilePage — welcome lunch after saving the profile', () =>
     expect(useAuthStore.getState().pendingWelcomeLunch).toBe(false);
   });
 
+  it('shows no gift screen and redirects normally when the welcome lunch was not granted', async () => {
+    vi.mocked(completeProfile).mockResolvedValueOnce({ ...incompleteUser, profileComplete: true, nickname: 'Anita' });
+    renderPage();
+    // What performGoogleLogin arms when the response says welcomeLunchGranted=false.
+    useAuthStore.getState().setPendingWelcomeLunch(false);
+
+    submitForm();
+
+    expect(await screen.findByText('Home empleado')).toBeInTheDocument();
+    expect(screen.queryByText(/te regalamos/i)).not.toBeInTheDocument();
+  });
+
   it('goes straight to the home when no welcome lunch is pending', async () => {
     vi.mocked(completeProfile).mockResolvedValueOnce({ ...incompleteUser, profileComplete: true, nickname: 'Anita' });
     renderPage();

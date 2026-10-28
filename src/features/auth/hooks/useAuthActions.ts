@@ -75,13 +75,15 @@ export function useAuthActions() {
    * para que la pantalla de verificación pueda mostrar la felicitación por
    * el almuerzo de bienvenida antes de continuar.
    */
-  const performVerifyEmail = async (token: string): Promise<{ profileComplete: boolean; role: Role }> => {
-    const { accessToken } = await verifyEmail(token);
+  const performVerifyEmail = async (
+    token: string
+  ): Promise<{ welcomeLunchGranted: boolean; profileComplete: boolean; role: Role }> => {
+    const { accessToken, welcomeLunchGranted } = await verifyEmail(token);
     useAuthStore.getState().setAccessToken(accessToken);
     const user = await me();
     setAuth(accessToken, user);
     refreshWallet();
-    return { profileComplete: user.profileComplete, role: user.role };
+    return { welcomeLunchGranted, profileComplete: user.profileComplete, role: user.role };
   };
 
   /**

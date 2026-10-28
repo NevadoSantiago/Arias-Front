@@ -30,11 +30,12 @@ interface Props {
  */
 export function VerifyEmailStep({ token, email }: Props) {
   const [status, setStatus] = useState<Status>(token ? 'verifying' : 'pending');
+  const [welcomeLunchGranted, setWelcomeLunchGranted] = useState(false);
   const [resendSent, setResendSent] = useState(false);
   const [resendPending, setResendPending] = useState(false);
   const { performVerifyEmail, performResendVerification } = useAuthActions();
   const navigate = useNavigate();
-  const verifiedResult = useRef<{ profileComplete: boolean; role: Role } | null>(null);
+  const verifiedResult = useRef<{ welcomeLunchGranted: boolean; profileComplete: boolean; role: Role } | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -45,6 +46,7 @@ export function VerifyEmailStep({ token, email }: Props) {
         const result = await performVerifyEmail(token);
         if (cancelled) return;
         verifiedResult.current = result;
+        setWelcomeLunchGranted(result.welcomeLunchGranted);
         setStatus('verified');
       } catch {
         if (!cancelled) setStatus('error');
@@ -81,7 +83,11 @@ export function VerifyEmailStep({ token, email }: Props) {
   if (status === 'verified') {
     return (
       <WelcomeLunchScreen
-        description="Tu correo quedó verificado y te regalamos 1 almuerzo de bienvenida 🎉"
+        description={
+          welcomeLunchGranted
+            ? 'Tu correo quedó verificado y te regalamos 1 almuerzo de bienvenida 🎉'
+            : 'Tu correo quedó verificado. Ya podés hacer tu primer pedido.'
+        }
         onContinue={handleContinue}
       />
     );
