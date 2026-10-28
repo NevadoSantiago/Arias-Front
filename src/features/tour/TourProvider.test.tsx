@@ -169,6 +169,23 @@ describe('TourProvider', () => {
       expect(screen.getByText(/tu primer almuerzo va por nuestra cuenta/i)).toBeInTheDocument();
     });
 
+    it('starts at the balance chip, with no gift card, for an account without the welcome lunch', async () => {
+      setUser({ receivedWelcomeLunch: false });
+      renderTour();
+
+      expect(await screen.findByText('Este es tu saldo de almuerzos')).toBeInTheDocument();
+      expect(screen.getByText(/Cargá un paquete para hacer tu primer pedido/)).toBeInTheDocument();
+      expect(screen.queryByText('¡Te regalamos un almuerzo!')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /anterior/i })).toBeDisabled();
+    });
+
+    it('keeps the gift card when the backend does not report receivedWelcomeLunch (old cached user)', async () => {
+      setUser({ receivedWelcomeLunch: undefined });
+      renderTour();
+
+      expect(await screen.findByText('¡Te regalamos un almuerzo!')).toBeInTheDocument();
+    });
+
     it.each([
       ['a company employee', { companyId: 3 }],
       ['a customer who already saw it', { onboardingTourSeenAt: '2026-10-01T10:00:00Z' }],
@@ -419,6 +436,16 @@ describe('TourProvider', () => {
       expect(screen.getByText('1 de 10')).toBeInTheDocument();
       expect(screen.queryByText('¡Te regalamos un almuerzo!')).not.toBeInTheDocument();
       expect(screen.getByTestId('path')).toHaveTextContent('/orders/today');
+    });
+
+    it('replay uses the no-gift balance text for an account without the welcome lunch', async () => {
+      setUser({ ...seen, receivedWelcomeLunch: false });
+      renderTour();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Repetir tour' }));
+
+      expect(await screen.findByText(/Cargá un paquete para hacer tu primer pedido/)).toBeInTheDocument();
+      expect(screen.queryByText(/Te regalamos 1 para que pruebes/)).not.toBeInTheDocument();
     });
 
     it('does not tell the backend again nor touch the seen date when it finishes', async () => {

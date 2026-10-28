@@ -62,8 +62,18 @@ export type TourStep = TourCardStep | TourSpotStep;
 
 const spot = (step: Omit<TourSpotStep, 'kind'>): TourSpotStep => ({ kind: 'spot', ...step });
 
-export function buildTourSteps({ isDesktop }: { isDesktop: boolean }): TourStep[] {
-  return [
+const BALANCE_CHIP_GIFT_TEXT = 'Te regalamos 1 para que pruebes. Lo usás cuando confirmás tu primer pedido.';
+const BALANCE_CHIP_NO_GIFT_TEXT = 'Acá ves tus almuerzos disponibles. Cargá un paquete para hacer tu primer pedido.';
+
+/** `receivedWelcomeLunch: false` (the account never got the gift) drops the gift card and its promise; anything else keeps the script as is. */
+export function buildTourSteps({
+  isDesktop,
+  receivedWelcomeLunch = true,
+}: {
+  isDesktop: boolean;
+  receivedWelcomeLunch?: boolean;
+}): TourStep[] {
+  const steps: TourStep[] = [
     {
       kind: 'card',
       id: 'welcome',
@@ -79,7 +89,7 @@ export function buildTourSteps({ isDesktop }: { isDesktop: boolean }): TourStep[
       radius: 999,
       guide: 'ofrece',
       title: 'Este es tu saldo de almuerzos',
-      text: 'Te regalamos 1 para que pruebes. Lo usás cuando confirmás tu primer pedido.',
+      text: receivedWelcomeLunch ? BALANCE_CHIP_GIFT_TEXT : BALANCE_CHIP_NO_GIFT_TEXT,
     }),
     spot({
       id: 'buy',
@@ -189,6 +199,7 @@ export function buildTourSteps({ isDesktop }: { isDesktop: boolean }): TourStep[
       text: 'Ya sabés cómo hacer tu próximo pedido. ¡Que lo disfrutes!',
     },
   ];
+  return receivedWelcomeLunch ? steps : steps.filter((s) => s.id !== 'welcome');
 }
 
 export function stepCounter(

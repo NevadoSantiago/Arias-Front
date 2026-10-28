@@ -61,7 +61,12 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
-  const steps = useMemo(() => buildTourSteps({ isDesktop }), [isDesktop]);
+  // undefined (backend viejo o usuario cacheado) cuenta como "recibió": el tour de siempre.
+  const receivedWelcomeLunch = user?.receivedWelcomeLunch !== false;
+  const steps = useMemo(
+    () => buildTourSteps({ isDesktop, receivedWelcomeLunch }),
+    [isDesktop, receivedWelcomeLunch],
+  );
 
   const [session, setSession] = useState<Session | null>(null);
   const [finishedFor, setFinishedFor] = useState<number | null>(null);
@@ -94,7 +99,7 @@ export function TourProvider({ children, targetTimeoutMs = 5000 }: Props) {
   if (session && (!user || session.userId !== user.id || !user.profileComplete)) {
     setSession(null);
   } else if (!session && eligible && finishedFor !== user.id && pathname === '/orders/today') {
-    setSession({ userId: user.id, stepId: 'welcome', noOrder: false });
+    setSession({ userId: user.id, stepId: steps[0].id, noOrder: false });
   }
 
   const step = session ? (steps.find((s) => s.id === session.stepId) ?? null) : null;

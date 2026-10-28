@@ -2,6 +2,35 @@ import { describe, expect, it } from 'vitest';
 import { buildTourSteps, nextStepId, stepCounter } from './tourSteps';
 
 describe('buildTourSteps', () => {
+  describe('accounts without the welcome lunch', () => {
+    const steps = buildTourSteps({ isDesktop: false, receivedWelcomeLunch: false });
+
+    it('skips the gift card and starts at the balance chip', () => {
+      expect(steps.map((s) => s.id)).not.toContain('welcome');
+      expect(steps[0].id).toBe('balance-chip');
+    });
+
+    it('explains the balance without mentioning a gift', () => {
+      expect(steps.find((s) => s.id === 'balance-chip')?.text).toBe(
+        'Acá ves tus almuerzos disponibles. Cargá un paquete para hacer tu primer pedido.',
+      );
+    });
+
+    it('keeps the rest of the walk-through untouched', () => {
+      const withGift = buildTourSteps({ isDesktop: false }).filter((s) => s.id !== 'welcome' && s.id !== 'balance-chip');
+      expect(steps.filter((s) => s.id !== 'balance-chip')).toEqual(withGift);
+    });
+  });
+
+  it.each([true, undefined])('keeps the current gift card and balance text when receivedWelcomeLunch is %s', (flag) => {
+    const steps = buildTourSteps({ isDesktop: false, receivedWelcomeLunch: flag });
+
+    expect(steps[0].id).toBe('welcome');
+    expect(steps.find((s) => s.id === 'balance-chip')?.text).toBe(
+      'Te regalamos 1 para que pruebes. Lo usás cuando confirmás tu primer pedido.',
+    );
+  });
+
   it('has no separate "tap your balance" step', () => {
     expect(buildTourSteps({ isDesktop: false }).map((s) => s.id)).not.toContain('balance-chip-tap');
   });
