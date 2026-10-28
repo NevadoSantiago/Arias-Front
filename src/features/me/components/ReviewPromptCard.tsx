@@ -34,7 +34,7 @@ export function ReviewPromptCard({ userId }: { userId: number }) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={markOpened}
-          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md border-[1.5px] border-foreground text-[13.5px] font-bold text-foreground no-underline"
+          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md border-[1.5px] lg:flex-none lg:px-6 border-foreground text-[13.5px] font-bold text-foreground no-underline"
         >
           Dejar mi opinión
           <ExternalLink className="h-[15px] w-[15px]" aria-hidden="true" />

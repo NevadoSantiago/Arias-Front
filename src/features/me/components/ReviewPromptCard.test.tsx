@@ -136,4 +136,11 @@ describe('ReviewPromptCard', () => {
     expect(screen.queryByText(/qué tal estuvo/i)).not.toBeInTheDocument();
     vi.restoreAllMocks();
   });
+
+  it('stretches "Dejar mi opinión" on phones but not on desktop', async () => {
+    renderCard();
+
+    const link = await screen.findByRole('link', { name: /dejar mi opinión/i });
+    expect(link).toHaveClass('flex-1', 'lg:flex-none');
+  });
 });

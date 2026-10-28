@@ -32,4 +32,11 @@ describe('EmptyBalanceCard', () => {
     expect(illustration).toHaveAttribute('src', expect.stringContaining('EsperandoMesa'));
     expect(illustration).toHaveAttribute('aria-hidden', 'true');
   });
+
+  it('keeps the buy button full width on phones but compact on desktop', () => {
+    renderCard();
+
+    const link = screen.getByRole('link', { name: /cargar almuerzos/i });
+    expect(link).toHaveClass('w-full', 'lg:w-auto');
+  });
 });

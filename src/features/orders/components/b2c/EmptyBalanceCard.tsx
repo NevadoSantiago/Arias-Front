@@ -31,7 +31,7 @@ export function EmptyBalanceCard() {
         </p>
         <Link
           to="/credits?comprar=1"
-          className="mt-1 flex h-12 w-full items-center justify-center rounded-md bg-primary-deep px-5 text-sm font-bold text-primary-foreground no-underline"
+          className="mt-1 flex h-12 w-full items-center justify-center rounded-md bg-primary-deep px-5 lg:w-auto lg:px-10 text-sm font-bold text-primary-foreground no-underline"
         >
           Cargar almuerzos
         </Link>
