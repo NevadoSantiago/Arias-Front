@@ -1,4 +1,5 @@
-import { Check, X } from 'lucide-react';
+import { Check, TriangleAlert, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { OrderNotice } from '../../orderNotice';
 
 interface Props {
@@ -13,12 +14,21 @@ interface Props {
  */
 export function OrderNoticeBanner({ notice, onDismiss }: Props) {
   return (
-    <div role="status" className="flex items-start gap-2.5 rounded-md bg-success/15 p-3">
+    <div
+      role="status"
+      className={cn(
+        'flex items-start gap-2.5 rounded-md p-3',
+        notice.tone === 'warning' ? 'border border-warning bg-warning/15' : 'bg-success/15',
+      )}
+    >
       <span
         aria-hidden="true"
-        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
+        className={cn(
+          'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+          notice.tone === 'warning' ? 'bg-warning text-warning-foreground' : 'bg-success text-success-foreground',
+        )}
       >
-        <Check className="h-3 w-3" />
+        {notice.tone === 'warning' ? <TriangleAlert className="h-3 w-3" /> : <Check className="h-3 w-3" />}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-bold text-foreground">{notice.title}</span>

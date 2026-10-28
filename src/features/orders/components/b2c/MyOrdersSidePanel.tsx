@@ -23,8 +23,8 @@ function formatMinutes(minutes: number): string {
  * `DesktopMyOrders.dc.html`): saldo (disponibles y reservados), "Hacer un
  * pedido" y el aviso del corte de cancelación. Presentacional puro: los datos
  * salen de `useWallet` y de la config del restaurante que la página ya pide.
- * El corte real lo decide siempre el backend (`cancellable`); el texto solo lo
- * informa.
+ * El texto solo informa el plazo de devolución; cada pedido trae su propio
+ * `refundableUntil`.
  */
 export function MyOrdersSidePanel({ available, committed, cancelLimitMinutes }: Props) {
   return (
@@ -70,8 +70,8 @@ export function MyOrdersSidePanel({ available, committed, cancelLimitMinutes }: 
         <p className="m-0 flex items-start gap-2.5 text-[13px] leading-snug text-muted-foreground">
           <Clock3 className="mt-px h-4 w-4 flex-none text-primary-deep" aria-hidden="true" />
           <span>
-            Podés cancelar un pedido hasta {formatMinutes(cancelLimitMinutes)} antes del retiro. Después ya no se puede
-            cancelar.
+            Si cancelás hasta {formatMinutes(cancelLimitMinutes)} antes del retiro, el almuerzo vuelve a tu saldo.
+            Después, se descuenta.
           </span>
         </p>
       )}

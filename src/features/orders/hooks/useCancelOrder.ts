@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { PENDING_PURCHASES_KEY } from '@/features/credits/hooks/usePendingPurchases';
-import { cancelOrderV2 } from '../services/ordersApi';
+import { refundDeadlineLabel, isRefundable } from '../cancellation';
+import { cancelOrderV2, OrderCancelError } from '../services/ordersApi';
 import { balancePartOf, formatLunches, PENDING_PAYMENT_CREDITED_TOAST } from '../lunches';
 import type { OrderV2 } from '../services/ordersApi';
 import type { OrderNotice } from '../orderNotice';
@@ -29,11 +30,34 @@ export function useCancelOrder({ onNotice }: { onNotice?: (notice: OrderNotice, 
     // depender de `cancelTarget` (estado de React), que puede haber
     // cambiado o quedar en null para cuando la mutación resuelve.
     mutationFn: (order: OrderV2) => cancelOrderV2(order.id),
-    onSuccess: (_data, order) => {
+    // El plazo se mira contra el reloj al confirmar; el backend decide igual y lo informa en `cancelRefunded`.
+    onMutate: (order: OrderV2) => ({ late: !isRefundable(order, new Date()) }),
+    onSuccess: (_data, order, context) => {
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
       // D6: cancelar cambia el aviso de pagos pendientes de "Mis almuerzos" (el pedido pasa a CANCELADO).
       queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
+      if (context?.late) {
+        // Cancelación tardía: el pedido se cancela igual pero los almuerzos se consumen.
+        const count = order.creditTotal;
+        const deadline = refundDeadlineLabel(order);
+        const charged = count === 1 ? 'el almuerzo se cobró' : `los ${count} almuerzos se cobraron`;
+        if (onNotice) {
+          onNotice(
+            {
+              title: 'Pedido cancelado',
+              text: `Ya había pasado el límite${deadline ? ` de las ${deadline}` : ''}, así que ${charged} igual.`,
+              tone: 'warning',
+            },
+            order,
+          );
+        } else {
+          toast.success(`Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'consumido' : 'consumidos'}`);
+        }
+        setCancelTarget(null);
+        setCancelError(null);
+        return;
+      }
       // Un pedido esperando pago solo devuelve los almuerzos que reservó del saldo (F23).
       const count = order.estado === 'PENDIENTE_PAGO' ? balancePartOf(order) : order.creditTotal;
       const returned = count === 0 ? null : `${formatLunches(count)} ${count === 1 ? 'volvió' : 'volvieron'} a tu saldo`;
@@ -50,8 +74,8 @@ export function useCancelOrder({ onNotice }: { onNotice?: (notice: OrderNotice, 
       setCancelTarget(null);
       setCancelError(null);
     },
-    onError: () => {
-      setCancelError('No pudimos cancelar el pedido.');
+    onError: (err) => {
+      setCancelError(err instanceof OrderCancelError ? err.message : 'No pudimos cancelar el pedido.');
     },
   });
 

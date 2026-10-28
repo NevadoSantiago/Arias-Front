@@ -2,4 +2,6 @@
 export interface OrderNotice {
   title: string;
   text: string;
+  /** `warning`: un resultado que merece atención (p. ej. cancelación tardía, sin devolución). Sin esto, éxito. */
+  tone?: 'warning';
 }

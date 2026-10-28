@@ -65,6 +65,51 @@ describe('CancelOrderSheet', () => {
     expect(await screen.findByText('Pasás de 8 a 12 almuerzos disponibles.')).toBeInTheDocument();
   });
 
+  describe('late cancellation (past refundableUntil)', () => {
+    // 12:40 BA is 15:40Z; now is 15:45Z.
+    const late = { ...order, pickupAt: '2026-09-24T16:00:00Z', refundableUntil: '2026-09-24T15:40:00Z' };
+    const now = new Date('2026-09-24T15:45:00Z');
+
+    it('asks "¿Cancelar igual?" and warns the lunches are not returned, with the deadline', async () => {
+      renderSheet({ order: late, now });
+
+      expect(await screen.findByText('¿Cancelar igual?')).toBeInTheDocument();
+      expect(screen.getByText('Tus 4 almuerzos no se devuelven')).toBeInTheDocument();
+      expect(screen.getByText(/con devolución hasta las 12:40/)).toBeInTheDocument();
+      expect(screen.queryByText(/vuelven a tu saldo/)).not.toBeInTheDocument();
+    });
+
+    it('uses the singular for a single lunch', async () => {
+      renderSheet({ order: { ...late, creditTotal: 1 }, now });
+
+      expect(await screen.findByText('Este almuerzo no se devuelve')).toBeInTheDocument();
+    });
+
+    it('offers "Cancelar igual" and "No, lo voy a retirar"', async () => {
+      const { onConfirm, onClose } = renderSheet({ order: late, now });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Cancelar igual' }));
+      fireEvent.click(screen.getByRole('button', { name: 'No, lo voy a retirar' }));
+
+      expect(onConfirm).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: 'Sí, cancelar pedido' })).not.toBeInTheDocument();
+    });
+
+    it('tells a COMANDADO order that the kitchen is already preparing it', async () => {
+      renderSheet({ order: { ...late, estado: 'COMANDADO' }, now });
+
+      expect(await screen.findByText('La cocina ya está preparando tu pedido.')).toBeInTheDocument();
+    });
+
+    it('keeps the on-time copy while the refund window is open', async () => {
+      renderSheet({ order: late, now: new Date('2026-09-24T15:30:00Z') });
+
+      expect(await screen.findByText('¿Cancelar este pedido?')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Sí, cancelar pedido' })).toBeInTheDocument();
+    });
+  });
+
   it('closes on Escape when not cancelling', async () => {
     const { onClose } = renderSheet({ cancelling: false });
 

@@ -9,6 +9,8 @@ import { orderStatusLabel } from '../orderStatus';
 import { ChefBackdrop, OrderComanda } from './OrderComanda';
 import { addPlatesPath, comandaCopy, comandaFooter, comandaItems, comandaWhenLabel } from './comandaModel';
 import { OrderNoticeBanner } from './OrderNoticeBanner';
+import { RefundWindowNotice } from './RefundWindowNotice';
+import { isRefundable } from '../../cancellation';
 import { orderAccordionHeader } from './orderAccordionModel';
 import type { OrderNotice } from '../../orderNotice';
 import type { OrderItemV2, OrderV2 } from '../../services/ordersApi';
@@ -228,6 +230,16 @@ export function OrderAccordionItem({
                 {head.time}
               </span>
               <span className="text-[13px] text-muted-foreground">{head.summary}</span>
+              {head.windowLine && (
+                <span
+                  className={cn(
+                    'text-[12.5px] font-bold',
+                    isRefundable(order, now) ? 'text-[#3F6B27]' : 'text-warning-deep',
+                  )}
+                >
+                  {head.windowLine}
+                </span>
+              )}
               {head.payLine && <span className="text-[12.5px] font-bold text-primary-deep">{head.payLine}</span>}
               {head.note && <span className="text-[12.5px] text-muted-foreground">{head.note}</span>}
             </span>
@@ -272,6 +284,7 @@ export function OrderAccordionItem({
                 </div>
                 <div data-testid="order-actions-area" className={cn('flex flex-col gap-3', wide && 'max-w-[640px]')}>
                   <p className="m-0 text-sm leading-snug text-foreground">{headline}</p>
+                  <RefundWindowNotice order={order} now={now} cancellable={canCancel} />
                   {notice && <OrderNoticeBanner notice={notice} onDismiss={onDismissNotice} />}
                   {actions}
                 </div>

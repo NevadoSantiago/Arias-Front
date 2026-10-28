@@ -13,6 +13,7 @@ import {
   formatOrderTimeLabel,
   isSameRestaurantDay,
 } from '../orderDateLabels';
+import { cancelOutcomeLabel } from '../../cancellation';
 import type { OrderV2 } from '../../services/ordersApi';
 
 /** Un plato de la comanda B2C — ya con los textos listos para mostrar. */
@@ -71,6 +72,10 @@ export function comandaFooter(
 ): ComandaFooter | null {
   const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
+    // Cancelación tardía: los almuerzos se consumieron, aunque se hayan pagado con Mercado Pago.
+    if (order.cancelRefunded === false) {
+      return { label: 'Pedido cancelado', value: cancelOutcomeLabel(order), icon: 'lunches' };
+    }
     if (hasReservedBalanceWithMercadoPago(order)) {
       // Pago parcial (F23): el DTO no dice si el pago se aprobó antes de cancelar, así que no se da un número.
       return { label: 'Pedido cancelado', value: `${PARTIAL_RETURNED_TO_BALANCE}. ${MP_PAYMENT_CREDITED}`, icon: 'lunches' };
@@ -160,6 +165,9 @@ export function comandaCopy(
 
   const fromBalance = balancePartOf(order);
   if (order.estado === 'CANCELADO') {
+    if (order.cancelRefunded === false) {
+      return { title: 'Pedido cancelado', headline: 'Cancelaste este pedido después del límite de devolución.' };
+    }
     // Pago parcial (F23): sin número, el DTO no dice cuánto volvió; un pago por Mercado Pago solo no toca el saldo.
     const count = order.creditTotal;
     return {
@@ -184,20 +192,17 @@ export function comandaCopy(
   }
   const upcoming = new Date(order.pickupAt).getTime() >= now.getTime();
   if (upcoming && order.estado === 'PENDIENTE') {
-    const editable = order.pickupTimeChangeable || order.cancellable;
-    const limit = editable
-      ? ` Podés cambiarlo o cancelarlo hasta ${cancelLimitMinutes != null ? `${cancelLimitMinutes} minutos antes del retiro` : 'poco antes del retiro'}.`
-      : ' Ya pasó el límite para cambiarlo o cancelarlo.';
+    // Cancelar ya no tiene límite (solo cambia si se devuelve el almuerzo): el límite que se nombra es el de cambiar el horario.
+    const limit = order.pickupTimeChangeable
+      ? ` Podés cambiarlo hasta ${cancelLimitMinutes != null ? `${cancelLimitMinutes} minutos antes del retiro` : 'poco antes del retiro'}.`
+      : ' Ya pasó el límite para cambiarlo.';
     return { title: 'Pedido programado', headline: `Te esperamos ${dayWhen} a las ${time}.${limit}` };
   }
   if (upcoming) {
-    // Confirmado o comandado: no se modifica, pero el backend lo deja cancelar hasta el límite (`cancellable`).
-    const cancelOffer = order.cancellable
-      ? ` Podés cancelarlo hasta ${cancelLimitMinutes != null ? `${cancelLimitMinutes} minutos antes del retiro` : 'poco antes del retiro'}.`
-      : '';
+    // Confirmado o comandado: no se modifica; si todavía se puede cancelar (y con qué devolución) lo dice el recuadro del plazo.
     return {
       title: 'Ya lo estamos preparando',
-      headline: `Te esperamos ${dayWhen} a las ${time}. Este pedido ya no se puede modificar.${cancelOffer}`,
+      headline: `Te esperamos ${dayWhen} a las ${time}. Este pedido ya no se puede modificar.`,
     };
   }
   return {

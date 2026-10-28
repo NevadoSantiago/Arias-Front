@@ -38,3 +38,14 @@ describe('MyOrdersSidePanel — balance box', () => {
     ).toHaveAttribute('href', '/credits');
   });
 });
+
+describe('MyOrdersSidePanel — refund note', () => {
+  it('explains the refund window instead of saying cancelling stops being possible', () => {
+    renderPanel();
+
+    expect(
+      screen.getByText('Si cancelás hasta 20 minutos antes del retiro, el almuerzo vuelve a tu saldo. Después, se descuenta.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/ya no se puede cancelar/i)).not.toBeInTheDocument();
+  });
+});

@@ -37,6 +37,28 @@ function renderCard(props: Partial<React.ComponentProps<typeof OrderCard>> = {})
   return handlers;
 }
 
+describe('OrderCard — refund window', () => {
+  const withWindow = { ...order, refundableUntil: '2026-09-24T15:40:00Z' }; // 12:40 BA
+
+  it('shows the refund deadline while refundable', () => {
+    renderCard({ order: withWindow, now: new Date('2026-09-24T15:00:00Z') });
+
+    expect(screen.getByText('Con devolución hasta las 12:40')).toBeInTheDocument();
+  });
+
+  it('shows that the refund stopped applying once it passed', () => {
+    renderCard({ order: withWindow, now: new Date('2026-09-24T15:41:00Z') });
+
+    expect(screen.getByText('Sin devolución desde las 12:40')).toBeInTheDocument();
+  });
+
+  it('shows nothing for an order that cannot be cancelled', () => {
+    renderCard({ order: { ...withWindow, cancellable: false } });
+
+    expect(screen.queryByText(/devolución/)).not.toBeInTheDocument();
+  });
+});
+
 describe('OrderCard — open the comanda (F20)', () => {
   it('offers no "open" control when onOpen is not passed (the card stays as before)', () => {
     renderCard({ onOpen: undefined });

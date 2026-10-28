@@ -35,6 +35,24 @@ describe('orderAccordionHeader', () => {
     expect(header({ ...base, pickupAt: '2026-09-22T13:10:00-03:00' }).dateLabel).toBe('Martes 22');
   });
 
+  it('gives the refund window line of an active order, by the clock', () => {
+    const active = { ...base, refundableUntil: '2026-09-25T12:40:00-03:00' };
+
+    expect(header(active).windowLine).toBe('Con devolución hasta las 12:40');
+    expect(
+      orderAccordionHeader(active, { now: new Date('2026-09-25T12:41:00-03:00'), orderLeadMinutes: 20 }).windowLine,
+    ).toBe('Sin devolución desde las 12:40');
+    expect(header(base).windowLine).toBeNull();
+  });
+
+  it('says how a cancelled order ended: lunches back or consumed', () => {
+    const cancelled = { ...base, estado: 'CANCELADO' as const };
+
+    expect(header({ ...cancelled, creditTotal: 1, cancelRefunded: true }).payLine).toBe('Almuerzo devuelto');
+    expect(header({ ...cancelled, cancelRefunded: false }).payLine).toBe('2 almuerzos consumidos');
+    expect(header({ ...cancelled, cancelRefunded: false, paidWithMercadoPago: true }).payLine).toBe('2 almuerzos consumidos');
+  });
+
   it('has no payment line for an order paid with lunches from the balance', () => {
     expect(header(base).payLine).toBeNull();
   });

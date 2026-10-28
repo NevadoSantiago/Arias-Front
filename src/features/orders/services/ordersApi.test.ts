@@ -8,7 +8,9 @@ import {
   DirectCheckoutUnavailableError,
   getPickupSlots,
   getRestaurantConfig,
+  cancelOrderV2,
   InsufficientCreditsError,
+  OrderCancelError,
   OrderNotModifiableError,
   PickupTimeChangeError,
   placeOrderV2,
@@ -20,6 +22,57 @@ import {
 vi.mock('@/lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), patch: vi.fn() },
 }));
+
+describe('cancelOrderV2', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('deletes the order', async () => {
+    vi.mocked(api.delete).mockResolvedValueOnce({ data: undefined });
+
+    await cancelOrderV2(5);
+
+    expect(api.delete).toHaveBeenCalledWith('/api/v2/orders/5');
+  });
+
+  it('surfaces the 409 order-past-day message as OrderCancelError', async () => {
+    vi.mocked(api.delete).mockRejectedValueOnce({
+      response: {
+        data: { title: 'order-past-day', detail: 'El pedido es de un día anterior y ya no se puede cancelar' },
+      },
+    });
+
+    const error = await cancelOrderV2(5).catch((e) => e);
+
+    expect(error).toBeInstanceOf(OrderCancelError);
+    expect(error.message).toBe('El pedido es de un día anterior y ya no se puede cancelar');
+  });
+
+  it('falls back to a Spanish message when order-past-day carries no detail', async () => {
+    vi.mocked(api.delete).mockRejectedValueOnce({ response: { data: { title: 'order-past-day' } } });
+
+    const error = await cancelOrderV2(5).catch((e) => e);
+
+    expect(error.message).toBe('El pedido es de un día anterior y ya no se puede cancelar');
+  });
+
+  it('maps order-locked (delivered or already cancelled) to OrderCancelError', async () => {
+    vi.mocked(api.delete).mockRejectedValueOnce({ response: { data: { title: 'order-locked' } } });
+
+    const error = await cancelOrderV2(5).catch((e) => e);
+
+    expect(error).toBeInstanceOf(OrderCancelError);
+    expect(error.message).toBe('Este pedido ya no se puede cancelar.');
+  });
+
+  it('rethrows any other failure untouched', async () => {
+    const boom = new Error('boom');
+    vi.mocked(api.delete).mockRejectedValueOnce(boom);
+
+    await expect(cancelOrderV2(5)).rejects.toBe(boom);
+  });
+});
 
 describe('getPickupSlots', () => {
   afterEach(() => {

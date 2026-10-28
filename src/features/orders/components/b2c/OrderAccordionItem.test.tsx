@@ -194,6 +194,80 @@ describe('OrderAccordionItem — keyboard', () => {
   });
 });
 
+describe('OrderAccordionItem — refund window', () => {
+  // 13:00 pickup on 25/09, refundable until 12:40 BA.
+  const active = { ...scheduled, refundableUntil: '2026-09-25T12:40:00-03:00' };
+  const onTime = new Date('2026-09-25T12:00:00-03:00');
+  const late = new Date('2026-09-25T12:50:00-03:00');
+
+  it('shows "Con devolución hasta las 12:40" in the header while it is refundable', () => {
+    renderItem(active, { now: onTime });
+
+    expect(within(header()).getByText('Con devolución hasta las 12:40')).toBeInTheDocument();
+  });
+
+  it('shows "Sin devolución desde las 12:40" in the header once it passed', () => {
+    renderItem(active, { now: late });
+
+    expect(within(header()).getByText('Sin devolución desde las 12:40')).toBeInTheDocument();
+  });
+
+  it('on time: the panel box promises the refund and warns about later', () => {
+    renderItem(active, { open: true, now: onTime });
+
+    const panel = screen.getByRole('region', { name: /retiro 13:00 hs/i });
+    expect(within(panel).getByText('Si cancelás hasta las 12:40, te devolvemos los 2 almuerzos.')).toBeInTheDocument();
+    expect(within(panel).getByText('Si lo cancelás después, se descuenta')).toBeInTheDocument();
+  });
+
+  it('late: the panel box says the limit passed and that cancelling is still possible', () => {
+    renderItem(active, { open: true, now: late });
+
+    const panel = screen.getByRole('region', { name: /retiro 13:00 hs/i });
+    expect(within(panel).getByText('Ya pasó el límite de las 12:40.')).toBeInTheDocument();
+    expect(within(panel).getByText('Todavía podés cancelarlo, pero los 2 almuerzos no se devuelven.')).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: /cancelar pedido/i })).toBeInTheDocument();
+  });
+
+  it('uses the singular for a single lunch', () => {
+    renderItem({ ...active, creditTotal: 1 }, { open: true, now: onTime });
+
+    expect(screen.getByText('Si cancelás hasta las 12:40, te devolvemos el almuerzo.')).toBeInTheDocument();
+  });
+
+  it('shows no window anywhere when the order cannot be cancelled', () => {
+    renderItem({ ...readOnly('ENTREGADO'), refundableUntil: active.refundableUntil }, { open: true, now: onTime });
+
+    expect(screen.queryByText(/con devolución|sin devolución|se descuenta/i)).not.toBeInTheDocument();
+  });
+
+  it('Retirado: says a delivered order cannot be cancelled', () => {
+    renderItem(readOnly('ENTREGADO'), { open: true, now: onTime });
+
+    expect(screen.getByText('Ya lo retiraste: un pedido entregado no se puede cancelar.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /cancelar pedido/i })).not.toBeInTheDocument();
+  });
+
+  it('Cancelado late: header and panel say the lunches were consumed', () => {
+    renderItem({ ...readOnly('CANCELADO'), cancelRefunded: false, refundableUntil: active.refundableUntil }, { open: true, now: late });
+
+    expect(within(header()).getByText('2 almuerzos consumidos')).toBeInTheDocument();
+    expect(screen.getAllByText('2 almuerzos consumidos').length).toBeGreaterThan(1);
+  });
+
+  it('Cancelado refunded: header says the lunches came back', () => {
+    renderItem({ ...readOnly('CANCELADO'), creditTotal: 1, cancelRefunded: true }, { now: onTime });
+
+    expect(within(header()).getByText('Almuerzo devuelto')).toBeInTheDocument();
+  });
+
+  it('Cancelado without outcome: no outcome line', () => {
+    renderItem({ ...readOnly('CANCELADO'), cancelRefunded: null }, { now: onTime });
+
+    expect(within(header()).queryByText(/consumido|^Almuerzo devuelto$/)).not.toBeInTheDocument();
+  });
+});
+
 describe('OrderAccordionItem — panel', () => {
   it('opens the comanda: number, the name they call, address, items and the payment footer', () => {
     renderItem(scheduled, { open: true });
@@ -209,7 +283,7 @@ describe('OrderAccordionItem — panel', () => {
     expect(within(panel).getAllByText('1 almuerzo')).toHaveLength(2);
     expect(within(panel).queryByText(/Reservaste/)).not.toBeInTheDocument();
     expect(within(panel).queryByText(/Te quedan/)).not.toBeInTheDocument();
-    expect(within(panel).getByText(/Podés cambiarlo o cancelarlo hasta 20 minutos antes del retiro/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Podés cambiarlo hasta 20 minutos antes del retiro/)).toBeInTheDocument();
     expect(within(panel).queryByText(/\$/)).not.toBeInTheDocument();
   });
 
@@ -311,7 +385,7 @@ describe('OrderAccordionItem — panel', () => {
       expect(ticket.compareDocumentPosition(below!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(ticket.contains(below!)).toBe(false);
       expect(within(below!).getByRole('button', { name: /cambiar horario/i })).toBeInTheDocument();
-      expect(within(below!).getByText(/Podés cambiarlo o cancelarlo/)).toBeInTheDocument();
+      expect(within(below!).getByText(/Podés cambiarlo/)).toBeInTheDocument();
     },
   );
 

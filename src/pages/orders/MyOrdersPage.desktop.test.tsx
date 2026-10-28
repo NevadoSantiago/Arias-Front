@@ -191,7 +191,7 @@ describe('MyOrdersPage on desktop (F22b, F29)', () => {
     expect(art).toHaveAttribute('alt', '');
     expect(art).toHaveAttribute('aria-hidden', 'true');
     expect(art.getAttribute('src')).toMatch(/PedidoConfirmado-transparente.*.svg/);
-    expect(art.previousElementSibling).toHaveTextContent(/podés cancelar un pedido/i);
+    expect(art.previousElementSibling).toHaveTextContent(/el almuerzo vuelve a tu saldo/i);
   });
 
   it('keeps the balance side panel next to the weeks', async () => {

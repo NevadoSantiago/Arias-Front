@@ -9,6 +9,7 @@ import {
   MP_PAYMENT_CREDITED,
   PARTIAL_RETURNED_TO_BALANCE,
 } from '../lunches';
+import { isRefundable, refundWindowLine } from '../cancellation';
 import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from './orderDateLabels';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { orderStatusLabel } from './orderStatus';
@@ -91,6 +92,7 @@ export function OrderCard({
     : isCancelled
       ? 'Almuerzos reservados devueltos'
       : `${fromBalance} de tu saldo · ${mercadoPagoPartOf(order)} ${isAwaitingPayment ? 'a pagar' : 'con Mercado Pago'}`;
+  const windowLine = refundWindowLine(order, now);
   const deadlineLabel = formatOrderPayDeadlineLabel(order.pickupAt, orderLeadMinutes);
   const payDeadlineText = deadlineLabel
     ? `Estamos esperando la confirmación de Mercado Pago. Si no se confirma antes de las ${deadlineLabel}, se cancela.`
@@ -164,6 +166,16 @@ export function OrderCard({
             </div>
           ))}
           {order.notas && <p className="m-0 text-[13px] italic text-muted-foreground">{order.notas}</p>}
+          {windowLine && (
+            <p
+              className={cn(
+                'm-0 text-[12.5px] font-bold',
+                isRefundable(order, now) ? 'text-[#3F6B27]' : 'text-warning-deep',
+              )}
+            >
+              {windowLine}
+            </p>
+          )}
           {isCancelled && order.paidWithMercadoPago && (
             <p className="m-0 text-[13px] leading-relaxed text-muted-foreground">
               {hasReservedBalanceWithMercadoPago(order)

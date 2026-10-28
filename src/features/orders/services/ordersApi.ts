@@ -180,11 +180,24 @@ export interface OrderV2 {
   notas: string | null;
   items: OrderItemV2[];
   /**
-   * `true` si el backend todavía admite cancelar este pedido (`now < pickupAt -
-   * pickup_lead_minutes`, antelación configurable por el admin) — el frontend
-   * NUNCA recalcula esta ventana, siempre confía en el valor del backend.
+   * `true` si el backend todavía admite cancelar este pedido: mientras no esté
+   * entregado ni cancelado y su fecha sea hoy o futura, aunque el plazo de
+   * devolución ya haya pasado. Si se devuelve el almuerzo lo dice
+   * `refundableUntil`, no este flag.
    */
   cancellable: boolean;
+  /**
+   * Instante hasta el cual cancelar devuelve los almuerzos (`pickupAt` menos el
+   * límite de cancelación). El cliente compara `now` contra él (ver
+   * `cancellation.ts`). Opcional por tolerancia a respuestas viejas.
+   */
+  refundableUntil?: string;
+  /**
+   * Solo en pedidos `CANCELADO`: `true` = los almuerzos volvieron al saldo,
+   * `false` = se consumieron (cancelación tardía); `null` = el backend no lo
+   * sabe (cancelaciones anteriores).
+   */
+  cancelRefunded?: boolean | null;
   /**
    * `true` si el backend admite AGREGAR platos a este pedido (`POST
    * /orders/{id}/items`): sólo un pedido `PENDIENTE`, antes del corte y no
@@ -317,9 +330,40 @@ export async function placeOrderV2(payload: PlaceOrderV2Payload): Promise<OrderV
   }
 }
 
-/** Cancela un pedido del camino nuevo — el backend libera crédito y stock. */
+/**
+ * El backend rechazó la cancelación: 409 `order-past-day` (el pedido es de un día
+ * anterior) u `order-locked` (ya se entregó o ya estaba cancelado). Lleva el
+ * mensaje listo para mostrar (`detail` del backend o un texto por defecto).
+ */
+export class OrderCancelError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OrderCancelError';
+  }
+}
+
+const CANCEL_ERROR_MESSAGES: Record<string, string> = {
+  'order-past-day': 'El pedido es de un día anterior y ya no se puede cancelar',
+  'order-locked': 'Este pedido ya no se puede cancelar.',
+};
+
+/**
+ * Cancela un pedido del camino nuevo, en cualquier momento antes de la entrega.
+ * El backend libera el stock y devuelve los almuerzos solo si se cancela dentro
+ * del plazo (`refundableUntil`); si no, se consumen.
+ */
 export async function cancelOrderV2(orderId: number): Promise<void> {
-  await api.delete(`${BASE_V2}/${orderId}`);
+  try {
+    await api.delete(`${BASE_V2}/${orderId}`);
+  } catch (err) {
+    const data =
+      typeof err === 'object' && err !== null && 'response' in err
+        ? (err as { response?: { data?: { title?: string; detail?: string } } }).response?.data
+        : undefined;
+    const fallback = data?.title ? CANCEL_ERROR_MESSAGES[data.title] : undefined;
+    if (fallback) throw new OrderCancelError(data?.detail || fallback);
+    throw err;
+  }
 }
 
 /**

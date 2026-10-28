@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { RotateCcw } from 'lucide-react';
+import { ChefHat, RotateCcw, TriangleAlert } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { getWallet } from '@/features/credits/services/creditsApi';
 import { cn } from '@/lib/utils';
 import { balancePartOf, formatLunches, mercadoPagoPartOf, pendingPaymentCreditedNotice } from '../lunches';
+import { isRefundable, lateCancelCopy, refundDeadlineLabel } from '../cancellation';
 import { formatOrderDayLabel, formatOrderTimeLabel } from './orderDateLabels';
 import type { OrderV2 } from '../services/ordersApi';
 
@@ -26,6 +27,11 @@ interface Props {
  * puede cancelar; eso lo decide siempre `order.cancellable`, del backend.
  * La consulta de la billetera solo se activa mientras la hoja está
  * abierta, para no pedirla en cada carga de "Mis pedidos".
+ *
+ * Pasado `refundableUntil` la hoja es la de la cancelación tardía: "¿Cancelar
+ * igual?", los almuerzos no se devuelven. Qué copia se muestra lo decide el
+ * reloj (`now`); si la hora cambia entre que se abre y se confirma, el backend
+ * es quien manda.
  */
 export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfirm, onClose, presentation = 'sheet' }: Props) {
   const open = order !== null;
@@ -49,6 +55,9 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
   const reserved = order ? balancePartOf(order) : 0;
   const lunchCount = awaitingPayment ? reserved : (order?.creditTotal ?? 0);
   const unpaid = awaitingPayment && reserved === 0;
+  const late = order !== null && !isRefundable(order, now);
+  const lateCopy = lateCancelCopy(lunchCount);
+  const refundDeadline = order ? refundDeadlineLabel(order) : null;
   const returnTitle = unpaid
     ? 'Tu saldo no cambia'
     : awaitingPayment
@@ -67,11 +76,13 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
     <Sheet open={open} onOpenChange={(next) => !next && !cancelling && onClose()}>
       <SheetContent aria-label="Cancelar pedido" className="p-0" variant={presentation}>
         <div className="flex flex-col gap-4 p-4">
-          <SheetTitle>¿Cancelar este pedido?</SheetTitle>
+          <SheetTitle>{late ? '¿Cancelar igual?' : '¿Cancelar este pedido?'}</SheetTitle>
           <SheetDescription className="sr-only">
-            {unpaid
-              ? 'Confirmá si querés cancelar este pedido. Tu saldo no cambia.'
-              : 'Confirmá si querés cancelar este pedido. Tu almuerzo vuelve a tu saldo.'}
+            {late
+              ? `Confirmá si querés cancelar igual este pedido. ${lateCopy.notRefunded}.`
+              : unpaid
+                ? 'Confirmá si querés cancelar este pedido. Tu saldo no cambia.'
+                : 'Confirmá si querés cancelar este pedido. Tu almuerzo vuelve a tu saldo.'}
           </SheetDescription>
 
           <div className="rounded-md border border-border bg-muted/40 p-3.5">
@@ -81,6 +92,26 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
             <p className="m-0 text-[13.5px] text-muted-foreground">{itemsLabel}</p>
           </div>
 
+          {late ? (
+            <div className="flex flex-col gap-2.5 rounded-md border-[1.5px] border-warning bg-warning/15 p-3.5">
+              <div className="flex items-start gap-3">
+                <TriangleAlert className="h-6 w-6 shrink-0 text-warning-deep" aria-hidden="true" />
+                <div className="flex flex-col gap-1 text-sm leading-snug">
+                  <span className="text-[15px] font-bold text-foreground">{lateCopy.notRefunded}</span>
+                  <span className="text-foreground">
+                    Se podía cancelar con devolución hasta las {refundDeadline}. Si lo cancelás ahora, {lateCopy.charged}{' '}
+                    igual{available !== null && ` y seguís con ${formatLunches(available)} disponibles`}.
+                  </span>
+                </div>
+              </div>
+              {order?.estado === 'COMANDADO' && (
+                <p className="m-0 flex items-center gap-2 border-t border-warning/45 pt-2.5 text-[13px] leading-snug text-foreground">
+                  <ChefHat className="h-4 w-4 shrink-0 text-warning-deep" aria-hidden="true" />
+                  La cocina ya está preparando tu pedido.
+                </p>
+              )}
+            </div>
+          ) : (
           <div className={cn('flex items-center gap-3 rounded-md p-3.5', unpaid ? 'bg-muted' : 'bg-success/15')}>
             <RotateCcw className={cn('h-6 w-6 shrink-0', unpaid ? 'text-foreground' : 'text-success')} aria-hidden="true" />
             <div className="flex flex-col gap-0.5 text-sm">
@@ -97,6 +128,7 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
               {awaitingPayment && mpLunches > 0 && <span className="text-foreground">{creditedNotice}</span>}
             </div>
           </div>
+          )}
 
           {errorMessage && (
             <p role="alert" className="text-xs text-destructive">
@@ -111,7 +143,7 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
             disabled={cancelling}
             className="h-[54px] w-full rounded-md bg-destructive text-sm font-bold uppercase tracking-brand text-destructive-foreground disabled:opacity-70"
           >
-            {cancelling ? 'Cancelando…' : 'Sí, cancelar pedido'}
+            {cancelling ? 'Cancelando…' : late ? 'Cancelar igual' : 'Sí, cancelar pedido'}
           </button>
           <button
             type="button"
@@ -119,7 +151,7 @@ export function CancelOrderSheet({ order, now, cancelling, errorMessage, onConfi
             disabled={cancelling}
             className="h-[52px] w-full rounded-md border border-border bg-card text-sm font-semibold text-foreground disabled:opacity-70"
           >
-            No, dejarlo
+            {late ? 'No, lo voy a retirar' : 'No, dejarlo'}
           </button>
         </SheetFooter>
       </SheetContent>

@@ -3,11 +3,14 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
-import { cancelOrderV2, type OrderV2 } from '../services/ordersApi';
+import { cancelOrderV2, OrderCancelError, type OrderV2 } from '../services/ordersApi';
 import { useCancelOrder } from './useCancelOrder';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock('../services/ordersApi', () => ({ cancelOrderV2: vi.fn() }));
+vi.mock('../services/ordersApi', () => ({
+  cancelOrderV2: vi.fn(),
+  OrderCancelError: class OrderCancelError extends Error {},
+}));
 
 function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,6 +63,80 @@ describe('useCancelOrder — success toast', () => {
     expect(toast.success).toHaveBeenCalledWith(
       'Pedido cancelado. Si ya pagaste con Mercado Pago, te acreditamos lo que pagaste en tu saldo cuando se confirme el pago.',
     );
+  });
+});
+
+describe('useCancelOrder — late cancellation', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  // pickup 13:00 BA (16:00Z), refundable until 12:40 BA (15:40Z)
+  const withWindow: OrderV2 = { ...order, pickupAt: '2026-09-24T16:00:00Z', refundableUntil: '2026-09-24T15:40:00Z' };
+
+  async function cancelAt(now: string, target: OrderV2) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(now));
+    const onNotice = vi.fn();
+    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useCancelOrder({ onNotice }), { wrapper });
+    act(() => result.current.requestCancel(target));
+    act(() => result.current.confirmCancel());
+    await waitFor(() => expect(onNotice).toHaveBeenCalled());
+    return onNotice;
+  }
+
+  it('says the lunches were charged anyway when confirmed past the refund deadline', async () => {
+    const onNotice = await cancelAt('2026-09-24T15:45:00Z', withWindow);
+
+    expect(onNotice.mock.calls[0][0]).toEqual({
+      title: 'Pedido cancelado',
+      text: 'Ya había pasado el límite de las 12:40, así que los 2 almuerzos se cobraron igual.',
+      tone: 'warning',
+    });
+  });
+
+  it('uses the singular for one lunch', async () => {
+    const onNotice = await cancelAt('2026-09-24T15:45:00Z', { ...withWindow, creditTotal: 1 });
+
+    expect(onNotice.mock.calls[0][0].text).toBe('Ya había pasado el límite de las 12:40, así que el almuerzo se cobró igual.');
+  });
+
+  it('keeps the refund message when confirmed before the deadline', async () => {
+    const onNotice = await cancelAt('2026-09-24T15:30:00Z', withWindow);
+
+    expect(onNotice.mock.calls[0][0]).toEqual({ title: 'Pedido cancelado', text: '2 almuerzos volvieron a tu saldo.' });
+  });
+
+  it('toasts the late outcome when the page gives no listener', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-24T15:45:00Z'));
+    await cancel(withWindow);
+
+    expect(toast.success).toHaveBeenCalledWith('Pedido cancelado · 2 almuerzos consumidos');
+  });
+
+  it('shows the backend message when the order is from a previous day', async () => {
+    vi.mocked(cancelOrderV2).mockRejectedValueOnce(
+      new OrderCancelError('El pedido es de un día anterior y ya no se puede cancelar'),
+    );
+    const { result } = renderHook(() => useCancelOrder(), { wrapper });
+    act(() => result.current.requestCancel(order));
+    act(() => result.current.confirmCancel());
+
+    await waitFor(() =>
+      expect(result.current.cancelError).toBe('El pedido es de un día anterior y ya no se puede cancelar'),
+    );
+  });
+
+  it('keeps the generic message for any other failure', async () => {
+    vi.mocked(cancelOrderV2).mockRejectedValueOnce(new Error('Error de red'));
+    const { result } = renderHook(() => useCancelOrder(), { wrapper });
+    act(() => result.current.requestCancel(order));
+    act(() => result.current.confirmCancel());
+
+    await waitFor(() => expect(result.current.cancelError).toBe('No pudimos cancelar el pedido.'));
   });
 });
 

@@ -7,6 +7,7 @@ import {
   MP_PAYMENT_CREDITED,
   PARTIAL_RETURNED_TO_BALANCE,
 } from '../../lunches';
+import { cancelOutcomeLabel, refundWindowLine } from '../../cancellation';
 import { formatOrderDateLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel } from '../orderDateLabels';
 import { isPaidWithMercadoPago } from './comandaModel';
 import type { OrderV2 } from '../../services/ordersApi';
@@ -19,6 +20,8 @@ export interface OrderAccordionHeader {
   dateLabel: string;
   /** "2 platos · 2 almuerzos". */
   summary: string;
+  /** "Con devolución hasta las 12:40" / "Sin devolución desde las 12:40" en un pedido activo; null si no corresponde. */
+  windowLine: string | null;
   /** Cómo se paga (o se pagó) cuando no es lo de siempre; null = con almuerzos del saldo, sin línea. */
   payLine: string | null;
   /** Aviso corto de estado ("Ya no se puede cambiar"); null si no hay. */
@@ -27,6 +30,10 @@ export interface OrderAccordionHeader {
 
 function payLineOf(order: OrderV2, orderLeadMinutes: number | null | undefined): string | null {
   if (order.estado === 'CANCELADO') {
+    // Cancelación tardía: se consumieron; si se devolvieron, el resultado explícito ("Almuerzo devuelto").
+    // Con Mercado Pago de por medio, un reintegro se explica con el aviso de acreditación, no con este resultado.
+    const outcome = cancelOutcomeLabel(order);
+    if (outcome && (order.cancelRefunded === false || !order.paidWithMercadoPago)) return outcome;
     // Pago parcial (F23.1): el DTO no dice cuánto volvió, así que no se da un número.
     if (hasReservedBalanceWithMercadoPago(order)) return PARTIAL_RETURNED_TO_BALANCE;
     if (order.paidWithMercadoPago) return MP_PAYMENT_CREDITED;
@@ -62,6 +69,7 @@ export function orderAccordionHeader(
     time: `Retiro ${formatOrderTimeLabel(order.pickupAt)} hs`,
     dateLabel: formatOrderDateLabel(order.pickupAt).replace(/ de \S+$/, ''),
     summary: `${dishes} ${dishes === 1 ? 'plato' : 'platos'} · ${formatLunches(order.creditTotal)}`,
+    windowLine: refundWindowLine(order, now),
     payLine: payLineOf(order, orderLeadMinutes),
     note,
   };

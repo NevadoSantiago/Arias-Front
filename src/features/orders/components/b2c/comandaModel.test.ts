@@ -246,7 +246,23 @@ describe('comandaFooter', () => {
     expect(copy.headline).not.toContain('15 minutos');
   });
 
-  it('tells a confirmed order that is still cancellable that it can be cancelled until the cancel limit', () => {
+  it('does not tie cancelling to the cancel limit any more: it is only about changing the time', () => {
+    const copy = comandaCopy(order({ estado: 'PENDIENTE', cancellable: true, pickupTimeChangeable: true }), {
+      now: NOW,
+      cancelLimitMinutes: 30,
+    });
+
+    expect(copy.headline).toContain('Podés cambiarlo hasta 30 minutos antes del retiro');
+    expect(copy.headline).not.toMatch(/cancel/i);
+  });
+
+  it('says the time can no longer be changed once the change limit passed', () => {
+    const copy = comandaCopy(order({ estado: 'PENDIENTE', cancellable: true, pickupTimeChangeable: false }), { now: NOW });
+
+    expect(copy.headline).toContain('Ya pasó el límite para cambiarlo.');
+  });
+
+  it('names no cancel limit on a confirmed order that is still cancellable (the refund box says it)', () => {
     const copy = comandaCopy(order({ estado: 'CONFIRMADO', cancellable: true, modifiable: false, pickupTimeChangeable: false }), {
       now: NOW,
       orderLeadMinutes: 15,
@@ -254,7 +270,24 @@ describe('comandaFooter', () => {
     });
 
     expect(copy.title).toBe('Ya lo estamos preparando');
-    expect(copy.headline).toContain('Podés cancelarlo hasta 30 minutos antes del retiro');
+    expect(copy.headline).toBe('Te esperamos hoy a las 13:00. Este pedido ya no se puede modificar.');
+  });
+
+  it('a late cancellation says the lunches were consumed, not returned', () => {
+    const late = order({ estado: 'CANCELADO', creditTotal: 2, cancelRefunded: false });
+
+    expect(comandaFooter(late, { now: NOW })).toEqual({
+      label: 'Pedido cancelado',
+      value: '2 almuerzos consumidos',
+      icon: 'lunches',
+    });
+    expect(comandaCopy(late, { now: NOW }).headline).toBe('Cancelaste este pedido después del límite de devolución.');
+  });
+
+  it('a refunded cancellation keeps saying the lunches went back', () => {
+    const refunded = order({ estado: 'CANCELADO', creditTotal: 2, cancelRefunded: true });
+
+    expect(comandaFooter(refunded, { now: NOW })?.value).toBe('2 almuerzos devueltos a tu saldo');
   });
 
   it('keeps "ya no se puede modificar" without a cancel offer once a confirmed order is not cancellable', () => {
