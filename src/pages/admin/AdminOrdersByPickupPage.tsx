@@ -152,6 +152,8 @@ export function AdminOrdersByPickupPage() {
           onEntregar={kitchen.entregar}
           cancelled={cancelled.orders}
           cancelledOpen={cancelled.open}
+          cancelledLoading={cancelled.isLoading}
+          cancelledError={cancelled.isError}
           onCancelledOpenChange={cancelled.setOpen}
         />
       )}

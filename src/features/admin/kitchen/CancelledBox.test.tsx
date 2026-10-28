@@ -24,14 +24,33 @@ const cancelled = (id: number, extra: Partial<CancelledOrder> = {}): CancelledOr
   ...extra,
 });
 
-function renderBox(orders: CancelledOrder[], { open = false, onOpenChange = vi.fn() } = {}) {
-  render(<CancelledBox orders={orders} timezone={TZ} open={open} onOpenChange={onOpenChange} />);
+function renderBox(
+  orders: CancelledOrder[],
+  { open = false, onOpenChange = vi.fn(), loading = false, error = false } = {},
+) {
+  render(
+    <CancelledBox orders={orders} timezone={TZ} open={open} onOpenChange={onOpenChange} loading={loading} error={error} />,
+  );
   return { onOpenChange };
 }
 
 const toggle = () => screen.getByRole('button', { name: /pedidos cancelados/i });
 
 describe('CancelledBox', () => {
+  it('shows an inline error instead of a 0 count or the empty text when the list failed to load', () => {
+    renderBox([], { open: true, error: true });
+
+    expect(screen.getByText('No pudimos cargar los cancelados. Probá Actualizar.')).toBeInTheDocument();
+    expect(within(toggle()).queryByText('0')).not.toBeInTheDocument();
+    expect(screen.queryByText('Todavía no se canceló ningún pedido hoy.')).not.toBeInTheDocument();
+  });
+
+  it('shows no count while loading', () => {
+    renderBox([], { loading: true });
+
+    expect(within(toggle()).queryByText('0')).not.toBeInTheDocument();
+  });
+
   it('is a collapsed section with the count, and shows no rows', () => {
     renderBox([cancelled(1), cancelled(2)]);
 

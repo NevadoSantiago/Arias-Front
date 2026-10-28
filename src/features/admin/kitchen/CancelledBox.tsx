@@ -12,6 +12,10 @@ interface CancelledBoxProps {
   timezone: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** First load in flight: no count is shown. */
+  loading?: boolean;
+  /** The list failed to load: an inline error replaces the count and the empty text. */
+  error?: boolean;
 }
 
 function CreditTag({ refunded }: { refunded: boolean | null }) {
@@ -33,7 +37,7 @@ function CreditTag({ refunded }: { refunded: boolean | null }) {
  * Read-only box of the orders the customer cancelled today, below "Pedidos entregados". An order
  * with `comandadoAt` already had its ticket printed: the kitchen must not prepare it.
  */
-export function CancelledBox({ orders, timezone, open, onOpenChange }: CancelledBoxProps) {
+export function CancelledBox({ orders, timezone, open, onOpenChange, loading = false, error = false }: CancelledBoxProps) {
   const { total, commandedLabel } = cancelledSummary(orders);
   const hhmm = (iso: string) => formatMinute(minuteOfDay(iso, timezone));
   return (
@@ -53,8 +57,8 @@ export function CancelledBox({ orders, timezone, open, onOpenChange }: Cancelled
           <span className="flex flex-wrap items-center gap-2">
             <CircleX className="h-[18px] w-[18px] shrink-0 text-destructive" aria-hidden="true" />
             <span className="text-[13px] font-bold uppercase tracking-brand">Pedidos cancelados</span>
-            <CountBadge n={total} className="h-[26px] bg-destructive text-[13px]" />
-            {commandedLabel && (
+            {!loading && !error && <CountBadge n={total} className="h-[26px] bg-destructive text-[13px]" />}
+            {commandedLabel && !error && (
               <span className="inline-flex h-6 items-center rounded-full border border-blue-600 bg-blue-500/10 px-2.5 text-xs font-bold text-blue-700">
                 {commandedLabel}
               </span>
@@ -72,7 +76,11 @@ export function CancelledBox({ orders, timezone, open, onOpenChange }: Cancelled
             Cancelados por el cliente hoy. Solo lectura. Si dice «Ya comandado», la comanda ya salió por la ticketera: no lo
             prepares.
           </p>
-          {orders.length === 0 ? (
+          {error ? (
+            <p role="alert" className="border-t border-destructive/20 py-2 text-[13px] text-destructive">
+              No pudimos cargar los cancelados. Probá Actualizar.
+            </p>
+          ) : loading ? null : orders.length === 0 ? (
             <p className="border-t border-destructive/20 py-2 text-[13px] text-muted-foreground">
               Todavía no se canceló ningún pedido hoy.
             </p>

@@ -40,6 +40,10 @@ export function useCancelledOrders({ fecha, enabled }: { fecha: string; enabled:
 
   return {
     orders: query.data ?? [],
+    /** First load in flight: there is no list yet, so the box must not show a count. */
+    isLoading: query.isLoading,
+    /** The list could not be read and there is nothing earlier to show; never the same as "no cancellations". */
+    isError: query.isError && !query.data,
     isFetching: query.isFetching,
     open,
     setOpen,

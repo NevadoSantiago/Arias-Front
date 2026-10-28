@@ -66,6 +66,16 @@ describe('useCancelledOrders', () => {
     expect(getCancelledOrders).toHaveBeenCalledTimes(2);
   });
 
+  it('reports loading, then an error (not an empty list) when the fetch is rejected', async () => {
+    vi.mocked(getCancelledOrders).mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useCancelledOrders({ fecha: '2026-10-28', enabled: true }), { wrapper });
+    expect(result.current.isLoading).toBe(true);
+    await flush();
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isError).toBe(true);
+  });
+
   it('does not ask for anything while disabled (another day is shown)', async () => {
     renderHook(() => useCancelledOrders({ fecha: '2026-10-28', enabled: false }), { wrapper });
     await flush();

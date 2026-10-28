@@ -14,6 +14,8 @@ interface KitchenBoardViewProps extends Omit<CommandedBoxProps, 'onEntregar'> {
   /** Today's cancelled orders, newest first. Without them the board shows no cancelled box. */
   cancelled?: CancelledOrder[];
   cancelledOpen?: boolean;
+  cancelledLoading?: boolean;
+  cancelledError?: boolean;
   onCancelledOpenChange?: (open: boolean) => void;
 }
 
@@ -76,7 +78,7 @@ function DeliveredBox({ board }: { board: KitchenBoard }) {
 
 /** Presentational: Comandados as the main column, Programados beside it, Entregados and Cancelados folded below. */
 export function KitchenBoardView(props: KitchenBoardViewProps): ReactNode {
-  const { board, leadMinutes, busy, onComandar, cancelled, cancelledOpen = false, onCancelledOpenChange } = props;
+  const { board, leadMinutes, busy, onComandar, cancelled, cancelledOpen = false, cancelledLoading, cancelledError, onCancelledOpenChange } = props;
   return (
     <div className="flex flex-col gap-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
@@ -89,6 +91,8 @@ export function KitchenBoardView(props: KitchenBoardViewProps): ReactNode {
           orders={cancelled}
           timezone={props.timezone}
           open={cancelledOpen}
+          loading={cancelledLoading}
+          error={cancelledError}
           onOpenChange={(open) => onCancelledOpenChange?.(open)}
         />
       )}
