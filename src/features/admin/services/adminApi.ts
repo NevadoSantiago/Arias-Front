@@ -624,6 +624,29 @@ export async function getOrdersByPickup(fecha?: string): Promise<PickupOrder[]> 
   return data.flatMap((g) => g.orders);
 }
 
+export type CancelReason = 'CUSTOMER' | 'DISH_REMOVED';
+
+/** An order cancelled on a pickup day, for the read-only box of the kitchen dashboard. */
+export interface CancelledOrder {
+  id: number;
+  customerNickname: string;
+  items: PickupOrderItem[];
+  notas: string | null;
+  pickupAt: string; // ISO instant
+  /** Set when the order was already commanded (its ticket printed) before being cancelled. */
+  comandadoAt: string | null;
+  cancelledAt: string; // ISO instant
+  /** true = the customer got the lunches back, false = consumed (late), null = unknown. */
+  cancelRefunded: boolean | null;
+  cancelReason: CancelReason | null;
+}
+
+/** Orders cancelled on a pickup day (`YYYY-MM-DD`), newest cancellation first. SUPER_ADMIN only. */
+export async function getCancelledOrders(fecha: string): Promise<CancelledOrder[]> {
+  const { data } = await api.get<CancelledOrder[]>(`${BASE}/orders/by-pickup/cancelled`, { params: { fecha } });
+  return data;
+}
+
 /**
  * PENDIENTE ("Comandar ahora": consumes credits and commands in one step) or CONFIRMADO -> COMANDADO.
  * There is no undo for it. One id uses the single endpoint, several use the all-or-nothing batch.

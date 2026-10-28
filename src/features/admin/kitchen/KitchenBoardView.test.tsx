@@ -72,6 +72,24 @@ describe('KitchenBoardView — structure', () => {
     expect(screen.getByRole('button', { name: /pedidos entregados/i })).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('has no cancelled box unless the page hands over the cancelled orders', () => {
+    renderBoard([]);
+
+    expect(screen.queryByRole('region', { name: /pedidos cancelados/i })).not.toBeInTheDocument();
+  });
+
+  it('puts the collapsed cancelled box below Entregados and lets the page control it', () => {
+    const onCancelledOpenChange = vi.fn();
+    renderBoard([], { cancelled: [], cancelledOpen: false, onCancelledOpenChange });
+
+    const regions = screen.getAllByRole('region').map((r) => r.getAttribute('aria-labelledby') ?? r.getAttribute('aria-label'));
+    expect(regions.indexOf('kb-delivered')).toBeLessThan(regions.indexOf('kb-cancelled-h'));
+    const toggle = screen.getByRole('button', { name: /pedidos cancelados/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(onCancelledOpenChange).toHaveBeenCalledWith(true);
+  });
+
   it('explains the empty boxes', () => {
     renderBoard([]);
     expect(screen.getByText('No hay pedidos en cocina')).toBeInTheDocument();

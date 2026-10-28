@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { CheckCircle2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { BoardOrder, KitchenBoard, ScheduledOrder } from './kitchenBoard';
+import type { CancelledOrder } from '@/features/admin/services/adminApi';
+import { CancelledBox } from './CancelledBox';
 import { CommandedBox, type CommandedBoxProps } from './CommandedBox';
 import { CountBadge, Items, OrderNote } from './kitchenParts';
 import { ScheduledBox } from './ScheduledBox';
@@ -9,6 +11,10 @@ import { ScheduledBox } from './ScheduledBox';
 interface KitchenBoardViewProps extends Omit<CommandedBoxProps, 'onEntregar'> {
   onComandar: (order: ScheduledOrder) => void;
   onEntregar: (orders: BoardOrder[]) => void;
+  /** Today's cancelled orders, newest first. Without them the board shows no cancelled box. */
+  cancelled?: CancelledOrder[];
+  cancelledOpen?: boolean;
+  onCancelledOpenChange?: (open: boolean) => void;
 }
 
 function DeliveredBox({ board }: { board: KitchenBoard }) {
@@ -68,9 +74,9 @@ function DeliveredBox({ board }: { board: KitchenBoard }) {
   );
 }
 
-/** Presentational: Comandados as the main column, Programados beside it, Entregados folded below. */
+/** Presentational: Comandados as the main column, Programados beside it, Entregados and Cancelados folded below. */
 export function KitchenBoardView(props: KitchenBoardViewProps): ReactNode {
-  const { board, leadMinutes, busy, onComandar } = props;
+  const { board, leadMinutes, busy, onComandar, cancelled, cancelledOpen = false, onCancelledOpenChange } = props;
   return (
     <div className="flex flex-col gap-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
@@ -78,6 +84,14 @@ export function KitchenBoardView(props: KitchenBoardViewProps): ReactNode {
         <ScheduledBox orders={board.scheduled} leadMinutes={leadMinutes} busy={busy} onComandar={onComandar} />
       </div>
       <DeliveredBox board={board} />
+      {cancelled && (
+        <CancelledBox
+          orders={cancelled}
+          timezone={props.timezone}
+          open={cancelledOpen}
+          onOpenChange={(open) => onCancelledOpenChange?.(open)}
+        />
+      )}
     </div>
   );
 }

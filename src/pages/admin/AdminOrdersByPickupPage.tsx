@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { OtherDayBoardView } from '@/features/admin/kitchen/OtherDayBoardView';
 import { useDashboardDay } from '@/features/admin/kitchen/useDashboardDay';
+import { CancelledNotice } from '@/features/admin/kitchen/CancelledNotice';
 import { KitchenBoardView } from '@/features/admin/kitchen/KitchenBoardView';
 import { formatMinute, minuteOfDay } from '@/features/admin/kitchen/kitchenBoard';
+import { useCancelledOrders } from '@/features/admin/kitchen/useCancelledOrders';
 import { PrintAgentPill } from '@/features/admin/kitchen/PrintAgentPill';
 import { UNDO_OTHER_MS, useKitchenBoard } from '@/features/admin/kitchen/useKitchenBoard';
 import { usePrintAgentStatus } from '@/features/admin/printing/usePrintAgentStatus';
@@ -17,11 +19,17 @@ import { usePrintAgentStatus } from '@/features/admin/printing/usePrintAgentStat
 export function AdminOrdersByPickupPage() {
   const day = useDashboardDay();
   const kitchen = useKitchenBoard({ enabled: day.isToday });
+  const cancelled = useCancelledOrders({ fecha: day.selected.date, enabled: day.isToday });
   const agent = usePrintAgentStatus();
   const { board, undo } = kitchen;
   const otherDay = !day.isToday && !day.isPending;
   const fetching = otherDay ? day.isFetching : kitchen.isFetching;
-  const refetch = otherDay ? day.refetch : kitchen.refetch;
+  const refetch = otherDay
+    ? day.refetch
+    : () => {
+        kitchen.refetch();
+        cancelled.refetch();
+      };
   const loading = otherDay ? day.isLoading : kitchen.isLoading || (day.isPending && !kitchen.isError);
   const failed = kitchen.isError || (otherDay && day.isError);
 
@@ -99,6 +107,18 @@ export function AdminOrdersByPickupPage() {
         )}
       </div>
 
+      <div aria-live="polite" className="mb-4 flex flex-col gap-3 empty:hidden">
+        {!otherDay &&
+          cancelled.notices.map((notice) => (
+            <CancelledNotice
+              key={notice.id}
+              order={notice}
+              onShow={cancelled.showCancelled}
+              onDismiss={() => cancelled.dismissNotice(notice.id)}
+            />
+          ))}
+      </div>
+
       {loading && (
         <p className="py-12 text-center text-sm uppercase tracking-brand text-muted-foreground">Cargando…</p>
       )}
@@ -130,6 +150,9 @@ export function AdminOrdersByPickupPage() {
           onReprint={kitchen.reprint}
           onComandar={kitchen.comandar}
           onEntregar={kitchen.entregar}
+          cancelled={cancelled.orders}
+          cancelledOpen={cancelled.open}
+          onCancelledOpenChange={cancelled.setOpen}
         />
       )}
     </div>

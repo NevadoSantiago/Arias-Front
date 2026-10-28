@@ -5,6 +5,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AdminOrdersByPickupPage } from './AdminOrdersByPickupPage';
 import {
+  getCancelledOrders,
   getOrdersByPickup,
   getPrintAgentStatus,
   getRestaurantConfigAdmin,
@@ -13,6 +14,7 @@ import {
   markOrdersEntregado,
   reprintOrder,
   undoOrderKitchenState,
+  type CancelledOrder,
   type PickupOrder,
   type RestaurantConfig,
 } from '@/features/admin/services/adminApi';
@@ -26,6 +28,7 @@ vi.mock('@/features/admin/services/adminApi', async () => {
   return {
     ...actual,
     getOrdersByPickup: vi.fn(),
+    getCancelledOrders: vi.fn(),
     getRestaurantConfigAdmin: vi.fn(),
     getServerTime: vi.fn(),
     markOrdersComandado: vi.fn(),
@@ -122,6 +125,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(at('12:03')));
   vi.mocked(markOrdersComandado).mockResolvedValue(undefined);
+  vi.mocked(getCancelledOrders).mockResolvedValue([]);
   vi.mocked(getServerTime).mockResolvedValue({ now: at('12:03') });
   vi.mocked(markOrdersEntregado).mockResolvedValue(undefined);
   vi.mocked(undoOrderKitchenState).mockResolvedValue(undefined);
@@ -361,6 +365,89 @@ describe('AdminOrdersByPickupPage — another day', () => {
     const normal = select.className;
     selectDay(MONDAY);
     await waitFor(() => expect(screen.getByLabelText('Día').className).not.toBe(normal));
+  });
+});
+
+const cancelledOrder = (id: number, extra: Partial<CancelledOrder> = {}): CancelledOrder => ({
+  id,
+  customerNickname: `alias${id}`,
+  items: [{ dishNombre: 'Milanesa', sideNombre: 'Papas', creditCost: 1, notas: null }],
+  notas: null,
+  pickupAt: at('13:00'),
+  comandadoAt: null,
+  cancelledAt: at('12:01'),
+  cancelRefunded: true,
+  cancelReason: 'CUSTOMER',
+  ...extra,
+});
+
+describe('AdminOrdersByPickupPage (cancelled orders)', () => {
+  it('asks for the cancelled orders of today and shows the collapsed box below Entregados', async () => {
+    vi.mocked(getCancelledOrders).mockResolvedValue([cancelledOrder(8), cancelledOrder(9, { comandadoAt: at('11:50') })]);
+    renderPage([]);
+
+    const toggle = await screen.findByRole('button', { name: /pedidos cancelados/i });
+    expect(getCancelledOrders).toHaveBeenCalledWith('2026-10-01');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(toggle).getByText('1 ya comandado')).toBeInTheDocument();
+    const delivered = screen.getByRole('button', { name: /pedidos entregados/i });
+    expect(delivered.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('refetches the cancelled orders together with the board on Actualizar', async () => {
+    renderPage([]);
+    await screen.findByRole('button', { name: /pedidos cancelados/i });
+    vi.mocked(getCancelledOrders).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: /actualizar/i }));
+
+    await waitFor(() => expect(getCancelledOrders).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not show a notice for orders that were already cancelled when the page loaded', async () => {
+    vi.mocked(getCancelledOrders).mockResolvedValue([cancelledOrder(8, { comandadoAt: at('11:50') })]);
+    renderPage([]);
+
+    await screen.findByRole('button', { name: /pedidos cancelados/i });
+    expect(screen.queryByText(/Se canceló el pedido/)).not.toBeInTheDocument();
+  });
+
+  it('warns the kitchen when a refresh reveals a newly cancelled order that was already commanded', async () => {
+    renderPage([]);
+    await screen.findByRole('button', { name: /pedidos cancelados/i });
+    vi.mocked(getCancelledOrders).mockResolvedValue([cancelledOrder(12, { customerNickname: 'Juanma', comandadoAt: at('11:50') })]);
+
+    fireEvent.click(screen.getByRole('button', { name: /actualizar/i }));
+
+    const notice = (await screen.findByText(/Se canceló el pedido/)).closest('[role="status"]') as HTMLElement;
+    expect(notice).toHaveTextContent('Se canceló el pedido N° 12 · Juanma.');
+    expect(notice).toHaveTextContent('descartá la comanda impresa');
+
+    fireEvent.click(within(notice).getByRole('button', { name: 'Ver cancelados' }));
+    expect(screen.getByRole('button', { name: /pedidos cancelados/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.queryByText(/Se canceló el pedido/)).not.toBeInTheDocument();
+    expect(screen.getByText('N° 12')).toBeInTheDocument();
+  });
+
+  it('lets the kitchen close the notice', async () => {
+    renderPage([]);
+    await screen.findByRole('button', { name: /pedidos cancelados/i });
+    vi.mocked(getCancelledOrders).mockResolvedValue([cancelledOrder(12, { comandadoAt: at('11:50') })]);
+    fireEvent.click(screen.getByRole('button', { name: /actualizar/i }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cerrar aviso' }));
+
+    expect(screen.queryByText(/Se canceló el pedido/)).not.toBeInTheDocument();
+  });
+
+  it('does not ask for cancelled orders while another day is shown', async () => {
+    const MONDAY = '2026-10-05';
+    renderPage([], { route: `/?dia=${MONDAY}` });
+    await screen.findByLabelText('Día');
+    await waitFor(() => expect(getOrdersByPickup).toHaveBeenCalledWith(MONDAY));
+
+    expect(getCancelledOrders).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /pedidos cancelados/i })).not.toBeInTheDocument();
   });
 });
 
