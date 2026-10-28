@@ -1,12 +1,25 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { PENDING_PURCHASES_KEY } from '@/features/credits/hooks/usePendingPurchases';
-import { refundDeadlineLabel, isRefundable } from '../cancellation';
-import { cancelOrderV2, OrderCancelError } from '../services/ordersApi';
+import { refundDeadlineLabel } from '../cancellation';
+import { cancelOrderV2, getOrdersV2, OrderCancelError } from '../services/ordersApi';
 import { balancePartOf, formatLunches, PENDING_PAYMENT_CREDITED_TOAST } from '../lunches';
 import type { OrderV2 } from '../services/ordersApi';
 import type { OrderNotice } from '../orderNotice';
+
+/**
+ * Lee del backend si el pedido recién cancelado devolvió los almuerzos (`true`), los consumió (`false`)
+ * o no se sabe (`null`: el backend no lo informa, no encontramos el pedido o la lectura falló).
+ */
+async function readCancelRefunded(queryClient: QueryClient, orderId: number): Promise<boolean | null> {
+  try {
+    const orders = await queryClient.fetchQuery({ queryKey: ['ordersV2'], queryFn: getOrdersV2, staleTime: 0 });
+    return orders.find((o) => o.id === orderId)?.cancelRefunded ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Cancelar un pedido v2 — mismo aviso de éxito e invalidaciones que ya
@@ -30,14 +43,14 @@ export function useCancelOrder({ onNotice }: { onNotice?: (notice: OrderNotice, 
     // depender de `cancelTarget` (estado de React), que puede haber
     // cambiado o quedar en null para cuando la mutación resuelve.
     mutationFn: (order: OrderV2) => cancelOrderV2(order.id),
-    // El plazo se mira contra el reloj al confirmar; el backend decide igual y lo informa en `cancelRefunded`.
-    onMutate: (order: OrderV2) => ({ late: !isRefundable(order, new Date()) }),
-    onSuccess: (_data, order, context) => {
+    // DELETE devuelve 204 sin cuerpo: el resultado (almuerzos devueltos o cobrados) se lee del pedido en el backend.
+    onSuccess: async (_data, order) => {
+      const refunded = await readCancelRefunded(queryClient, order.id);
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
       // D6: cancelar cambia el aviso de pagos pendientes de "Mis almuerzos" (el pedido pasa a CANCELADO).
       queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
-      if (context?.late) {
+      if (refunded === false) {
         // Cancelación tardía: el pedido se cancela igual pero los almuerzos se consumen.
         const count = order.creditTotal;
         const deadline = refundDeadlineLabel(order);
@@ -54,6 +67,15 @@ export function useCancelOrder({ onNotice }: { onNotice?: (notice: OrderNotice, 
         } else {
           toast.success(`Pedido cancelado · ${formatLunches(count)} ${count === 1 ? 'consumido' : 'consumidos'}`);
         }
+        setCancelTarget(null);
+        setCancelError(null);
+        return;
+      }
+      if (refunded === null) {
+        // El backend no lo informa (o no pudimos leerlo): no afirmamos ni devolución ni cobro.
+        const credited = order.estado === 'PENDIENTE_PAGO' ? PENDING_PAYMENT_CREDITED_TOAST : null;
+        if (onNotice) onNotice({ title: 'Pedido cancelado', text: credited ?? 'Revisá tu saldo para ver cómo quedó.' }, order);
+        else toast.success(credited ? `Pedido cancelado. ${credited}` : 'Pedido cancelado');
         setCancelTarget(null);
         setCancelError(null);
         return;

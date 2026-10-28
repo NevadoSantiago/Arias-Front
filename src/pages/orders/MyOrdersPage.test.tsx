@@ -462,7 +462,9 @@ describe('MyOrdersPage — cancel', () => {
   it('cancels through the confirmation sheet: refreshes the list and wallet, closes the row and tells at the top', async () => {
     vi.mocked(getOrdersV2)
       .mockResolvedValueOnce([friday])
-      .mockResolvedValue([{ ...friday, estado: 'CANCELADO', cancellable: false, modifiable: false, pickupTimeChangeable: false }]);
+      .mockResolvedValue([
+        { ...friday, estado: 'CANCELADO', cancelRefunded: true, cancellable: false, modifiable: false, pickupTimeChangeable: false },
+      ]);
     vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
     const { queryClient } = renderPage();
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
@@ -488,7 +490,10 @@ describe('MyOrdersPage — cancel', () => {
 
   it('shows the real count of the cancelled order even if another cancel is requested while it is pending', async () => {
     const other = order(207, '2026-09-25T14:00:00-03:00', { creditTotal: 1, items: [baseOrder.items[0]] });
-    vi.mocked(getOrdersV2).mockResolvedValue([friday, other]);
+    // Once cancelled, the backend reports the lunches as refunded.
+    vi.mocked(getOrdersV2)
+      .mockResolvedValueOnce([friday, other])
+      .mockResolvedValue([{ ...friday, estado: 'CANCELADO', cancelRefunded: true }, other]);
     let resolveCancel: () => void = () => {};
     vi.mocked(cancelOrderV2).mockImplementation(
       () =>
