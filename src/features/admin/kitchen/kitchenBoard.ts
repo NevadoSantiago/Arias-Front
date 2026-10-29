@@ -1,6 +1,6 @@
 import type { PickupOrder, PickupOrderItem, PrintStatus } from '@/features/admin/services/adminApi';
 
-const MINUTE_MS = 60_000;
+export const MINUTE_MS = 60_000;
 /** The timeline strip looks this far ahead. */
 export const TIMELINE_MS = 60 * MINUTE_MS;
 /** From here on the countdown of a group turns dark mustard. */
