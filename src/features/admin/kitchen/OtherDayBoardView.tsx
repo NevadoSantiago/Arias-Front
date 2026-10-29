@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ClipboardList, Clock } from 'lucide-react';
 import type { DayOption, DayOrder, DishSummary } from './dashboardDay';
-import { CountBadge, Items, OrderNote } from './kitchenParts';
+import { CountBadge, DishList, Items, OrderNote } from './kitchenParts';
 
 interface OtherDayBoardViewProps {
   day: DayOption;
@@ -43,17 +43,7 @@ function DishesBox({ day, summary }: Pick<OtherDayBoardViewProps, 'day' | 'summa
           {summary.total === 1 ? '1 plato' : `${summary.total} platos`}
         </span>
       </div>
-      <ul className="flex flex-col">
-        {summary.dishes.map((dish) => (
-          <li key={dish.name} className="flex items-baseline gap-3 border-t border-border py-2.5 first:border-t-0 first:pt-0">
-            <span className="min-w-[3rem] font-display text-3xl font-bold leading-none">{dish.count} ×</span>
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-[17px] font-semibold leading-snug">{dish.name}</span>
-              <span className="text-[13px] text-muted-foreground">{dish.breakdown}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <DishList dishes={summary.dishes} />
     </section>
   );
 }

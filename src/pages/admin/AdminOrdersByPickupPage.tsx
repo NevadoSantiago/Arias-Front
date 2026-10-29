@@ -144,6 +144,7 @@ export function AdminOrdersByPickupPage() {
           board={board}
           leadMinutes={kitchen.leadMinutes}
           busy={kitchen.busy}
+          nowMs={kitchen.nowMs}
           timezone={kitchen.timezone}
           agentOnline={agent.data?.online}
           reprinted={kitchen.reprinted}

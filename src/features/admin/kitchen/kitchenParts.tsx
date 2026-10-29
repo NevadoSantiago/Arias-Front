@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import type { BoardOrder } from './kitchenBoard';
+import type { DishSummary } from './dashboardDay';
 
 /** One numbered row per dish, each with its own note right under it. */
 export function Items({
@@ -84,5 +85,22 @@ export function EmptyState({ title, hint, className }: { title: string; hint: st
       <p className="text-lg font-semibold">{title}</p>
       <p className="text-sm text-muted-foreground">{hint}</p>
     </div>
+  );
+}
+
+/** The dishes to prepare: how many of each, with the breakdown by side. */
+export function DishList({ dishes, label }: { dishes: DishSummary['dishes']; label?: string }) {
+  return (
+    <ul aria-label={label} className="flex flex-col">
+      {dishes.map((dish) => (
+        <li key={dish.name} className="flex items-baseline gap-3 border-t border-border py-2.5 first:border-t-0 first:pt-0">
+          <span className="min-w-[3rem] shrink-0 font-display text-3xl font-bold leading-none">{dish.count} ×</span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="break-words text-[17px] font-semibold leading-snug">{dish.name}</span>
+            <span className="text-[13px] text-muted-foreground">{dish.breakdown}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }

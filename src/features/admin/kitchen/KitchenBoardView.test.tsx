@@ -37,6 +37,7 @@ function renderBoard(
     <MemoryRouter>
       <KitchenBoardView
         board={board}
+        nowMs={ms(now)}
         leadMinutes={60}
         busy={false}
         timezone={TZ}
@@ -70,6 +71,15 @@ describe('KitchenBoardView — structure', () => {
     expect(regions.indexOf('kb-commanded')).toBeLessThan(regions.indexOf('kb-scheduled'));
     expect(regions.indexOf('kb-scheduled')).toBeLessThan(regions.indexOf('kb-delivered'));
     expect(screen.getByRole('button', { name: /pedidos entregados/i })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('stacks the dish summary (collapsed) right above Programados in the right column', () => {
+    renderBoard([order(1, 'COMANDADO', '12:34'), order(2, 'PENDIENTE', '13:30')]);
+    const summary = screen.getByRole('region', { name: /resumen de platos/i });
+
+    expect(within(summary).getByRole('button', { name: /resumen de platos/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(summary.parentElement).toBe(scheduledBox().parentElement);
+    expect(summary.compareDocumentPosition(scheduledBox()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('has no cancelled box unless the page hands over the cancelled orders', () => {

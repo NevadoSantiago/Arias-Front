@@ -34,6 +34,7 @@ function renderBoard(
     <MemoryRouter>
       <KitchenBoardView
         board={board}
+        nowMs={Date.parse(at('12:03'))}
         leadMinutes={60}
         busy={false}
         timezone={TZ}

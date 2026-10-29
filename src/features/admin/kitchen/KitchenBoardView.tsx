@@ -7,10 +7,13 @@ import { CancelledBox } from './CancelledBox';
 import { CommandedBox, type CommandedBoxProps } from './CommandedBox';
 import { CountBadge, Items, OrderNote } from './kitchenParts';
 import { ScheduledBox } from './ScheduledBox';
+import { TodayDishesBox } from './TodayDishesBox';
 
 interface KitchenBoardViewProps extends Omit<CommandedBoxProps, 'onEntregar'> {
   onComandar: (order: ScheduledOrder) => void;
   onEntregar: (orders: BoardOrder[]) => void;
+  /** Server-corrected "now" (epoch ms), for the dish summary's "Desde ahora". */
+  nowMs: number;
   /** Today's cancelled orders, newest first. Without them the board shows no cancelled box. */
   cancelled?: CancelledOrder[];
   cancelledOpen?: boolean;
@@ -78,12 +81,15 @@ function DeliveredBox({ board }: { board: KitchenBoard }) {
 
 /** Presentational: Comandados as the main column, Programados beside it, Entregados and Cancelados folded below. */
 export function KitchenBoardView(props: KitchenBoardViewProps): ReactNode {
-  const { board, leadMinutes, busy, onComandar, cancelled, cancelledOpen = false, cancelledLoading, cancelledError, onCancelledOpenChange } = props;
+  const { board, leadMinutes, busy, nowMs, onComandar, cancelled, cancelledOpen = false, cancelledLoading, cancelledError, onCancelledOpenChange } = props;
   return (
     <div className="flex flex-col gap-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
         <CommandedBox {...props} />
-        <ScheduledBox orders={board.scheduled} leadMinutes={leadMinutes} busy={busy} onComandar={onComandar} />
+        <div className="flex min-w-0 flex-col gap-6">
+          <TodayDishesBox board={board} nowMs={nowMs} />
+          <ScheduledBox orders={board.scheduled} leadMinutes={leadMinutes} busy={busy} onComandar={onComandar} />
+        </div>
       </div>
       <DeliveredBox board={board} />
       {cancelled && (
