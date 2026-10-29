@@ -19,10 +19,11 @@ const order = (
   pickup: string,
   dish = 'Milanesa',
   side: string | null = null,
+  notas: string | null = null,
 ): PickupOrder => ({
   id,
   customerNickname: `cliente${id}`,
-  items: [{ dishNombre: dish, sideNombre: side, creditCost: 1, notas: null }],
+  items: [{ dishNombre: dish, sideNombre: side, creditCost: 1, notas }],
   notas: null,
   estado,
   pickupAt: at(pickup),

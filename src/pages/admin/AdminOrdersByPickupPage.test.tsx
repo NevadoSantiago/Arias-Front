@@ -307,9 +307,11 @@ describe('AdminOrdersByPickupPage — another day', () => {
     renderPage([], { route: '/?dia=2026-10-05', byDay: { [MONDAY]: mondayOrders } });
     const box = await screen.findByRole('region', { name: /platos del día/i });
     expect(within(box).getByText('3 platos')).toBeInTheDocument();
-    expect(within(box).getByText('2 ×')).toBeInTheDocument();
-    expect(within(box).getByText('Milanesa')).toBeInTheDocument();
-    expect(within(box).getByText('1 c/ Papas fritas · 1 sin acompañamiento')).toBeInTheDocument();
+    // The noted Milanesa sits apart from the main count, inside its own box.
+    const milanesa = within(box).getByLabelText('Milanesa: 2 en total, 1 con nota');
+    expect(within(milanesa).getByText('1 sin acompañamiento')).toBeInTheDocument();
+    expect(within(milanesa).getByText('c/ Papas fritas')).toBeInTheDocument();
+    expect(within(milanesa).getByText('sin sal')).toBeInTheDocument();
     expect(within(box).getByText('1 c/ Ensalada mixta')).toBeInTheDocument();
   });
 

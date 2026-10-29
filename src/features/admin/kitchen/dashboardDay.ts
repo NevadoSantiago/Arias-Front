@@ -74,37 +74,81 @@ export function resolveDay(value: string | null, options: DayOption[]): DayOptio
   return options.find((o) => o.date === value) ?? options[0];
 }
 
-export interface DishSummary {
-  total: number;
-  dishes: { name: string; count: number; breakdown: string }[];
+export interface NotedGroup {
+  count: number;
+  /** `null` when the dish has no side. */
+  side: string | null;
+  /** Trimmed, first spelling seen. */
+  note: string;
 }
 
-type SummarizableOrder = { items: Pick<PickupOrderItem, 'dishNombre' | 'sideNombre'>[] };
+export interface DishSummary {
+  total: number;
+  dishes: {
+    name: string;
+    /** Every unit of the dish, with or without note. */
+    count: number;
+    /** Units without a dish note: what `breakdown` describes. */
+    plainCount: number;
+    breakdown: string;
+    notedGroups: NotedGroup[];
+  }[];
+}
+
+type SummarizableOrder = { items: Pick<PickupOrderItem, 'dishNombre' | 'sideNombre' | 'notas'>[] };
 
 const byCountThenName = (a: { count: number; name: string }, b: { count: number; name: string }) =>
   b.count - a.count || a.name.localeCompare(b.name, 'es');
 
-/** Totals per dish name with their side breakdown, so the kitchen can prep before the day. */
+/** The text a side is shown as, also the key noted groups sort by. */
+export const sideLabel = (side: string | null) => (side ? `c/ ${side}` : 'sin acompañamiento');
+
+const byCountSideNote = (a: NotedGroup, b: NotedGroup) =>
+  b.count - a.count ||
+  sideLabel(a.side).localeCompare(sideLabel(b.side), 'es') ||
+  a.note.localeCompare(b.note, 'es');
+
+interface DishAcc {
+  count: number;
+  plainCount: number;
+  sides: Map<string, number>;
+  noSide: number;
+  noted: Map<string, NotedGroup>;
+}
+
+/**
+ * Totals per dish name, so the kitchen can prep before the day. Items with a dish note are listed
+ * apart (per side and note, case-insensitive) and left out of the main count and side breakdown.
+ */
 export function summarizeDishes(orders: SummarizableOrder[]): DishSummary {
-  const perDish = new Map<string, { count: number; sides: Map<string, number>; noSide: number }>();
+  const perDish = new Map<string, DishAcc>();
   let total = 0;
   for (const item of orders.flatMap((o) => o.items)) {
-    const dish = perDish.get(item.dishNombre) ?? { count: 0, sides: new Map(), noSide: 0 };
+    const dish = perDish.get(item.dishNombre) ?? { count: 0, plainCount: 0, sides: new Map(), noSide: 0, noted: new Map() };
     dish.count++;
-    if (item.sideNombre) dish.sides.set(item.sideNombre, (dish.sides.get(item.sideNombre) ?? 0) + 1);
-    else dish.noSide++;
+    const note = item.notas?.trim();
+    if (note) {
+      const key = JSON.stringify([item.sideNombre, note.toLowerCase()]);
+      const group = dish.noted.get(key) ?? { count: 0, side: item.sideNombre, note };
+      group.count++;
+      dish.noted.set(key, group);
+    } else {
+      dish.plainCount++;
+      if (item.sideNombre) dish.sides.set(item.sideNombre, (dish.sides.get(item.sideNombre) ?? 0) + 1);
+      else dish.noSide++;
+    }
     perDish.set(item.dishNombre, dish);
     total++;
   }
 
   const dishes = [...perDish.entries()]
-    .map(([name, { count, sides, noSide }]) => {
+    .map(([name, { count, plainCount, sides, noSide, noted }]) => {
       const parts = [...sides.entries()]
         .map(([side, n]) => ({ name: side, count: n }))
         .sort(byCountThenName)
         .map((s) => `${s.count} c/ ${s.name}`);
       if (noSide > 0) parts.push(`${noSide} sin acompañamiento`);
-      return { name, count, breakdown: parts.join(' · ') };
+      return { name, count, plainCount, breakdown: parts.join(' · '), notedGroups: [...noted.values()].sort(byCountSideNote) };
     })
     .sort(byCountThenName);
   return { total, dishes };

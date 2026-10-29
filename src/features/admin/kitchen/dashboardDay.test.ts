@@ -80,9 +80,14 @@ describe('resolveDay', () => {
   );
 });
 
-const dish = (dishNombre: string, sideNombre: string | null): Pick<PickupOrderItem, 'dishNombre' | 'sideNombre'> => ({
+const dish = (
+  dishNombre: string,
+  sideNombre: string | null,
+  notas: string | null = null,
+): Pick<PickupOrderItem, 'dishNombre' | 'sideNombre' | 'notas'> => ({
   dishNombre,
   sideNombre,
+  notas,
 });
 const orderOf = (...items: ReturnType<typeof dish>[]) => ({ items });
 
@@ -111,6 +116,8 @@ describe('summarizeDishes', () => {
     expect(summary.dishes[0]).toMatchObject({
       name: 'Milanesa',
       count: 5,
+      plainCount: 5,
+      notedGroups: [],
       breakdown: '2 c/ Papas fritas · 1 c/ Ensalada mixta · 2 sin acompañamiento',
     });
   });
@@ -126,5 +133,71 @@ describe('summarizeDishes', () => {
     ]);
     expect(summary.dishes.map((d) => d.name)).toEqual(['Bife', 'Ñoquis', 'Zapallo']);
     expect(summary.dishes[0].breakdown).toBe('1 c/ Arroz · 1 c/ Puré');
+  });
+});
+
+describe('summarizeDishes with dish notes', () => {
+  it('takes the noted items out of the main count and breakdown', () => {
+    const summary = summarizeDishes([
+      orderOf(dish('Milanesa', 'Puré'), dish('Milanesa', 'Puré'), dish('Milanesa', null)),
+      orderOf(dish('Milanesa', 'Puré', 'sin sal'), dish('Milanesa', 'Papas', 'sin sal')),
+    ]);
+    expect(summary.total).toBe(5);
+    expect(summary.dishes[0]).toEqual({
+      name: 'Milanesa',
+      count: 5,
+      plainCount: 3,
+      breakdown: '2 c/ Puré · 1 sin acompañamiento',
+      notedGroups: [
+        { count: 1, side: 'Papas', note: 'sin sal' },
+        { count: 1, side: 'Puré', note: 'sin sal' },
+      ],
+    });
+  });
+
+  it('groups notes trimmed and case-insensitively, keeping the first spelling', () => {
+    const summary = summarizeDishes([
+      orderOf(dish('Milanesa', 'Puré', 'Sin sal'), dish('Milanesa', 'Puré', '  sin SAL '), dish('Milanesa', 'Puré', 'bien cocida')),
+    ]);
+    expect(summary.dishes[0].notedGroups).toEqual([
+      { count: 2, side: 'Puré', note: 'Sin sal' },
+      { count: 1, side: 'Puré', note: 'bien cocida' },
+    ]);
+  });
+
+  it('treats a blank note as no note', () => {
+    const summary = summarizeDishes([orderOf(dish('Tarta', null, '   '), dish('Tarta', null, ''))]);
+    expect(summary.dishes[0]).toMatchObject({ count: 2, plainCount: 2, notedGroups: [] });
+  });
+
+  it('sorts the noted groups by count desc, then side, then note', () => {
+    const summary = summarizeDishes([
+      orderOf(
+        dish('Bife', 'Puré', 'b'),
+        dish('Bife', 'Arroz', 'z'),
+        dish('Bife', 'Arroz', 'a'),
+        dish('Bife', 'Papas', 'x'),
+        dish('Bife', 'Papas', 'x'),
+        dish('Bife', null, 'x'),
+      ),
+    ]);
+    expect(summary.dishes[0].notedGroups.map((g) => [g.count, g.side, g.note])).toEqual([
+      [2, 'Papas', 'x'],
+      [1, 'Arroz', 'a'],
+      [1, 'Arroz', 'z'],
+      [1, 'Puré', 'b'],
+      [1, null, 'x'],
+    ]);
+  });
+
+  it('leaves no main breakdown when every item has a note, and sorts dishes by their total', () => {
+    const summary = summarizeDishes([
+      orderOf(dish('Tarta', null), dish('Tarta', null), dish('Bife', 'Puré', 'sin sal'), dish('Bife', 'Puré', 'poco hecho'), dish('Bife', null, 'x')),
+    ]);
+    expect(summary.dishes.map((d) => [d.name, d.count, d.plainCount])).toEqual([
+      ['Bife', 3, 0],
+      ['Tarta', 2, 2],
+    ]);
+    expect(summary.dishes[0].breakdown).toBe('');
   });
 });
