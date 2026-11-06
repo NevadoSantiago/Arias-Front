@@ -589,12 +589,20 @@ export interface PickupOrderItem {
   notas: string | null;
 }
 
+/** A gift dessert of the benefits line riding on an order: free, apart from the dishes. */
+export interface PickupOrderRewardItem {
+  dessertId: number;
+  nombre: string;
+}
+
 export type KitchenEstado = 'PENDIENTE' | 'CONFIRMADO' | 'COMANDADO' | 'ENTREGADO';
 
 export interface PickupOrder {
   id: number;
   customerNickname: string;
   items: PickupOrderItem[];
+  /** Gift desserts of the order; the backend always sends it (empty without one), optional for older payloads. */
+  rewardItems?: PickupOrderRewardItem[];
   notas: string | null;
   /** Backend sends the full `OrderEstado`; the board only ever receives the four kitchen states. */
   estado: KitchenEstado;
@@ -631,6 +639,7 @@ export interface CancelledOrder {
   id: number;
   customerNickname: string;
   items: PickupOrderItem[];
+  rewardItems?: PickupOrderRewardItem[];
   notas: string | null;
   pickupAt: string; // ISO instant
   /** Set when the order was already commanded (its ticket printed) before being cancelled. */

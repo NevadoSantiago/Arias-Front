@@ -1,4 +1,4 @@
-import type { PickupOrder, PickupOrderItem } from '@/features/admin/services/adminApi';
+import type { PickupOrder, PickupOrderItem, PickupOrderRewardItem } from '@/features/admin/services/adminApi';
 import { addDays, localDate, schedulableRange, type DisabledDateEntry, type PickupScheduleEntry } from '@/features/admin/menu/pickupHours';
 import { formatMinute, minuteOfDay } from './kitchenBoard';
 
@@ -152,6 +152,23 @@ export function summarizeDishes(orders: SummarizableOrder[]): DishSummary {
     })
     .sort(byCountThenName);
   return { total, dishes };
+}
+
+export interface GiftDessertSummary {
+  total: number;
+  desserts: { name: string; count: number }[];
+}
+
+/** Totals per gift dessert, apart from the dishes: the kitchen preps them too, but they are no plates. */
+export function summarizeGiftDesserts(orders: { rewardItems?: Pick<PickupOrderRewardItem, 'nombre'>[] }[]): GiftDessertSummary {
+  const counts = new Map<string, number>();
+  let total = 0;
+  for (const reward of orders.flatMap((o) => o.rewardItems ?? [])) {
+    counts.set(reward.nombre, (counts.get(reward.nombre) ?? 0) + 1);
+    total++;
+  }
+  const desserts = [...counts.entries()].map(([name, count]) => ({ name, count })).sort(byCountThenName);
+  return { total, desserts };
 }
 
 export interface DayOrder extends PickupOrder {

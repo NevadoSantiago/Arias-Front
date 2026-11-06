@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Clock, Printer } from 'lucide-react';
 import type { ScheduledOrder } from './kitchenBoard';
-import { CountBadge, OrderNote } from './kitchenParts';
+import { CountBadge, GiftTicketLines, OrderNote } from './kitchenParts';
 
 interface ScheduledBoxProps {
   orders: ScheduledOrder[];
@@ -46,6 +46,7 @@ function ScheduledCard({
             {line.note && <span className="italic text-muted-foreground">{line.note}</span>}
           </div>
         ))}
+        <GiftTicketLines rewardItems={order.rewardItems} />
         <OrderNote notas={order.notas} compact />
       </div>
       <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { summarizeDishes } from './dashboardDay';
-import { DishList } from './kitchenParts';
+import { DishList, GiftDessertList } from './kitchenParts';
 
 const item = (dishNombre: string, sideNombre: string | null, notas: string | null = null) => ({
   dishNombre,
@@ -57,5 +57,27 @@ describe('DishList', () => {
 
     expect(within(list).getAllByText('Sin sal')).toHaveLength(1);
     expect(within(list).getByText('2 ×')).toBeInTheDocument();
+  });
+});
+
+describe('GiftDessertList', () => {
+  it('lists each gift dessert with its count, apart from the dishes', () => {
+    render(
+      <GiftDessertList
+        label="Postres de regalo"
+        desserts={[
+          { name: 'Flan casero', count: 3 },
+          { name: 'Brownie', count: 1 },
+        ]}
+      />,
+    );
+
+    const list = screen.getByRole('list', { name: 'Postres de regalo' });
+    const items = within(list).getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(within(items[0]).getByText('3 ×')).toBeInTheDocument();
+    expect(within(items[0]).getByText('Flan casero')).toBeInTheDocument();
+    expect(within(items[1]).getByText('1 ×')).toBeInTheDocument();
+    expect(within(items[1]).getByText('Brownie')).toBeInTheDocument();
   });
 });

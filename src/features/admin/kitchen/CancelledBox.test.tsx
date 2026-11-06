@@ -159,3 +159,17 @@ describe('CancelledNotice', () => {
     expect(onDismiss).toHaveBeenCalled();
   });
 });
+
+describe('CancelledBox — gift dessert', () => {
+  it('lists the gift dessert of a cancelled order after its dishes', () => {
+    renderBox([cancelled(1, { rewardItems: [{ dessertId: 4, nombre: 'Flan casero' }] })], { open: true });
+
+    expect(screen.getByText('Postre de regalo: Flan casero')).toBeInTheDocument();
+  });
+
+  it('shows no dessert line without one', () => {
+    renderBox([cancelled(1)], { open: true });
+
+    expect(screen.queryByText(/postre de regalo/i)).not.toBeInTheDocument();
+  });
+});

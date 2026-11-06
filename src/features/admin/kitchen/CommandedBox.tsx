@@ -9,7 +9,7 @@ import {
   type KitchenBoard,
   type OverdueOrder,
 } from './kitchenBoard';
-import { CountBadge, EmptyState, OrderNote } from './kitchenParts';
+import { CountBadge, EmptyState, GiftTicketLines, OrderNote } from './kitchenParts';
 import { PickupTimeline } from './PickupTimeline';
 import { PrintBadge, ProblemBanner } from './PrintChip';
 import { describePrint, problemSummary, type PrintView } from './printStatus';
@@ -50,6 +50,7 @@ function TicketLines({ order }: { order: BoardOrder }) {
           {line.note && <span className="pl-4 italic text-muted-foreground">{line.note}</span>}
         </div>
       ))}
+      <GiftTicketLines rewardItems={order.rewardItems} />
       <OrderNote notas={order.notas} compact />
     </div>
   );

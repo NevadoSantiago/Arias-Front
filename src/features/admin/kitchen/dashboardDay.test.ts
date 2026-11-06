@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PickupOrderItem } from '@/features/admin/services/adminApi';
-import { buildDayOptions, resolveDay, summarizeDishes } from './dashboardDay';
+import { buildDayOptions, resolveDay, summarizeDishes, summarizeGiftDesserts } from './dashboardDay';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 // 12:00 in Buenos Aires.
@@ -199,5 +199,25 @@ describe('summarizeDishes with dish notes', () => {
       ['Tarta', 2, 2],
     ]);
     expect(summary.dishes[0].breakdown).toBe('');
+  });
+});
+
+describe('summarizeGiftDesserts', () => {
+  const gifts = (...names: string[]) => ({ rewardItems: names.map((nombre, i) => ({ dessertId: i + 1, nombre })) });
+
+  it('is empty without gift desserts, with or without the field', () => {
+    expect(summarizeGiftDesserts([])).toEqual({ total: 0, desserts: [] });
+    expect(summarizeGiftDesserts([{}, { rewardItems: [] }])).toEqual({ total: 0, desserts: [] });
+  });
+
+  it('counts each dessert across the orders, most first and then by name', () => {
+    const summary = summarizeGiftDesserts([gifts('Flan casero'), gifts('Brownie'), gifts('Flan casero'), {}, gifts('Almendrado')]);
+
+    expect(summary.total).toBe(4);
+    expect(summary.desserts).toEqual([
+      { name: 'Flan casero', count: 2 },
+      { name: 'Almendrado', count: 1 },
+      { name: 'Brownie', count: 1 },
+    ]);
   });
 });

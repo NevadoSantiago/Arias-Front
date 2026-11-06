@@ -1,9 +1,9 @@
 import { useId, useMemo, useState } from 'react';
 import { ChevronDown, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { summarizeDishes } from './dashboardDay';
+import { summarizeDishes, summarizeGiftDesserts } from './dashboardDay';
 import { plural, type KitchenBoard } from './kitchenBoard';
-import { DishList } from './kitchenParts';
+import { DishList, GiftDessertSection } from './kitchenParts';
 import {
   countedOrders,
   filterByRange,
@@ -44,6 +44,7 @@ export function TodayDishesBox({ board, nowMs }: TodayDishesBoxProps) {
   const range = resolveRange(times, selection);
   const inRange = useMemo(() => (range ? filterByRange(orders, range) : []), [orders, range]);
   const summary = useMemo(() => summarizeDishes(inRange), [inRange]);
+  const gifts = useMemo(() => summarizeGiftDesserts(inRange), [inRange]);
 
   const labelOf = (ms: number) => times.find((t) => t.ms === ms)?.label ?? '';
   const fromLabel = range ? labelOf(range.from) : '';
@@ -155,6 +156,7 @@ export function TodayDishesBox({ board, nowMs }: TodayDishesBoxProps) {
               <div className="border-t border-border pt-1">
                 <DishList dishes={summary.dishes} label="Platos a preparar" />
               </div>
+              <GiftDessertSection summary={gifts} />
             </>
           )}
         </div>

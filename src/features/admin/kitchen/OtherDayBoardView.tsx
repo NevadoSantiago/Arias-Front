@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ClipboardList, Clock } from 'lucide-react';
-import type { DayOption, DayOrder, DishSummary } from './dashboardDay';
-import { CountBadge, DishList, Items, OrderNote } from './kitchenParts';
+import { summarizeGiftDesserts, type DayOption, type DayOrder, type DishSummary } from './dashboardDay';
+import { CountBadge, DishList, GiftDessertSection, Items, OrderNote } from './kitchenParts';
 
 interface OtherDayBoardViewProps {
   day: DayOption;
@@ -26,7 +26,7 @@ function dayNote(day: DayOption, hasOrders: boolean): string | null {
   return hasOrders ? `${base} Los pedidos que ya existen siguen activos.` : base;
 }
 
-function DishesBox({ day, summary }: Pick<OtherDayBoardViewProps, 'day' | 'summary'>) {
+function DishesBox({ day, summary, orders }: Pick<OtherDayBoardViewProps, 'day' | 'summary' | 'orders'>) {
   return (
     <section
       aria-labelledby="od-dishes"
@@ -44,6 +44,7 @@ function DishesBox({ day, summary }: Pick<OtherDayBoardViewProps, 'day' | 'summa
         </span>
       </div>
       <DishList dishes={summary.dishes} />
+      <GiftDessertSection summary={summarizeGiftDesserts(orders)} />
     </section>
   );
 }
@@ -112,7 +113,7 @@ export function OtherDayBoardView({ day, orders, summary, leadMinutes, onBackToT
         {note && <p className="px-1 text-[13px] text-muted-foreground">{note}</p>}
       </div>
       <div className="flex flex-wrap items-start gap-6">
-        {orders.length > 0 && <DishesBox day={day} summary={summary} />}
+        {orders.length > 0 && <DishesBox day={day} summary={summary} orders={orders} />}
         <ScheduledDayBox day={day} orders={orders} leadMinutes={leadMinutes} />
       </div>
     </div>

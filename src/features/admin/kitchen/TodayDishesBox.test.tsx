@@ -180,3 +180,48 @@ describe('TodayDishesBox', () => {
     expect(screen.queryByLabelText('Desde')).not.toBeInTheDocument();
   });
 });
+
+describe('TodayDishesBox — gift desserts', () => {
+  const withGifts = (o: PickupOrder, ...names: string[]): PickupOrder => ({
+    ...o,
+    rewardItems: names.map((nombre, i) => ({ dessertId: i + 1, nombre })),
+  });
+
+  it('lists the gift desserts apart from the dishes, with a count per dessert', () => {
+    renderBox([
+      withGifts(order(1, 'COMANDADO', '12:40', 'Milanesa'), 'Flan casero'),
+      withGifts(order(2, 'CONFIRMADO', '13:00', 'Tarta'), 'Flan casero'),
+      withGifts(order(3, 'PENDIENTE', '13:30', 'Tarta'), 'Brownie'),
+    ]);
+    open();
+
+    const gifts = screen.getByRole('list', { name: 'Postres de regalo' });
+    expect(within(gifts).getByText('2 ×')).toBeInTheDocument();
+    expect(within(gifts).getByText('Flan casero')).toBeInTheDocument();
+    expect(within(gifts).getByText('Brownie')).toBeInTheDocument();
+    // Los postres no son platos: el total de platos no cambia.
+    expect(header()).toHaveTextContent('3 platos');
+    expect(within(screen.getByRole('list', { name: 'Platos a preparar' })).queryByText('Flan casero')).not.toBeInTheDocument();
+  });
+
+  it('follows the pickup range like the dishes do', () => {
+    renderBox([
+      withGifts(order(1, 'COMANDADO', '12:40', 'Milanesa'), 'Flan casero'),
+      withGifts(order(2, 'PENDIENTE', '13:30', 'Tarta'), 'Brownie'),
+    ]);
+    open();
+
+    fireEvent.change(to(), { target: { value: String(ms('12:40')) } });
+
+    const gifts = screen.getByRole('list', { name: 'Postres de regalo' });
+    expect(within(gifts).getByText('Flan casero')).toBeInTheDocument();
+    expect(within(gifts).queryByText('Brownie')).not.toBeInTheDocument();
+  });
+
+  it('shows no gift section when no order has a dessert', () => {
+    renderBox();
+    open();
+
+    expect(screen.queryByRole('list', { name: 'Postres de regalo' })).not.toBeInTheDocument();
+  });
+});

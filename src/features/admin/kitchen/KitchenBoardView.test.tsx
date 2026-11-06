@@ -286,3 +286,23 @@ describe('KitchenBoardView — Programados', () => {
     expect(screen.getByRole('button', { name: 'Comandar ahora el pedido N° 7' })).toBeDisabled();
   });
 });
+
+describe('KitchenBoardView — gift desserts', () => {
+  const gift = { rewardItems: [{ dessertId: 4, nombre: 'Flan casero' }] };
+
+  it('prints the gift dessert on a commanded order ticket, and on a scheduled one', () => {
+    renderBoard([
+      order(1, 'COMANDADO', '12:40', gift),
+      order(2, 'CONFIRMADO', '14:00', { rewardItems: [{ dessertId: 5, nombre: 'Brownie' }] }),
+    ]);
+
+    expect(within(commandedBox()).getByText('1x Postre de regalo: Flan casero')).toBeInTheDocument();
+    expect(within(scheduledBox()).getByText('1x Postre de regalo: Brownie')).toBeInTheDocument();
+  });
+
+  it('shows no dessert line on an order without one', () => {
+    renderBoard([order(1, 'COMANDADO', '12:40'), order(2, 'CONFIRMADO', '14:00', { rewardItems: [] })]);
+
+    expect(screen.queryByText(/postre de regalo/i)).not.toBeInTheDocument();
+  });
+});
