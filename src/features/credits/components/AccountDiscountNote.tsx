@@ -1,5 +1,5 @@
 import { Tag } from 'lucide-react';
-import { formatDiscountExpiry } from '../packPricing';
+import { accountDiscountName, formatDiscountExpiry } from '../packPricing';
 import type { AccountDiscount } from '../types';
 
 /** Nota "10% aplicado · vence lun 2/11 13:42" de la pantalla de compra (prototipo `Packs.dc.html`). */
@@ -17,7 +17,7 @@ export function AccountDiscountNote({ discount }: { discount: AccountDiscount })
           <strong className="font-bold text-success">{discount.percent}% aplicado</strong>
           <span className="text-muted-foreground"> · vence {formatDiscountExpiry(discount.expiresAt)}</span>
         </span>
-        <span className="text-xs text-muted-foreground">Descuento primeros 100. Se usa en esta compra.</span>
+        <span className="text-xs text-muted-foreground">{accountDiscountName(discount.source)}. Se usa en esta compra.</span>
       </span>
     </div>
   );

@@ -65,6 +65,14 @@ export function applyAccountDiscount(
   return discounted > 0 ? discounted : listCents;
 }
 
+/**
+ * Nombre del descuento de la cuenta según su origen: la línea de beneficios o, para cualquier otro
+ * origen (la campaña de reseñas, o una respuesta vieja sin `source`), la reseña.
+ */
+export function accountDiscountName(source: AccountDiscount['source']): string {
+  return source === 'LOYALTY' ? 'Línea de beneficios' : 'Descuento por tu reseña';
+}
+
 /** El descuento solo si todavía no venció según el reloj local (el servidor sigue siendo la autoridad al cobrar). */
 export function activeAccountDiscount(
   discount: AccountDiscount | null | undefined,

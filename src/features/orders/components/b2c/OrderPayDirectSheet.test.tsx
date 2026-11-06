@@ -287,9 +287,17 @@ describe('OrderPayDirectSheet', () => {
       // 3 × $1.500 = $4.500 → −10% = $4.050
       expect(await screen.findByRole('button', { name: /pagar \$\s?4\.050(?!,) con mercado pago/i })).toBeEnabled();
       expect(screen.getByText('Subtotal')).toBeInTheDocument();
-      expect(screen.getByText(/descuento primeros 100/i)).toHaveTextContent('· −10%');
+      expect(screen.getByText(/descuento por tu reseña/i)).toHaveTextContent('· −10%');
       expect(screen.getByText('−$ 450')).toBeInTheDocument();
       expect(screen.getByText(/\$\s?4\.500(?!,)/).className).toContain('line-through');
+    });
+
+    it('names the discount "Línea de beneficios" when it comes from the loyalty line', async () => {
+      vi.mocked(getPacks).mockResolvedValue([dayPack, weekPack]);
+      renderSheet({ totalLunches: 3, discount: { ...discount, source: 'LOYALTY' } });
+
+      expect(await screen.findByText(/línea de beneficios/i)).toHaveTextContent('· −10%');
+      expect(screen.queryByText(/descuento por tu reseña/i)).not.toBeInTheDocument();
     });
 
     it('applies it only to the Mercado Pago part in a partial payment', async () => {

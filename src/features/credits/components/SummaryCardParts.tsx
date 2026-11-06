@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { accountDiscountName } from '../packPricing';
+import type { AccountDiscount } from '../types';
 
 /** Fila superior de las tarjetas-resumen: tile con ícono, nombre + cantidad y el lema a la derecha. */
 export function SummaryHeader({
@@ -35,13 +37,15 @@ export interface CardAccountDiscount {
   percent: number;
   listTotalLabel: string;
   totalLabel: string;
+  /** De dónde viene el descuento; define el nombre de la fila. */
+  source?: AccountDiscount['source'];
 }
 
-/** Renglones del descuento de la cuenta en una tarjeta-resumen: "Primeros 100 −10%" y el total con la lista tachada. */
+/** Renglones del descuento de la cuenta en una tarjeta-resumen: "Línea de beneficios −10%" y el total con la lista tachada. */
 export function AccountDiscountRows({ discount }: { discount: CardAccountDiscount }) {
   return (
     <>
-      <SummaryRow label="Primeros 100" value={`−${discount.percent}%`} valueClassName="font-bold text-success" />
+      <SummaryRow label={accountDiscountName(discount.source)} value={`−${discount.percent}%`} valueClassName="font-bold text-success" />
       <span className="flex items-end justify-between gap-3 text-sm">
         <span className="text-muted-foreground">Total</span>
         <span className="flex flex-col items-end gap-0.5 text-right">

@@ -1,7 +1,8 @@
 import { Banknote, UtensilsCrossed } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { formatDiscountExpiry } from '../packPricing';
+import { accountDiscountName, formatDiscountExpiry } from '../packPricing';
+import type { AccountDiscount } from '../types';
 
 export interface PackCheckoutSelection {
   isLoose: boolean;
@@ -17,6 +18,7 @@ export interface PackCheckoutSelection {
     subtotalLabel: string;
     savingLabel: string;
     expiresAt: string;
+    source?: AccountDiscount['source'];
   } | null;
   totalLabel: string;
   /** Saldo disponible antes/después de esta compra — solo informativo; null hasta que se conoce. */
@@ -86,7 +88,7 @@ export function PackCheckoutSheet({ open, onClose, selection, onPay, isPending }
                   </div>
                   <div className="flex justify-between gap-3 text-sm">
                     <dt className="font-semibold">
-                      Descuento primeros 100{' '}
+                      {accountDiscountName(selection.accountDiscount.source)}{' '}
                       <span className="whitespace-nowrap font-bold text-success">· −{selection.accountDiscount.percent}%</span>
                     </dt>
                     <dd className="m-0 whitespace-nowrap font-bold text-success">−{selection.accountDiscount.savingLabel}</dd>

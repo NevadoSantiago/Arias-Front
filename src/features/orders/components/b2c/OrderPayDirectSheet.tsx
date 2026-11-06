@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { getPacks } from '@/features/credits/services/creditsApi';
 import {
+  accountDiscountName,
   activeAccountDiscount,
   applyAccountDiscount,
   formatDiscountExpiry,
@@ -95,7 +96,7 @@ export function OrderPayDirectSheet({
       </div>
       <div className="flex justify-between gap-3 text-sm">
         <span className="font-semibold">
-          Descuento primeros 100{' '}
+          {accountDiscountName(accountDiscount.source)}{' '}
           <span className="whitespace-nowrap font-bold text-success">· −{accountDiscount.percent}%</span>
         </span>
         <span className="whitespace-nowrap font-bold text-success">−{formatPrice(savingCents)}</span>

@@ -39,10 +39,33 @@ describe('PackCheckoutSheet', () => {
     await screen.findByRole('dialog', { name: /revisá tu compra/i });
     expect(screen.getByText('Subtotal')).toBeInTheDocument();
     expect(screen.getByText('$ 7.000')).toBeInTheDocument();
-    expect(screen.getByText(/descuento primeros 100/i)).toHaveTextContent('· −10%');
+    expect(screen.getByText(/descuento por tu reseña/i)).toHaveTextContent('· −10%');
     expect(screen.getByText('−$ 700')).toBeInTheDocument();
     expect(screen.getByText('$ 6.300')).toBeInTheDocument();
     expect(screen.getByText(/se usa en esta compra\. vence/i)).toBeInTheDocument();
+  });
+
+  it('names the discount "Línea de beneficios" when it comes from the loyalty line', async () => {
+    renderSheet({
+      selection: { ...withAccountDiscount, accountDiscount: { ...withAccountDiscount.accountDiscount!, source: 'LOYALTY' } },
+    });
+
+    await screen.findByRole('dialog', { name: /revisá tu compra/i });
+    expect(screen.getByText(/línea de beneficios/i)).toHaveTextContent('· −10%');
+    expect(screen.queryByText(/descuento por tu reseña/i)).not.toBeInTheDocument();
+  });
+
+  it('names the discount after the review when it comes from the review campaign', async () => {
+    renderSheet({
+      selection: {
+        ...withAccountDiscount,
+        accountDiscount: { ...withAccountDiscount.accountDiscount!, source: 'REVIEW_CAMPAIGN' },
+      },
+    });
+
+    await screen.findByRole('dialog', { name: /revisá tu compra/i });
+    expect(screen.getByText(/descuento por tu reseña/i)).toHaveTextContent('· −10%');
+    expect(screen.queryByText(/línea de beneficios/i)).not.toBeInTheDocument();
   });
 
   it('shows no account-discount rows when there is none', async () => {
@@ -50,7 +73,7 @@ describe('PackCheckoutSheet', () => {
 
     await screen.findByText('Paquete Semana');
     expect(screen.queryByText('Subtotal')).not.toBeInTheDocument();
-    expect(screen.queryByText(/primeros 100/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/descuento por tu reseña|línea de beneficios/i)).not.toBeInTheDocument();
   });
 
   it('shows the product, the per-lunch price, the discount and the total', async () => {

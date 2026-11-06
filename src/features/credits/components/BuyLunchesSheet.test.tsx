@@ -90,7 +90,7 @@ describe('BuyLunchesSheet with an account discount', () => {
 
     await screen.findAllByRole('radio');
     expect(screen.queryByText(/aplicado/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Primeros 100')).not.toBeInTheDocument();
+    expect(screen.queryByText('Descuento por tu reseña')).not.toBeInTheDocument();
   });
 
   it('ignores a discount that expired between load and pay', async () => {

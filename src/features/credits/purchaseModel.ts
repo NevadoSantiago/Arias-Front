@@ -85,6 +85,7 @@ function priceWithDiscount(listCents: number, discount: AccountDiscount | null) 
       subtotalLabel: formatPrice(listCents),
       savingLabel: formatPrice(listCents - finalCents),
       expiresAt: discount.expiresAt,
+      source: discount.source,
     },
   };
 }

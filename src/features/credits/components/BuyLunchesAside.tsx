@@ -41,7 +41,12 @@ export function BuyLunchesAside() {
     if (!discount) return null;
     const finalCents = applyAccountDiscount(listCents, discount);
     if (finalCents === listCents) return null;
-    return { percent: discount.percent, listTotalLabel: formatPrice(listCents), totalLabel: formatPrice(finalCents) };
+    return {
+      percent: discount.percent,
+      listTotalLabel: formatPrice(listCents),
+      totalLabel: formatPrice(finalCents),
+      source: discount.source,
+    };
   };
 
   return (
