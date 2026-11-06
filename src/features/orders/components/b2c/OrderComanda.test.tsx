@@ -115,3 +115,30 @@ describe('OrderComanda — remove a dish (F29)', () => {
     expect(onRemoveItem).toHaveBeenCalledWith(5);
   });
 });
+
+describe('OrderComanda — gift dessert line', () => {
+  const gift: ComandaItem = {
+    id: -1,
+    name: 'Postre de regalo — Flan casero',
+    side: null,
+    note: null,
+    costLabel: 'Sin cargo',
+    gift: true,
+  };
+
+  it('shows the gift line with "Sin cargo" and no "sin acompañamiento" text', () => {
+    renderComanda({ items: [items[0], gift] });
+
+    expect(screen.getByText('Postre de regalo — Flan casero')).toBeInTheDocument();
+    expect(screen.getByText('Sin cargo')).toBeInTheDocument();
+    expect(screen.queryByText('sin acompañamiento')).not.toBeInTheDocument();
+  });
+
+  it('never offers to remove the gift line', () => {
+    const onRemoveItem = vi.fn();
+    renderComanda({ items: [items[0], gift], onRemoveItem });
+
+    expect(screen.getByRole('button', { name: /quitar milanesa napolitana/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /quitar postre de regalo/i })).not.toBeInTheDocument();
+  });
+});

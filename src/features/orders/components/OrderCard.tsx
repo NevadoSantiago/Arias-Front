@@ -14,6 +14,7 @@ import { formatOrderDayLabel, formatOrderPayDeadlineLabel, formatOrderTimeLabel 
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { orderStatusLabel } from './orderStatus';
 import type { OrderItemV2, OrderV2 } from '../services/ordersApi';
+import { giftDessertLabel } from './b2c/comandaModel';
 
 interface Props {
   order: OrderV2;
@@ -164,6 +165,12 @@ export function OrderCard({
                 </button>
               )}
             </div>
+          ))}
+          {(order.rewardItems ?? []).map((reward, i) => (
+            <p key={`reward-${i}`} className="m-0 flex items-center justify-between gap-2 text-[14.5px] leading-snug">
+              <span className="font-semibold text-foreground">{giftDessertLabel(reward.nombre)}</span>
+              <span className="text-xs font-bold text-success">Sin cargo</span>
+            </p>
           ))}
           {order.notas && <p className="m-0 text-[13px] italic text-muted-foreground">{order.notas}</p>}
           {windowLine && (

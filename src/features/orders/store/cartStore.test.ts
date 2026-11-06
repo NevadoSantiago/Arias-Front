@@ -190,3 +190,58 @@ describe('cartStore — deeper line validation', () => {
     expect(Object.keys(store.getState().byDate)).toEqual(['2026-06-01']);
   });
 });
+
+describe('cartStore — gift dessert', () => {
+  beforeEach(() => window.sessionStorage.clear());
+  afterEach(() => window.sessionStorage.clear());
+
+  const reward = { fecha: '2026-06-01', dessertId: 4, nombre: 'Flan casero', fotoUrl: null };
+
+  it('keeps a well-formed stored gift dessert', async () => {
+    const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [validLine] }, reward });
+
+    expect(store.getState().reward).toEqual(reward);
+  });
+
+  it.each([
+    ['dessertId is not a number', { ...reward, dessertId: 'x' }],
+    ['nombre is missing', { fecha: '2026-06-01', dessertId: 4, fotoUrl: null }],
+    ['fecha is not an ISO date', { ...reward, fecha: 'mañana' }],
+    ['it is not an object', 'flan'],
+  ])('drops the gift dessert when %s', async (_name, bad) => {
+    const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [validLine] }, reward: bad });
+
+    expect(store.getState().reward).toBeNull();
+    expect(store.getState().byDate['2026-06-01']).toHaveLength(1);
+  });
+
+  it('is null for a cart stored before gift desserts existed', async () => {
+    const store = await loadStore({ ownerId: 7, byDate: { '2026-06-01': [validLine] } });
+
+    expect(store.getState().reward).toBeNull();
+  });
+
+  it('sets, replaces and clears the gift dessert; clearing its day or resetting also drops it', async () => {
+    const store = await loadStore();
+
+    store.getState().setReward(reward);
+    expect(store.getState().reward).toEqual(reward);
+
+    store.getState().setReward({ ...reward, dessertId: 5, nombre: 'Brownie' });
+    expect(store.getState().reward?.dessertId).toBe(5);
+
+    store.getState().clearDay('2026-06-02');
+    expect(store.getState().reward?.dessertId).toBe(5);
+
+    store.getState().clearDay('2026-06-01');
+    expect(store.getState().reward).toBeNull();
+
+    store.getState().setReward(reward);
+    store.getState().setReward(null);
+    expect(store.getState().reward).toBeNull();
+
+    store.getState().setReward(reward);
+    store.getState().reset();
+    expect(store.getState().reward).toBeNull();
+  });
+});

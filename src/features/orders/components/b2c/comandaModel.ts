@@ -28,6 +28,8 @@ export interface ComandaItem {
   costLabel: string;
   /** Marca "Nuevo" (platos sumados a un pedido existente). */
   isNew?: boolean;
+  /** Postre de regalo de la línea de beneficios: sin cargo, sin acompañamiento y sin poder quitarse. */
+  gift?: boolean;
 }
 
 /** Pie de la comanda: cómo se paga (o se pagó) el pedido. */
@@ -47,8 +49,11 @@ export function isPaidWithMercadoPago(order: OrderV2): boolean {
   return order.paidWithMercadoPago && order.estado !== 'PENDIENTE_PAGO';
 }
 
+/** Título de la línea del postre de regalo en la comanda y en las tarjetas del pedido. */
+export const giftDessertLabel = (nombre: string) => `Postre de regalo — ${nombre}`;
+
 export function comandaItems(order: OrderV2, { newItemIds }: { newItemIds?: ReadonlySet<number> } = {}): ComandaItem[] {
-  return order.items.map((item) => ({
+  const dishes = order.items.map((item) => ({
     id: item.id,
     name: item.dishNombre,
     side: item.sideNombre ? `c/ ${item.sideNombre.toLowerCase()}` : null,
@@ -56,6 +61,16 @@ export function comandaItems(order: OrderV2, { newItemIds }: { newItemIds?: Read
     costLabel: formatLunches(item.creditCost),
     isNew: newItemIds?.has(item.id) ?? false,
   }));
+  // Ids negativos: el postre no es un ítem del pedido y nunca se quita por id.
+  const gifts = (order.rewardItems ?? []).map((reward, i) => ({
+    id: -(i + 1),
+    name: giftDessertLabel(reward.nombre),
+    side: null,
+    note: null,
+    costLabel: 'Sin cargo',
+    gift: true,
+  }));
+  return [...dishes, ...gifts];
 }
 
 /**

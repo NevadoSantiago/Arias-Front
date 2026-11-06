@@ -151,14 +151,16 @@ export function OrderComanda({
                     {item.costLabel}
                   </span>
                 </span>
-                <span className="flex items-center gap-2 pl-3.5">
-                  <span className="text-[13px] text-muted-foreground">{item.side ?? 'sin acompañamiento'}</span>
-                  {item.isNew && (
-                    <span className="inline-flex h-[18px] items-center rounded-[3px] bg-success px-1.5 text-[9.5px] font-bold uppercase tracking-[0.1em] text-success-foreground">
-                      Nuevo
-                    </span>
-                  )}
-                </span>
+                {!item.gift && (
+                  <span className="flex items-center gap-2 pl-3.5">
+                    <span className="text-[13px] text-muted-foreground">{item.side ?? 'sin acompañamiento'}</span>
+                    {item.isNew && (
+                      <span className="inline-flex h-[18px] items-center rounded-[3px] bg-success px-1.5 text-[9.5px] font-bold uppercase tracking-[0.1em] text-success-foreground">
+                        Nuevo
+                      </span>
+                    )}
+                  </span>
+                )}
                 {item.note && (
                   <span className="ml-3.5 mt-1 flex flex-col gap-px border-l-2 border-primary/40 pl-2.5">
                     <span className="text-[9.5px] font-bold uppercase tracking-[0.16em] text-primary/80">Nota</span>
@@ -166,7 +168,7 @@ export function OrderComanda({
                   </span>
                 )}
                 </span>
-                {onRemoveItem && (
+                {onRemoveItem && !item.gift && (
                   <button
                     type="button"
                     onClick={() => onRemoveItem(item.id)}

@@ -10,6 +10,7 @@ import {
   getRestaurantConfig,
   cancelOrderV2,
   InsufficientCreditsError,
+  LoyaltyDessertError,
   OrderCancelError,
   OrderNotModifiableError,
   PickupTimeChangeError,
@@ -493,6 +494,55 @@ describe('changeOrderPickupTimeV2', () => {
     for (const error of [placed, added]) {
       expect(error).not.toBeInstanceOf(PickupTimeChangeError);
       expect(error.message).toBe('Error de red');
+    }
+  });
+});
+
+// Línea de beneficios (backend B3): el postre de regalo viaja con el pedido.
+describe('gift dessert on a lunch order', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const payload = {
+    items: [{ dishId: 10, sideId: null, notas: null }],
+    pickupAt: '2026-05-21T15:00:00Z',
+    notas: null,
+    rewardDessertId: 4,
+  };
+
+  it('sends rewardDessertId when placing the order', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { id: 1 } });
+
+    await placeOrderV2(payload);
+
+    expect(api.post).toHaveBeenCalledWith('/api/v2/orders', payload);
+  });
+
+  it('sends rewardDessertId on direct checkout', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { orderId: 1, purchaseId: 'p', initPoint: 'x' } });
+
+    await startDirectCheckoutV2(payload);
+
+    expect(api.post).toHaveBeenCalledWith('/api/v2/orders/direct-checkout', payload);
+  });
+
+  it.each([
+    ['loyalty-disabled', 'Tu postre de regalo ya no está disponible.'],
+    ['no-pending-dessert', 'Tu postre de regalo ya no está disponible.'],
+    ['dessert-not-found', 'Ese postre ya no está disponible. Elegí otro.'],
+    ['dessert-out-of-stock', 'Ese postre se terminó por hoy. Elegí otro.'],
+  ])('maps %s to a friendly LoyaltyDessertError on place and on direct checkout', async (title, message) => {
+    const failure = { response: { data: { title } } };
+    vi.mocked(api.post).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
+
+    const placed = await placeOrderV2(payload).catch((e) => e);
+    const direct = await startDirectCheckoutV2(payload).catch((e) => e);
+
+    for (const error of [placed, direct]) {
+      expect(error).toBeInstanceOf(LoyaltyDessertError);
+      expect(error.code).toBe(title);
+      expect(error.message).toBe(message);
     }
   });
 });

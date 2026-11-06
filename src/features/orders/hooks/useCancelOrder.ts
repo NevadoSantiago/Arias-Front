@@ -50,6 +50,9 @@ export function useCancelOrder({ onNotice }: { onNotice?: (notice: OrderNotice, 
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
       // D6: cancelar cambia el aviso de pagos pendientes de "Mis almuerzos" (el pedido pasa a CANCELADO).
       queryClient.invalidateQueries({ queryKey: PENDING_PURCHASES_KEY });
+      // Cancelar un pedido con postre de regalo lo devuelve al cliente (y su stock): la línea y el selector se refrescan.
+      queryClient.invalidateQueries({ queryKey: ['loyalty'] });
+      queryClient.invalidateQueries({ queryKey: ['availableDesserts'] });
       if (refunded === false) {
         // Cancelación tardía: el pedido se cancela igual pero los almuerzos se consumen.
         const count = order.creditTotal;

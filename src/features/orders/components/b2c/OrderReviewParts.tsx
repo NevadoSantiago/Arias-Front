@@ -64,10 +64,13 @@ export function BalanceBox({
   walletAvailable,
   totalLunches,
   missingNotice = false,
+  giftDessert = false,
 }: {
   walletAvailable: number | null;
   totalLunches: number;
   missingNotice?: boolean;
+  /** El pedido lleva el postre de regalo: se lista sin cargo, sin tocar los almuerzos. */
+  giftDessert?: boolean;
 }) {
   if (walletAvailable === null) return null;
   const left = walletAvailable - totalLunches;
@@ -103,6 +106,12 @@ export function BalanceBox({
         <span className="text-muted-foreground">Este pedido usa</span>
         <span className="font-semibold text-foreground">{formatLunches(totalLunches)}</span>
       </div>
+      {giftDessert && (
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Postre de regalo</span>
+          <span className="font-bold text-success">Sin cargo</span>
+        </div>
+      )}
       <div className="border-t border-border" />
       <div className="flex justify-between text-[15px] font-bold text-foreground">
         <span>Te quedan</span>

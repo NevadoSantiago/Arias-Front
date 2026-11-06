@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Clock } from 'lucide-react';
@@ -13,7 +13,11 @@ import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
 import { SurpriseGift } from '@/features/credits/components/SurpriseGift';
+import { DessertPickerSheet } from '@/features/loyalty/components/DessertPickerSheet';
 import { LoyaltySection } from '@/features/loyalty/components/LoyaltySection';
+import { dessertTeaser, lunchesToDessert, pendingGift } from '@/features/loyalty/giftDessertModel';
+import { useLoyalty } from '@/features/loyalty/hooks/useLoyalty';
+import { AVAILABLE_DESSERTS_KEY } from '@/features/loyalty/queryKeys';
 import { ReviewPromptCard } from '@/features/me/components/ReviewPromptCard';
 import { activeAccountDiscount } from '@/features/credits/packPricing';
 import { NoPickupSlotsNotice } from '@/features/orders/components/b2c/NoPickupSlotsNotice';
@@ -43,6 +47,7 @@ import {
   getPickupSlots,
   getRestaurantConfig,
   InsufficientCreditsError,
+  LoyaltyDessertError,
   OrderNotModifiableError,
   placeOrderV2,
   startDirectCheckoutV2,
@@ -188,6 +193,10 @@ export function B2cOrderPage() {
   const [payDirectOpen, setPayDirectOpen] = useState(false);
   const [payingDirect, setPayingDirect] = useState(false);
   const [payDirectError, setPayDirectError] = useState<string | null>(null);
+  /** Selector del postre de regalo abierto (línea de beneficios). */
+  const [pickerOpen, setPickerOpen] = useState(false);
+  /** El cliente tocó "usar postre" con el carrito vacío: se le explica que va con un almuerzo. */
+  const [giftHint, setGiftHint] = useState(false);
   const [searchParams] = useSearchParams();
 
   const todayStr = useMemo(() => {
@@ -253,6 +262,14 @@ export function B2cOrderPage() {
    */
   const { data: wallet } = useWallet();
   const accountDiscount = activeAccountDiscount(wallet?.discount);
+
+  /**
+   * Línea de beneficios: el postre de regalo vigente y cuánto falta para ganarlo. Si la función está apagada,
+   * el pedido falla o todavía carga, no hay nada de postres en el pedido.
+   */
+  const { data: loyalty } = useLoyalty();
+  const pendingDessert = pendingGift(loyalty);
+  const lunchesMissing = lunchesToDessert(loyalty);
 
   /**
    * Pedidos del cliente — solo para pintar el tilde de "día con pedido" en
@@ -357,6 +374,21 @@ export function B2cOrderPage() {
     setPrevModifiableOrderId(modifiableOrderId);
   }
 
+  /**
+   * El postre de regalo solo viaja en un pedido NUEVO (el alta de platos a un pedido existente no lo lleva)
+   * y solo mientras el premio siga vigente: un postre elegido cuyo premio ya no está no se envía.
+   */
+  const chosenDessert = pendingDessert ? cart.reward : null;
+  const rewardDessertId = chosenDessert && !modifiableOrderForSelectedDay ? chosenDessert.dessertId : undefined;
+  const rewardPayload = rewardDessertId !== undefined ? { rewardDessertId } : {};
+
+  // El premio desapareció (venció, se usó, función apagada): el postre elegido se suelta del carrito.
+  const hasStaleReward = loyalty !== undefined && !pendingDessert && cart.reward !== null;
+  const setCartReward = cart.setReward;
+  useEffect(() => {
+    if (hasStaleReward) setCartReward(null);
+  }, [hasStaleReward, setCartReward]);
+
   const confirmLabel = modifiableOrderForSelectedDay
     ? `Sumar a mi pedido de las ${formatOrderTimeLabel(modifiableOrderForSelectedDay.pickupAt)}`
     : pickupTimeLabel
@@ -452,6 +484,42 @@ export function B2cOrderPage() {
     setPickupJumpTo(null);
   };
 
+  /** Abre el selector del postre; la revisión se cierra para no apilar hojas y vuelve al terminar. */
+  const openDessertPicker = () => {
+    setReviewOpen(false);
+    setPickerOpen(true);
+  };
+
+  const closeDessertPicker = () => {
+    setPickerOpen(false);
+    if (!isDesktop && cart.lines.length > 0) setReviewOpen(true);
+  };
+
+  /** "Usar" el postre desde la línea de beneficios: con un almuerzo en el carrito elige el postre; sin él, guía a elegir uno. */
+  const handleUseDessert = () => {
+    if (cart.lines.length > 0) {
+      openDessertPicker();
+      return;
+    }
+    setGiftHint(true);
+    document.getElementById('b2c-menu')?.scrollIntoView?.({ behavior: 'smooth' });
+  };
+
+  /**
+   * El backend rechazó el postre (el pedido NO se creó): se suelta, y se refresca lo que quedó viejo — el stock
+   * del selector o el premio. Devuelve el mensaje para mostrar, o `null` si el error es de otra cosa.
+   */
+  const releaseRejectedDessert = (err: unknown): string | null => {
+    if (!(err instanceof LoyaltyDessertError)) return null;
+    cart.setReward(null);
+    if (err.code === 'dessert-out-of-stock' || err.code === 'dessert-not-found') {
+      queryClient.invalidateQueries({ queryKey: AVAILABLE_DESSERTS_KEY });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['loyalty'] });
+    }
+    return err.message;
+  };
+
   const ensureOrderableDay = async (): Promise<{ moved: string | null; orderable: boolean }> => {
     // Primero el día elegido y después las fichas en el orden en que se ven; sin días pasados ni cerrados.
     const [closed, orders] = await Promise.all([
@@ -529,6 +597,7 @@ export function B2cOrderPage() {
         })),
         pickupAt,
         notas: null,
+        ...rewardPayload,
       });
       cart.clear();
       setPickupSelection(null);
@@ -537,6 +606,11 @@ export function B2cOrderPage() {
       queryClient.invalidateQueries({ queryKey: ['availableDishes'] });
       queryClient.invalidateQueries({ queryKey: ['creditsWallet'] });
       queryClient.invalidateQueries({ queryKey: ['ordersV2'] });
+      if (rewardDessertId !== undefined) {
+        // El premio se usó: la línea ya no ofrece el postre y el stock del selector bajó.
+        queryClient.invalidateQueries({ queryKey: ['loyalty'] });
+        queryClient.invalidateQueries({ queryKey: AVAILABLE_DESSERTS_KEY });
+      }
       setDone({
         isToday,
         dayLongLabel: formatDayLongLabel(selectedDate),
@@ -557,7 +631,10 @@ export function B2cOrderPage() {
         setReviewOpen(false);
         setPayDirectOpen(true);
       } else {
-        setSubmitError(err instanceof Error ? err.message : 'Ocurrió un error al confirmar el pedido.');
+        setSubmitError(
+          releaseRejectedDessert(err) ??
+            (err instanceof Error ? err.message : 'Ocurrió un error al confirmar el pedido.'),
+        );
       }
     } finally {
       setSubmitting(false);
@@ -584,6 +661,7 @@ export function B2cOrderPage() {
         })),
         pickupAt,
         notas: null,
+        ...rewardPayload,
       });
       cart.clear();
       window.location.href = checkout.initPoint;
@@ -597,6 +675,15 @@ export function B2cOrderPage() {
         setPayDirectOpen(false);
         setPayDirectError(null);
         setSubmitError(err.message);
+        setReviewOpen(true);
+        return;
+      }
+      const dessertMessage = releaseRejectedDessert(err);
+      if (dessertMessage) {
+        // Sin el postre el pedido sigue en pie: se vuelve a la revisión con el motivo para elegir otro y reintentar.
+        setPayDirectOpen(false);
+        setPayDirectError(null);
+        setSubmitError(dessertMessage);
         setReviewOpen(true);
         return;
       }
@@ -729,6 +816,16 @@ export function B2cOrderPage() {
     submitError,
     insufficientBalance,
     onConfirm: handleReviewConfirm,
+    gift:
+      loyalty?.enabled
+        ? {
+            pending: pendingDessert,
+            chosen: chosenDessert ? { nombre: chosenDessert.nombre, fotoUrl: chosenDessert.fotoUrl } : null,
+            teaser: lunchesMissing !== null ? dessertTeaser(lunchesMissing) : null,
+            onPick: openDessertPicker,
+            onRemove: () => cart.setReward(null),
+          }
+        : undefined,
   };
 
   return (
@@ -747,7 +844,7 @@ export function B2cOrderPage() {
           {/* Hoy lleva al menú del pedido; el canje del postre se engancha acá. */}
           <LoyaltySection
             userId={user.id}
-            onUseDessert={() => document.getElementById('b2c-menu')?.scrollIntoView?.({ behavior: 'smooth' })}
+            onUseDessert={handleUseDessert}
           />
 
           {/* El descuento de la línea de beneficios ya tiene su chip en la línea; la sorpresa es del resto. */}
@@ -809,6 +906,15 @@ export function B2cOrderPage() {
             onRequestPayNow={(order) => payNow(order.id)}
             payingOrderId={payingOrderId}
           />
+
+          {giftHint && pendingDessert && cartEmpty && (
+            <p
+              role="status"
+              className="mb-3 rounded-lg border-[1.5px] border-dashed border-primary-deep bg-card px-3.5 py-3 text-[13.5px] leading-snug text-foreground"
+            >
+              Tu postre de regalo va con un almuerzo. Elegí tu plato y después sumás el postre a tu pedido.
+            </p>
+          )}
 
           <div id="b2c-menu" className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
             <FilterPills
@@ -918,6 +1024,20 @@ export function B2cOrderPage() {
             setPickupJumpTo(null);
           }}
           {...reviewProps}
+        />
+      )}
+
+      {pendingDessert && (
+        <DessertPickerSheet
+          open={pickerOpen}
+          onClose={closeDessertPicker}
+          expiresAt={pendingDessert.expiresAt}
+          selectedId={chosenDessert?.dessertId ?? null}
+          onConfirm={(dessert) => {
+            cart.setReward(dessert);
+            closeDessertPicker();
+          }}
+          presentation={isDesktop ? 'dialog' : 'sheet'}
         />
       )}
 

@@ -1,4 +1,5 @@
 import { CartSummary } from '../CartSummary';
+import { GiftDessertCard } from '@/features/loyalty/components/GiftDessertCard';
 import { PickupTimePicker } from './PickupTimePicker';
 import { BalanceBox, PickupNotices, pickupDayLabel } from './OrderReviewParts';
 import type { ReactNode } from 'react';
@@ -41,6 +42,7 @@ export function OrderReviewPanel({
   submitError,
   insufficientBalance,
   onConfirm,
+  gift,
   below,
 }: PanelProps) {
   const dayLabel = pickupDayLabel(isToday, dayShortLabel);
@@ -73,6 +75,8 @@ export function OrderReviewPanel({
               insufficientBalance={insufficientBalance}
             />
 
+            {gift && <GiftDessertCard {...gift} joinsExistingOrder={!!addToOrder} />}
+
             <div data-tour="picker" className="flex flex-col gap-2">
               <span className="text-xs font-semibold uppercase tracking-brand text-muted-foreground">
                 ¿A qué hora lo retirás?
@@ -94,7 +98,12 @@ export function OrderReviewPanel({
               onJoinOrder={onJoinOrder}
             />
 
-            <BalanceBox walletAvailable={walletAvailable} totalLunches={totalLunches} missingNotice />
+            <BalanceBox
+              walletAvailable={walletAvailable}
+              totalLunches={totalLunches}
+              missingNotice
+              giftDessert={!!gift?.chosen && !addToOrder}
+            />
 
             {submitError && (
               <p role="alert" className="text-xs text-destructive">

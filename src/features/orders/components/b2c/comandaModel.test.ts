@@ -331,3 +331,24 @@ describe('formatComandaWhen / lowerFirst', () => {
     );
   });
 });
+
+describe('comandaItems — gift dessert', () => {
+  it('appends the gift dessert as a free line after the dishes, with an id that no dish can have', () => {
+    const items = comandaItems(order({ rewardItems: [{ dessertId: 4, nombre: 'Flan casero' }] }));
+
+    expect(items).toHaveLength(3);
+    expect(items[2]).toEqual({
+      id: -1,
+      name: 'Postre de regalo — Flan casero',
+      side: null,
+      note: null,
+      costLabel: 'Sin cargo',
+      gift: true,
+    });
+  });
+
+  it('adds nothing when the order has no gift dessert', () => {
+    expect(comandaItems(order({ rewardItems: [] }))).toHaveLength(2);
+    expect(comandaItems(order())).toHaveLength(2);
+  });
+});

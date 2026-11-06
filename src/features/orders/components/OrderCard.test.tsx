@@ -192,3 +192,18 @@ describe('OrderCard — cancelled order paid with Mercado Pago (F26)', () => {
     expect(screen.queryByText(MP_CREDITED)).not.toBeInTheDocument();
   });
 });
+
+describe('OrderCard — gift dessert', () => {
+  it('lists the gift dessert apart from the dishes, without a remove button', () => {
+    renderCard({ order: { ...order, rewardItems: [{ dessertId: 4, nombre: 'Flan casero' }] } });
+
+    expect(screen.getByText('Postre de regalo — Flan casero')).toBeInTheDocument();
+    expect(screen.getByText('Sin cargo')).toBeInTheDocument();
+  });
+
+  it('shows no gift line for an order without one', () => {
+    renderCard({ order: { ...order, rewardItems: [] } });
+
+    expect(screen.queryByText(/postre de regalo/i)).not.toBeInTheDocument();
+  });
+});

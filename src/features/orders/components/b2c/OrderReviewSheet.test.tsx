@@ -260,3 +260,55 @@ describe('OrderReviewSheet — add to an existing order (F16)', () => {
     expect(screen.queryByText(/se agrega a tu pedido de las/i)).not.toBeInTheDocument();
   });
 });
+
+describe('OrderReviewSheet — gift dessert', () => {
+  const inThreeDays = new Date(Date.now() + 3 * 86_400_000).toISOString();
+  const gift = (over: Partial<NonNullable<Parameters<typeof OrderReviewSheet>[0]['gift']>> = {}) => ({
+    pending: { expiresAt: inThreeDays },
+    chosen: null,
+    teaser: null,
+    onPick: vi.fn(),
+    onRemove: vi.fn(),
+    ...over,
+  });
+
+  it('offers to pick the pending gift dessert', () => {
+    const g = gift();
+    renderSheet({ gift: g });
+
+    fireEvent.click(screen.getByRole('button', { name: /elegir postre/i }));
+
+    expect(g.onPick).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the chosen dessert as a free line, lets it change or go, and keeps the lunches total', () => {
+    const g = gift({ chosen: { nombre: 'Flan casero', fotoUrl: null } });
+    renderSheet({ gift: g, totalLunches: 2 });
+
+    expect(screen.getByText('Flan casero')).toBeInTheDocument();
+    expect(screen.getByText('Postre de regalo')).toBeInTheDocument();
+    expect(screen.getAllByText('Sin cargo')).toHaveLength(2);
+    expect(screen.getByText('Este pedido usa').nextElementSibling).toHaveTextContent('2 almuerzos');
+    fireEvent.click(screen.getByRole('button', { name: /quitar$/i }));
+    expect(g.onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows how many lunches are missing when there is no dessert yet', () => {
+    renderSheet({ gift: gift({ pending: null, teaser: 'Te faltan 2 almuerzos para tu postre de regalo.' }) });
+
+    expect(screen.getByText('Te faltan 2 almuerzos para tu postre de regalo.')).toBeInTheDocument();
+  });
+
+  it('says the dessert needs a new order when the cart joins an existing one', () => {
+    renderSheet({ gift: gift(), addToOrder: { pickupAt: '2026-05-21T16:00:00Z' } });
+
+    expect(screen.getByText(/va en un pedido nuevo/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /elegir postre/i })).not.toBeInTheDocument();
+  });
+
+  it('shows nothing about desserts without gift data', () => {
+    renderSheet();
+
+    expect(screen.queryByText(/postre/i)).not.toBeInTheDocument();
+  });
+});

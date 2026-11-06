@@ -1,5 +1,18 @@
 import type { CartLine } from '../../hooks/useCart';
+import type { ChosenDessert } from '@/features/loyalty/components/GiftDessertCard';
 import type { PickupSuggestion } from './pickupSuggestion';
+
+/** El postre de regalo en la revisión del pedido (línea de beneficios); sin esto no se muestra nada. */
+export interface GiftDessertProps {
+  /** Postre ganado y vigente; `null` si no hay. */
+  pending: { expiresAt: string } | null;
+  /** El que el cliente sumó a este pedido. */
+  chosen: ChosenDessert | null;
+  /** "Te faltan N almuerzos…" cuando todavía no lo ganó. */
+  teaser: string | null;
+  onPick: () => void;
+  onRemove: () => void;
+}
 
 /** Props de la revisión del pedido: las comparten la hoja móvil y el panel de escritorio. */
 export interface OrderReviewProps {
@@ -45,4 +58,6 @@ export interface OrderReviewProps {
   submitError: string | null;
   insufficientBalance: boolean;
   onConfirm: () => void;
+  /** Postre de regalo de la línea de beneficios; `undefined` = la función no aplica. */
+  gift?: GiftDessertProps;
 }

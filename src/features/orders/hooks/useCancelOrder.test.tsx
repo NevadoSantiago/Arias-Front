@@ -204,6 +204,29 @@ describe('useCancelOrder — pending purchases (D6)', () => {
   });
 });
 
+describe('useCancelOrder — benefits line', () => {
+  afterEach(() => vi.clearAllMocks());
+
+  it('refreshes the benefits line and the gift desserts once the order is cancelled (the dessert comes back)', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    serverSays(order, true);
+    vi.mocked(cancelOrderV2).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useCancelOrder(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    });
+
+    act(() => result.current.requestCancel(order));
+    act(() => result.current.confirmCancel());
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['loyalty'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['availableDesserts'] });
+  });
+});
+
 describe('useCancelOrder — inline notice (F29)', () => {
   afterEach(() => vi.clearAllMocks());
 

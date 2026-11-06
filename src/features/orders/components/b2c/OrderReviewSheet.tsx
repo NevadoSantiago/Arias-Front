@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/components/ui/sheet';
 import { CartSummary } from '../CartSummary';
+import { GiftDessertCard } from '@/features/loyalty/components/GiftDessertCard';
 import { PickupTimePicker } from './PickupTimePicker';
 import { BalanceBox, PickupNotices, pickupDayLabel } from './OrderReviewParts';
 import type { OrderReviewProps } from './orderReviewProps';
@@ -41,6 +42,7 @@ export function OrderReviewSheet({
   submitError,
   insufficientBalance,
   onConfirm,
+  gift,
 }: Props) {
   const dayLabel = pickupDayLabel(isToday, dayShortLabel);
   const tourGuard = useTourSheetGuard();
@@ -60,6 +62,8 @@ export function OrderReviewSheet({
             onRemove={onRemoveLine}
             insufficientBalance={insufficientBalance}
           />
+
+          {gift && <GiftDessertCard {...gift} joinsExistingOrder={!!addToOrder} />}
 
           <button
             type="button"
@@ -91,7 +95,12 @@ export function OrderReviewSheet({
             onJoinOrder={onJoinOrder}
           />
 
-          <BalanceBox walletAvailable={walletAvailable} totalLunches={totalLunches} missingNotice />
+          <BalanceBox
+            walletAvailable={walletAvailable}
+            totalLunches={totalLunches}
+            missingNotice
+            giftDessert={!!gift?.chosen && !addToOrder}
+          />
 
           {submitError && (
             <p role="alert" className="text-xs text-destructive">

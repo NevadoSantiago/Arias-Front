@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore, type CartReward } from '../store/cartStore';
 import type { Dish } from '../types';
 
 export interface CartLine {
@@ -41,12 +41,22 @@ export function useCart(fecha: string) {
   const addLine = useCartStore((s) => s.addLine);
   const removeLine = useCartStore((s) => s.removeLine);
   const clearDay = useCartStore((s) => s.clearDay);
+  const storedReward = useCartStore((s) => s.reward);
+  const storeSetReward = useCartStore((s) => s.setReward);
 
   // Un carrito ajeno o sin dueño nunca se muestra ni se envía, aunque el store aún no se haya limpiado:
   // con usuario, el dueño tiene que ser él; sin usuario, solo sirve un carrito sin dueño.
   const lines = useMemo(
     () => (ownerId !== userId ? [] : (stored ?? [])),
     [ownerId, userId, stored],
+  );
+
+  // El postre de regalo sigue la misma regla de dueño que las líneas y vale solo para el día en que se eligió.
+  const reward = ownerId !== userId || storedReward?.fecha !== fecha ? null : storedReward;
+
+  const setReward = useCallback(
+    (next: Omit<CartReward, 'fecha'> | null) => storeSetReward(next ? { ...next, fecha } : null),
+    [fecha, storeSetReward],
   );
 
   const addItem = useCallback(
@@ -74,5 +84,5 @@ export function useCart(fecha: string) {
     [lines]
   );
 
-  return { lines, addItem, removeItem, clear, totalCredits };
+  return { lines, addItem, removeItem, clear, totalCredits, reward, setReward };
 }

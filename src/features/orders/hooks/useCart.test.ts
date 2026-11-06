@@ -389,3 +389,40 @@ describe('useCart — foreign or ownerless lines are never exposed (F27.1)', () 
     expect(result.current.lines).toHaveLength(0);
   });
 });
+
+describe('useCart — gift dessert', () => {
+  const flan = { dessertId: 4, nombre: 'Flan casero', fotoUrl: null };
+
+  it('keeps the gift dessert for the day it was chosen only', () => {
+    const { result: a } = renderHook(() => useCart(DAY_A));
+    const { result: b } = renderHook(() => useCart(DAY_B));
+
+    act(() => a.current.setReward(flan));
+
+    expect(a.current.reward).toEqual({ ...flan, fecha: DAY_A });
+    expect(b.current.reward).toBeNull();
+  });
+
+  it('removes the gift dessert, and clearing the day drops it too', () => {
+    const { result } = renderHook(() => useCart(DAY_A));
+
+    act(() => result.current.setReward(flan));
+    act(() => result.current.setReward(null));
+    expect(result.current.reward).toBeNull();
+
+    act(() => result.current.setReward(flan));
+    act(() => result.current.clear());
+    expect(result.current.reward).toBeNull();
+  });
+
+  it('moves the gift dessert to the other day when it is chosen there', () => {
+    const { result: a } = renderHook(() => useCart(DAY_A));
+    const { result: b } = renderHook(() => useCart(DAY_B));
+
+    act(() => a.current.setReward(flan));
+    act(() => b.current.setReward(flan));
+
+    expect(a.current.reward).toBeNull();
+    expect(b.current.reward?.fecha).toBe(DAY_B);
+  });
+});

@@ -156,6 +156,14 @@ export interface PlaceOrderV2Payload {
   /** ISO-8601 instant — uno de los horarios que devolvió {@link getPickupSlots}, nunca generado en el cliente. */
   pickupAt: string;
   notas: string | null;
+  /** Postre de regalo de la línea de beneficios (`GET /api/v1/desserts/available`); sin cargo, no cambia los almuerzos. */
+  rewardDessertId?: number;
+}
+
+/** Postre de regalo que lleva un pedido (línea sin cargo, aparte de los platos). */
+export interface OrderRewardItem {
+  dessertId: number;
+  nombre: string;
 }
 
 export interface OrderItemV2 {
@@ -179,6 +187,8 @@ export interface OrderV2 {
   creditTotal: number;
   notas: string | null;
   items: OrderItemV2[];
+  /** Postres de regalo del pedido; siempre viene (vacío sin postre), opcional por tolerancia a respuestas viejas. */
+  rewardItems?: OrderRewardItem[];
   /**
    * `true` si el backend todavía admite cancelar este pedido: mientras no esté
    * entregado ni cancelado y su fecha sea hoy o futura, aunque el plazo de
@@ -231,6 +241,38 @@ export class InsufficientCreditsError extends Error {
     this.name = 'InsufficientCreditsError';
   }
 }
+
+export type LoyaltyDessertErrorCode =
+  | 'loyalty-disabled'
+  | 'no-pending-dessert'
+  | 'dessert-not-found'
+  | 'dessert-out-of-stock';
+
+const LOYALTY_DESSERT_MESSAGES: Record<LoyaltyDessertErrorCode, string> = {
+  'loyalty-disabled': 'Tu postre de regalo ya no está disponible.',
+  'no-pending-dessert': 'Tu postre de regalo ya no está disponible.',
+  'dessert-not-found': 'Ese postre ya no está disponible. Elegí otro.',
+  'dessert-out-of-stock': 'Ese postre se terminó por hoy. Elegí otro.',
+};
+
+/**
+ * El backend rechazó el postre de regalo del pedido (409 `loyalty-disabled`,
+ * `no-pending-dessert`, `dessert-out-of-stock`; 404 `dessert-not-found`). El
+ * pedido NO se creó: la pantalla suelta o cambia el postre y se puede confirmar de nuevo.
+ */
+export class LoyaltyDessertError extends Error {
+  readonly code: LoyaltyDessertErrorCode;
+
+  constructor(code: LoyaltyDessertErrorCode) {
+    super(LOYALTY_DESSERT_MESSAGES[code]);
+    this.name = 'LoyaltyDessertError';
+    this.code = code;
+  }
+}
+
+/** El postre se terminó: hay que elegir otro (no soltar el premio). */
+export const isDessertOutOfStock = (err: unknown): boolean =>
+  err instanceof LoyaltyDessertError && err.code === 'dessert-out-of-stock';
 
 /**
  * El pedido dejó de ser modificable (`cancellable: false`) entre que se
@@ -479,6 +521,9 @@ function mapOrderV2Error(err: unknown, { pickupTimeChange = false }: { pickupTim
           ? 'El horario de retiro ya no se puede cambiar.'
           : 'No pudimos cambiar el horario de retiro.';
       return new PickupTimeChangeError(data.detail || fallback);
+    }
+    if (data?.title && Object.hasOwn(LOYALTY_DESSERT_MESSAGES, data.title)) {
+      return new LoyaltyDessertError(data.title as LoyaltyDessertErrorCode);
     }
     if (data?.title === 'insufficient-credits') {
       return new InsufficientCreditsError();
