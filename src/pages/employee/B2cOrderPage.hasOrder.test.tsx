@@ -18,8 +18,13 @@ import {
 } from '@/features/orders/services/ordersApi';
 import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
 import { getReviewPrompt } from '@/features/me/services/meApi';
+import { getLoyalty } from '@/features/loyalty/services/loyaltyApi';
 import type { Dish } from '@/features/orders/types';
 
+vi.mock('@/features/loyalty/services/loyaltyApi', () => ({
+  getLoyalty: vi.fn().mockResolvedValue({ enabled: false }),
+  getAvailableDesserts: vi.fn(),
+}));
 vi.mock('@/features/me/services/meApi', () => ({
   getReviewPrompt: vi.fn(),
   markReviewOpened: vi.fn(),
@@ -127,10 +132,16 @@ async function selectDish() {
 function setup({
   orders = [] as OrderV2[],
   balance = 12,
-  discount = null as { percent: number; expiresAt: string } | null,
+  discount = null as { percent: number; expiresAt: string; source?: 'LOYALTY' | 'REVIEW_CAMPAIGN' } | null,
+  loyaltyOn = false,
   review = { show: false, dishName: null, reviewUrl: null } as { show: boolean; dishName: string | null; reviewUrl: string | null },
 } = {}) {
   vi.mocked(getReviewPrompt).mockResolvedValue(review);
+  vi.mocked(getLoyalty).mockResolvedValue(
+    loyaltyOn
+      ? { enabled: true, cycle: null, waiting: false, milestones: [], pendingDessert: null }
+      : { enabled: false },
+  );
   vi.setSystemTime(new Date(NOW));
   useAuthStore.setState({ accessToken: 'token', user: baseUser, bootstrapping: false });
   vi.mocked(getMenuSections).mockResolvedValue([{ id: 1, nombre: 'Carnes', ordenDisplay: 1 }]);
@@ -237,6 +248,26 @@ describe('B2cOrderPage — surprise and review prompt', () => {
 
     expect(screen.getByText('de descuento en tu próxima compra')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /comprar almuerzos/i })).toHaveAttribute('href', '/credits?comprar=1');
+  });
+
+  it('shows the benefits line above the calendar and keeps the surprise away from a loyalty discount', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 12, discount: { ...discount, source: 'LOYALTY' }, loyaltyOn: true });
+    renderPage();
+
+    const line = await screen.findByRole('region', { name: /línea de beneficios/i });
+    const calendarChip = screen.getByRole('link', { name: /Ver mis pedidos/ });
+    expect(line.compareDocumentPosition(calendarChip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /tu almuerzo vino con sorpresa/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the surprise for a review-campaign discount even with the line on', async () => {
+    mockMatchMedia(false);
+    setup({ balance: 12, discount: { ...discount, source: 'REVIEW_CAMPAIGN' }, loyaltyOn: true });
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /tu almuerzo vino con sorpresa/i })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: /línea de beneficios/i })).toBeInTheDocument();
   });
 
   it('shows no surprise when there is no discount', async () => {

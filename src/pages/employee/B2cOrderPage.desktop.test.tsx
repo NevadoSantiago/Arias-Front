@@ -23,6 +23,10 @@ import {
 import { getPacks, getWallet } from '@/features/credits/services/creditsApi';
 import type { Dish } from '@/features/orders/types';
 
+vi.mock('@/features/loyalty/services/loyaltyApi', () => ({
+  getLoyalty: vi.fn().mockResolvedValue({ enabled: false }),
+  getAvailableDesserts: vi.fn(),
+}));
 vi.mock('@/features/me/services/meApi', () => ({
   getReviewPrompt: vi.fn().mockResolvedValue({ show: false, dishName: null, reviewUrl: null }),
   markReviewOpened: vi.fn(),

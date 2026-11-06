@@ -11,6 +11,8 @@ export interface AccountDiscount {
   percent: number;
   /** ISO-8601. */
   expiresAt: string;
+  /** De dónde viene: la línea de beneficios o la campaña de reseñas (ausente en respuestas viejas). */
+  source?: 'LOYALTY' | 'REVIEW_CAMPAIGN';
 }
 
 export interface CreditWallet {

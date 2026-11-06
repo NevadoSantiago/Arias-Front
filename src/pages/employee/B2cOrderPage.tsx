@@ -13,6 +13,7 @@ import { CartBar } from '@/features/orders/components/b2c/CartBar';
 import { DishSheet } from '@/features/orders/components/b2c/DishSheet';
 import { EmptyBalanceCard } from '@/features/orders/components/b2c/EmptyBalanceCard';
 import { SurpriseGift } from '@/features/credits/components/SurpriseGift';
+import { LoyaltySection } from '@/features/loyalty/components/LoyaltySection';
 import { ReviewPromptCard } from '@/features/me/components/ReviewPromptCard';
 import { activeAccountDiscount } from '@/features/credits/packPricing';
 import { NoPickupSlotsNotice } from '@/features/orders/components/b2c/NoPickupSlotsNotice';
@@ -743,7 +744,16 @@ export function B2cOrderPage() {
             </p>
           </header>
 
-          {accountDiscount && <SurpriseGift userId={user.id} discount={accountDiscount} />}
+          {/* Hoy lleva al menú del pedido; el canje del postre se engancha acá. */}
+          <LoyaltySection
+            userId={user.id}
+            onUseDessert={() => document.getElementById('b2c-menu')?.scrollIntoView?.({ behavior: 'smooth' })}
+          />
+
+          {/* El descuento de la línea de beneficios ya tiene su chip en la línea; la sorpresa es del resto. */}
+          {accountDiscount && accountDiscount.source !== 'LOYALTY' && (
+            <SurpriseGift userId={user.id} discount={accountDiscount} />
+          )}
 
           <div className="mb-6 space-y-3">
             <WeekDaySelector
@@ -800,7 +810,7 @@ export function B2cOrderPage() {
             payingOrderId={payingOrderId}
           />
 
-          <div className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
+          <div id="b2c-menu" className="mb-8 sticky top-0 z-20 bg-background py-2 -mt-2">
             <FilterPills
               sections={sections}
               active={activeFilter}
