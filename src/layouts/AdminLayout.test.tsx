@@ -66,6 +66,7 @@ describe('AdminLayout navigation', () => {
       ['Pagos', '/admin/payments'],
       ['Ver menú', '/admin/menu'],
       ['Platos', '/admin/dishes'],
+      ['PostresNuevo', '/admin/desserts'],
       ['Calendario', '/admin/dish-calendar'],
       ['Paquetes', '/admin/credit-packs'],
       ['Categorías', '/admin/categories'],

@@ -11,6 +11,7 @@ import { usePrintAgentStatus } from '@/features/admin/printing/usePrintAgentStat
 interface NavLeaf {
   to: string;
   label: string;
+  badge?: string;
 }
 
 interface NavLinkEntry extends NavLeaf {
@@ -41,6 +42,7 @@ const NAV: NavEntry[] = [
     children: [
       { to: '/admin/menu', label: 'Ver menú' },
       { to: '/admin/dishes', label: 'Platos' },
+      { to: '/admin/desserts', label: 'Postres', badge: 'Nuevo' },
       { to: '/admin/dish-calendar', label: 'Calendario' },
       { to: '/admin/credit-packs', label: 'Paquetes' },
       { to: '/admin/categories', label: 'Categorías' },
@@ -155,6 +157,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                     <li key={child.to}>
                       <NavLink to={child.to} end onClick={onNavigate} className={linkClass}>
                         {child.label}
+                        {child.badge && (
+                          <span className="ml-auto rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase text-accent-foreground">
+                            {child.badge}
+                          </span>
+                        )}
                       </NavLink>
                     </li>
                   ))}
