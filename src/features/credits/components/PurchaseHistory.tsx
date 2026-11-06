@@ -25,6 +25,8 @@ const MOVEMENT_LABELS: Record<MovementType, string> = {
   EXPIRATION: 'Vencimiento',
   PAYMENT_REVERSAL: 'Pago revertido',
   ADMIN_ADJUSTMENT: 'Ajuste administrativo',
+  ORDER_REFUND: 'Pedido cancelado · vuelve a tu saldo',
+  LOYALTY_GRANT: 'Almuerzo de regalo · línea de beneficios',
 };
 
 const VISIBLE_COUNT = 5;
@@ -43,6 +45,8 @@ const MOVEMENT_ICON: Record<MovementType, { Icon: typeof Clock3; tone: string }>
   WELCOME_GRANT: { Icon: Gift, tone: 'bg-primary-deep/15 text-primary-deep' },
   EXPIRATION: { Icon: CalendarX, tone: 'bg-muted text-muted-foreground' },
   ADMIN_ADJUSTMENT: { Icon: SlidersHorizontal, tone: 'bg-muted text-muted-foreground' },
+  ORDER_REFUND: { Icon: RotateCcw, tone: 'bg-success/15 text-success' },
+  LOYALTY_GRANT: { Icon: Gift, tone: 'bg-primary-deep/15 text-primary-deep' },
 };
 
 function amountOf(movement: CreditMovement): number {

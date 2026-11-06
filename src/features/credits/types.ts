@@ -34,7 +34,9 @@ export type MovementType =
   | 'CONSUME'
   | 'EXPIRATION'
   | 'PAYMENT_REVERSAL'
-  | 'ADMIN_ADJUSTMENT';
+  | 'ADMIN_ADJUSTMENT'
+  | 'ORDER_REFUND'
+  | 'LOYALTY_GRANT';
 
 export interface CreditMovement {
   id: number;

@@ -90,4 +90,26 @@ describe('PurchaseHistory', () => {
     expect(await screen.findByText(/pago de un pedido cancelado/i)).toBeInTheDocument();
     expect(screen.getByText('+2')).toHaveClass('text-success');
   });
+
+  it('labels the loyalty gift lunch (LOYALTY_GRANT) as a positive movement', async () => {
+    vi.mocked(getMovements).mockResolvedValueOnce([
+      movement({ id: 1, type: 'LOYALTY_GRANT', deltaAvailable: 1 }),
+    ]);
+
+    renderHistory();
+
+    expect(await screen.findByText('Almuerzo de regalo · línea de beneficios')).toBeInTheDocument();
+    expect(screen.getByText('+1')).toHaveClass('text-success');
+  });
+
+  it('labels ORDER_REFUND as credits back to the balance from a cancelled order', async () => {
+    vi.mocked(getMovements).mockResolvedValueOnce([
+      movement({ id: 1, type: 'ORDER_REFUND', deltaAvailable: 1 }),
+    ]);
+
+    renderHistory();
+
+    expect(await screen.findByText('Pedido cancelado · vuelve a tu saldo')).toBeInTheDocument();
+    expect(screen.getByText('+1')).toHaveClass('text-success');
+  });
 });
