@@ -67,10 +67,11 @@ export function applyAccountDiscount(
 
 /**
  * Nombre del descuento de la cuenta según su origen: la línea de beneficios o, para cualquier otro
- * origen (la campaña de reseñas, o una respuesta vieja sin `source`), la reseña.
+ * origen (la campaña de reseñas, o una respuesta vieja sin `source`), "primeros 100". Nunca se nombra
+ * la reseña: el descuento no puede quedar vinculado a dejar una opinión (política de reseñas de Google).
  */
 export function accountDiscountName(source: AccountDiscount['source']): string {
-  return source === 'LOYALTY' ? 'Línea de beneficios' : 'Descuento por tu reseña';
+  return source === 'LOYALTY' ? 'Línea de beneficios' : 'Descuento primeros 100';
 }
 
 /** El descuento solo si todavía no venció según el reloj local (el servidor sigue siendo la autoridad al cobrar). */

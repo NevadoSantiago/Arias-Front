@@ -12,9 +12,9 @@ describe('AccountDiscountNote', () => {
     expect(screen.getByText(/línea de beneficios\. se usa en esta compra/i)).toBeInTheDocument();
   });
 
-  it('names the review as the origin otherwise', () => {
+  it('keeps the launch name for any other origin', () => {
     render(<AccountDiscountNote discount={{ ...base, source: 'REVIEW_CAMPAIGN' }} />);
 
-    expect(screen.getByText(/descuento por tu reseña\. se usa en esta compra/i)).toBeInTheDocument();
+    expect(screen.getByText(/descuento primeros 100\. se usa en esta compra/i)).toBeInTheDocument();
   });
 });
