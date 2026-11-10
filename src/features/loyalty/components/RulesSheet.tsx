@@ -33,7 +33,7 @@ const RULES: { title: string; body: string }[] = [
 export function RulesSheet({ open, onClose, statusText, milestones }: Props) {
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent className="gap-4 overflow-y-auto px-5 pb-5 pt-4">
+      <SheetContent className="gap-4 overflow-y-auto px-5 pb-5 pt-4 lg:bottom-auto lg:top-16 lg:rounded-2xl lg:border">
         <div className="flex flex-col gap-1.5 pr-10">
           <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary-deep">
             Línea de beneficios

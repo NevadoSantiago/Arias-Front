@@ -1,4 +1,4 @@
-import { Cake, UtensilsCrossed } from 'lucide-react';
+import { Dessert, UtensilsCrossed } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { formatDayMonth } from '../timelineModel';
 import type { LoyaltyMilestone } from '../types';
@@ -43,7 +43,7 @@ function Badge({ m }: { m: LoyaltyMilestone }) {
       aria-hidden="true"
       className="surprise-pop flex h-16 w-16 items-center justify-center rounded-full bg-primary-deep text-primary-foreground shadow-[0_0_0_5px_#F3E2B8]"
     >
-      {m.kind === 'DESSERT' && <Cake className="h-[30px] w-[30px]" strokeWidth={1.8} />}
+      {m.kind === 'DESSERT' && <Dessert className="h-[30px] w-[30px]" strokeWidth={1.8} />}
       {m.kind === 'LUNCH' && <UtensilsCrossed className="h-8 w-8" strokeWidth={1.6} />}
       {m.kind === 'DISCOUNT' && (
         <span className="font-display text-[22px] font-black leading-none">{m.percent ?? 10}%</span>

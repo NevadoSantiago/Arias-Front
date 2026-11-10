@@ -92,6 +92,27 @@ describe('AdminDessertsPage', () => {
     expect(await screen.findByText('Postre creado.')).toBeInTheDocument();
   });
 
+  it('resets the side panel to an empty new-dessert form after creating one', async () => {
+    renderPage();
+    await screen.findByRole('table');
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Tiramisú' } });
+    fireEvent.change(screen.getByLabelText('Stock diario'), { target: { value: '8' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(await screen.findByText('Postre creado.')).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Nuevo postre' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre')).toHaveValue('');
+    expect(screen.getByLabelText('Stock diario')).toHaveValue(null);
+  });
+
+  it('only enters edit mode from the pencil button, not from the row', async () => {
+    renderPage();
+    const table = await screen.findByRole('table');
+    fireEvent.click(within(table).getByText('Flan'));
+    expect(screen.getByRole('form', { name: 'Nuevo postre' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar Flan' }));
+    expect(screen.getByRole('form', { name: 'Editar postre' })).toBeInTheDocument();
+  });
+
   it('edits a dessert without sending today stock', async () => {
     renderPage();
     await screen.findByRole('table');

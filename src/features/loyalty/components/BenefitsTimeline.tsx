@@ -1,4 +1,4 @@
-import { Check, Cake, Tag, UtensilsCrossed, X } from 'lucide-react';
+import { Check, Dessert, Tag, UtensilsCrossed, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { expiryText, formatDayMonth, positionFor, rewardTitle, statusFor, type NodeStatus } from '../timelineModel';
 import type { LoyaltyCycle, LoyaltyMilestone } from '../types';
@@ -35,7 +35,7 @@ const DOT_LOOK: Record<NodeStatus, string> = {
 };
 
 function MilestoneIcon({ m }: { m: LoyaltyMilestone }) {
-  if (m.kind === 'DESSERT') return <Cake className="h-4 w-4" strokeWidth={2} aria-hidden="true" />;
+  if (m.kind === 'DESSERT') return <Dessert className="h-4 w-4" strokeWidth={2} aria-hidden="true" />;
   if (m.kind === 'LUNCH') return <UtensilsCrossed className="h-[17px] w-[17px]" strokeWidth={1.9} aria-hidden="true" />;
   return <span aria-hidden="true">{m.percent ?? 10}%</span>;
 }
@@ -155,7 +155,7 @@ export function BenefitsTimeline({
           className="inline-flex h-11 cursor-pointer items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-primary-deep bg-[#FBF7EF] pl-2.5 pr-3.5 font-sans text-[13px] text-foreground"
         >
           {chip.kind === 'DESSERT' ? (
-            <Cake className="h-4 w-4 text-primary-deep" strokeWidth={2} aria-hidden="true" />
+            <Dessert className="h-4 w-4 text-primary-deep" strokeWidth={2} aria-hidden="true" />
           ) : (
             <Tag className="h-4 w-4 text-primary-deep" strokeWidth={2} aria-hidden="true" />
           )}

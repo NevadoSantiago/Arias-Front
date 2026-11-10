@@ -36,14 +36,14 @@ describe('DessertPickerSheet', () => {
     vi.mocked(getAvailableDesserts).mockReset().mockResolvedValue(desserts);
   });
 
-  it("lists the available desserts with name, description and today's stock", async () => {
+  it("lists the available desserts with name and description but no stock count", async () => {
     renderPicker();
 
     expect(await screen.findByRole('dialog', { name: /elegí tu postre/i })).toBeInTheDocument();
     expect(await screen.findByRole('radio', { name: /flan casero/i })).toBeInTheDocument();
     expect(screen.getByText('Con dulce de leche')).toBeInTheDocument();
-    expect(screen.getByText('Quedan 5 hoy')).toBeInTheDocument();
-    expect(screen.getByText('Quedan 1 hoy')).toBeInTheDocument();
+    expect(screen.queryByText(/quedan/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no cambia los almuerzos/i)).not.toBeInTheDocument();
     expect(screen.getByText(/de regalo, sin cargo · vence en 3 días/i)).toBeInTheDocument();
   });
 

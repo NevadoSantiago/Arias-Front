@@ -84,7 +84,6 @@ function OpenPicker({ onClose, expiresAt, selectedId, onConfirm, presentation = 
           >
             Sumar al pedido
           </button>
-          <span className="text-center text-[12.5px] text-muted-foreground">No cambia los almuerzos de tu pedido.</span>
         </SheetFooter>
       </SheetContent>
     </Sheet>
@@ -111,9 +110,7 @@ function DessertOption({ dessert, checked, onPick }: { dessert: AvailableDessert
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="font-display text-base font-bold">{dessert.nombre}</span>
         {dessert.descripcion && <span className="text-[12.5px] text-muted-foreground">{dessert.descripcion}</span>}
-        <span className={cn('text-[11.5px] font-bold', out ? 'text-destructive' : 'text-success')}>
-          {out ? 'Sin stock hoy' : `Quedan ${dessert.stockActual} hoy`}
-        </span>
+        {out && <span className="text-[11.5px] font-bold text-destructive">Sin stock hoy</span>}
       </span>
       <span
         aria-hidden="true"

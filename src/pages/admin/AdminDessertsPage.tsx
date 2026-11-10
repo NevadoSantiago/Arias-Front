@@ -76,13 +76,15 @@ export function AdminDessertsPage() {
       if (!f.enabled) await disableDessert(created.id);
       return created;
     },
-    onSuccess: (result) => {
+    onSuccess: () => {
       void refresh();
-      setSaved(editing ? 'Cambios guardados.' : 'Postre creado.');
-      if (!editing) {
-        setEditing(result);
-        setForm(formFrom({ ...result, enabled: form.enabled }));
+      const wasEditing = editing !== null;
+      if (!wasEditing) {
+        // After creating, the panel goes back to an empty form, ready to add another dessert.
+        setForm(EMPTY_FORM);
+        setErrors({});
       }
+      setSaved(wasEditing ? 'Cambios guardados.' : 'Postre creado.');
     },
     onError: (err: Error) => setServerError(err.message || 'No se pudo guardar el postre'),
   });

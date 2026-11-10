@@ -114,6 +114,8 @@ describe('timeline', () => {
     renderSection();
     await region();
     expect(node(6).style.left).toBe('30%');
+    expect(node(6).querySelector('svg.lucide-dessert')).not.toBeNull();
+    expect(node(6).querySelector('svg.lucide-cake')).toBeNull();
     expect(node(18).style.left).toBe('66%');
     expect(node(24).style.left).toBe('92%');
     expect(screen.getByTestId('loyalty-label-18')).toHaveTextContent('18');
@@ -265,6 +267,9 @@ describe('rules sheet', () => {
     renderSection();
     fireEvent.click(await screen.findByRole('button', { name: /7 almuerzos retirados/i }));
     const dialog = await screen.findByRole('dialog', { name: 'Cómo funciona' });
+    // Desktop: anchored near the top instead of the bottom edge (mobile stays a bottom sheet).
+    expect(dialog.className).toContain('lg:top-');
+    expect(dialog.className).toContain('lg:bottom-auto');
     expect(dialog).toHaveTextContent(
       `Tu ciclo va del ${formatDayMonth(startedAt)} al ${formatDayMonth(endsAt)}. Llevás 7 almuerzos.`,
     );
@@ -289,6 +294,8 @@ describe('celebrations', () => {
     const { remount, onUseDessert } = renderSection();
     const dialog = await screen.findByRole('dialog', { name: '¡Postre de regalo!' });
     expect(dialog).toHaveTextContent(`Sumalo a tu próximo pedido de almuerzo. Tenés hasta el ${formatDayMonth(inDays(7))}.`);
+    expect(dialog.querySelector('svg.lucide-dessert')).not.toBeNull();
+    expect(dialog.querySelector('svg.lucide-cake')).toBeNull();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Pedir con postre' }));
     expect(onUseDessert).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog', { name: '¡Postre de regalo!' })).not.toBeInTheDocument();
